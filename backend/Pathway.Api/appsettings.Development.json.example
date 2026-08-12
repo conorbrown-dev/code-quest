@@ -1,0 +1,5 @@
+{
+  "KEYCLOAK_AUTHORITY": "http://localhost:8080/realms/pathway",
+  "KEYCLOAK_AUDIENCE": "pathway-api",
+  "CORS_ORIGINS": "http://localhost:5173"
+}

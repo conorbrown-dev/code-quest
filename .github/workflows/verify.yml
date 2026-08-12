@@ -1,0 +1,54 @@
+name: Verify Pathway
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - 'backend/Pathway.Api/**'
+      - 'infra/keycloak/**'
+      - 'docker-compose.keycloak.yml'
+      - '.github/workflows/verify.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  api:
+    name: API build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend/Pathway.Api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet restore
+      - run: dotnet build --no-restore --configuration Release
+
+  keycloak-config:
+    name: Keycloak configuration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m json.tool infra/keycloak/realm-import/pathway-realm.json > /dev/null
+      - run: docker compose --env-file .env.keycloak.example -f docker-compose.keycloak.yml config > /dev/null
