@@ -20,7 +20,10 @@ test('serves the Python Web curriculum and its framework-choice lesson', async (
   const body = await course.json()
   expect(body.languageVersion).toBe('Python 3.14')
   expect(body.frameworkVersion).toContain('FastAPI')
-  expect(body.modules.flatMap((module: { lessons: { slug: string }[] }) => module.lessons).map((lesson: { slug: string }) => lesson.slug)).toContain('python-framework-choice')
+  const lessons = body.modules.flatMap((module: { lessons: { slug: string; order: number }[] }) => module.lessons)
+  expect(lessons).toHaveLength(33)
+  expect(lessons.map((lesson: { slug: string }) => lesson.slug)).toEqual(expect.arrayContaining(['python-framework-choice', 'python-project-foundations', 'python-system-design', 'python-staff-architecture']))
+  expect(lessons.sort((a: { order: number }, b: { order: number }) => a.order - b.order).at(-1)).toMatchObject({ slug: 'python-staff-architecture', order: 33 })
 
   const frameworkChoice = await request.get(`${apiBaseUrl}/api/lessons/python-framework-choice`)
   await expect(frameworkChoice).toBeOK()
