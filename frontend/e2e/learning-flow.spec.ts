@@ -42,3 +42,14 @@ test('loads the first lesson for a guest learner', async ({ page }) => {
   await page.getByRole('button', { name: /Prints a message to the console/i }).click()
   await expect(page.getByRole('button', { name: /Check answer/i })).toBeVisible()
 })
+
+test('loads the selected Python track for a guest learner', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('pathway-onboarding-complete', 'true')
+    localStorage.setItem('pathway-course-id', 'python-web')
+  })
+  await page.goto('/')
+
+  await expect(page.getByRole('heading', { name: 'Values and variables' })).toBeVisible()
+  await expect(page.getByText('What is `completed_lessons` in this example?')).toBeVisible()
+})
