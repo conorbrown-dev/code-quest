@@ -1,11 +1,11 @@
 [build]
 # The Railway service root is backend/Pathway.Api; paths below are relative to its checkout.
 builder = "RAILPACK"
-buildCommand = "dotnet publish -c Release -o /app/publish"
+buildCommand = "dotnet publish -c Release -o /app/out"
 watchPatterns = ["backend/Pathway.Api/**"]
 
 [deploy]
-startCommand = "dotnet /app/publish/Pathway.Api.dll --urls http://0.0.0.0:$PORT"
+startCommand = "dotnet /app/out/Pathway.Api.dll --urls http://0.0.0.0:$PORT"
 healthcheckPath = "/health"
 healthcheckTimeout = 60
 restartPolicyType = "ON_FAILURE"
