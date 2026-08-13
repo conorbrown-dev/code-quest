@@ -15,6 +15,10 @@ This document describes the API foundation for the next-generation Pathway exper
 
 The evaluator intentionally has no Railway public domain. Its Docker image uses a non-root user and supplies Bubblewrap plus the .NET and Python runtimes. Its current executable fixtures cover the initial C# and Python code lessons; new code lessons must add a deterministic fixture in `LessonTests` before they can advance learners.
 
+### Railway runtime limitation
+
+Railway’s current application runtime does not permit the unprivileged user namespaces Bubblewrap needs. The deployed evaluator probes this capability at startup and currently reports `sandbox: false`; evaluation requests return `503` rather than falling back to process execution. This is the safe and intended failure mode. To enable real production execution, point `EVALUATOR_URL` at a worker runtime that explicitly supports microVMs or user namespaces (for example a dedicated sandbox provider or an isolated Kubernetes/VM worker); retain the same private request contract and the API’s fail-closed behavior.
+
 The API fails closed for progression if the evaluator is unavailable. It can still provide static review feedback, but never declares a code exercise complete without the private evaluator.
 
 ## API capabilities
