@@ -1,4 +1,7 @@
 using System.Security.Claims;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 
 namespace Pathway.Api;
@@ -147,18 +150,53 @@ public static class LearningExperienceEndpoints
         return Results.Ok(new AssessmentResultResponse(passed, correct, assessment.Questions.Length, recommended, passed ? "Module checkpoint passed. Keep the retrieval practice going." : "Review the suggested lessons, then return for another attempt."));
     }
 
-    private static IResult Coach(CoachRequest request)
+    private static async Task<IResult> Coach(CoachRequest request, IConfiguration configuration, IHttpClientFactory httpClientFactory, CancellationToken cancellationToken)
     {
         var message = request.Message?.Trim();
         if (string.IsNullOrWhiteSpace(message) || message.Length > 2_000) return Results.BadRequest(new { message = "Keep coaching prompts between 1 and 2,000 characters." });
         if (ContainsSecret(message)) return Results.BadRequest(new { message = "Remove credentials, tokens, connection strings, and personal data before asking for coaching." });
         if (!Curriculum.BySlug.TryGetValue(request.LessonSlug, out var lesson)) return Results.NotFound();
         var asksForAnswer = message.Contains("give me the answer", StringComparison.OrdinalIgnoreCase) || message.Contains("solve it", StringComparison.OrdinalIgnoreCase);
-        var response = asksForAnswer
+        var fallback = asksForAnswer
             ? $"I won’t provide a copy-paste solution. Start from this idea: {lesson.Concept} Try the smallest change that satisfies one requirement, then tell me what result you observe."
             : $"Let’s reason from the contract: {lesson.Concept} Re-read the requirement, identify the input and expected output, then test the smallest hypothesis. Hint: {lesson.Exercise.Hint}";
-        return Results.Ok(new CoachResponse(response, ["No credentials or personal data", "Guidance first; no full solution", "Verify each small change with a test"]));
+        var apiKey = configuration["OPENAI_API_KEY"];
+        var model = configuration["COACH_MODEL"];
+        if (!asksForAnswer && !string.IsNullOrWhiteSpace(apiKey) && !string.IsNullOrWhiteSpace(model))
+        {
+            try
+            {
+                var client = httpClientFactory.CreateClient();
+                using var messageRequest = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/responses")
+                {
+                    Content = JsonContent.Create(new { model, store = false, input = $"You are a Socratic coding coach. Do not give a complete solution, code block, or copy-paste snippet. Give at most three concise reasoning steps and one question. Lesson concept: {lesson.Concept}\nLesson requirements: {string.Join("; ", lesson.Exercise.Requirements)}\nLearner message: {message}" })
+                };
+                messageRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+                using var response = await client.SendAsync(messageRequest, cancellationToken);
+                if (response.IsSuccessStatusCode)
+                {
+                    using var document = JsonDocument.Parse(await response.Content.ReadAsStreamAsync(cancellationToken), default);
+                    var guidance = ExtractResponseText(document.RootElement);
+                    if (IsSafeGuidance(guidance)) return Results.Ok(new CoachResponse(guidance!, ["No credentials or personal data", "Guidance first; no full solution", "AI response screened for copy-paste code", "Verify each small change with a test"]));
+                }
+            }
+            catch (HttpRequestException) { /* fall back to deterministic coaching without exposing provider failure */ }
+        }
+        return Results.Ok(new CoachResponse(fallback, ["No credentials or personal data", "Guidance first; no full solution", "Verify each small change with a test"]));
     }
+
+    private static string? ExtractResponseText(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            if (element.TryGetProperty("output_text", out var outputText) && outputText.ValueKind == JsonValueKind.String) return outputText.GetString();
+            if (element.TryGetProperty("text", out var text) && text.ValueKind == JsonValueKind.String) return text.GetString();
+            foreach (var propertyName in new[] { "output", "content" }) if (element.TryGetProperty(propertyName, out var property)) { var value = ExtractResponseText(property); if (!string.IsNullOrWhiteSpace(value)) return value; }
+        }
+        if (element.ValueKind == JsonValueKind.Array) foreach (var item in element.EnumerateArray()) { var value = ExtractResponseText(item); if (!string.IsNullOrWhiteSpace(value)) return value; }
+        return element.ValueKind == JsonValueKind.String ? element.GetString() : null;
+    }
+    private static bool IsSafeGuidance(string? guidance) => !string.IsNullOrWhiteSpace(guidance) && guidance.Length <= 1_600 && !guidance.Contains("```", StringComparison.Ordinal) && !guidance.Contains("BEGIN PRIVATE KEY", StringComparison.OrdinalIgnoreCase);
 
     private static async Task<IResult> GetCommunityPosts(string courseId, IServiceProvider services, CancellationToken cancellationToken)
     {

@@ -1,5 +1,7 @@
 {
   "KEYCLOAK_AUTHORITY": "http://localhost:8080/realms/pathway",
   "KEYCLOAK_AUDIENCE": "pathway-api",
-  "CORS_ORIGINS": "http://localhost:5173"
+  "CORS_ORIGINS": "http://localhost:5173",
+  "COACH_MODEL": "set-a-supported-model-name-here",
+  "OPENAI_API_KEY": "set-only-in-local-secrets-or-Railway-variables"
 }

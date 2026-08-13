@@ -30,4 +30,6 @@ All `/api/experience/*` endpoints require Keycloak authentication in production.
 
 ## Rollout
 
+Set `OPENAI_API_KEY` and `COACH_MODEL` only as server-side Railway variables when enabling provider-backed coaching. The coach sends `store: false`, screens inputs for common credentials before any provider request, and rejects generated content containing code fences or oversized responses. With either variable absent or the provider unavailable, it returns the deterministic Socratic guidance instead.
+
 The application creates the new tables with idempotent PostgreSQL DDL at startup so the existing Railway database can receive the feature without a destructive reset. Move this schema to versioned EF migrations before multiple environments or regulated data require formal migration history.
