@@ -5,6 +5,7 @@ builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.P
 var app = builder.Build();
 var executions = new SemaphoreSlim(2, 2);
 var sandboxReady = await Sandbox.Probe();
+app.Logger.LogInformation("Bubblewrap namespace probe completed: {SandboxReady}", sandboxReady);
 
 app.MapGet("/health", () => Results.Ok(new { status = sandboxReady ? "ok" : "degraded", sandbox = sandboxReady }));
 app.MapPost("/evaluate", async (EvaluationRequest request, CancellationToken cancellationToken) =>
