@@ -1,4 +1,5 @@
 [build]
+# The Railway service root is backend/Pathway.Api; paths below are relative to its checkout.
 builder = "RAILPACK"
 buildCommand = "dotnet publish -c Release -o /app/publish"
 watchPatterns = ["backend/Pathway.Api/**"]

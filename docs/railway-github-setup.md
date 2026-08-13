@@ -10,9 +10,11 @@ Railway deploys this monorepo through its GitHub integration. GitHub Actions ver
 
 | Service | Root directory | Config-as-code path | Public domain |
 | --- | --- | --- | --- |
-| `pathway-web` | `/frontend` | `/frontend/railway.toml` | Yes |
-| `pathway-api` | `/backend/Pathway.Api` | `/backend/Pathway.Api/railway.toml` | Yes |
-| `pathway-keycloak` | `/infra/keycloak` | `/infra/keycloak/railway.toml` | Yes |
+| `Web` | `frontend` | `/frontend/railway.toml` | Yes |
+| `Api` | `backend/Pathway.Api` | `/backend/Pathway.Api/railway.toml` | Yes |
+| `KeyCloak` | `infra/keycloak` | `/infra/keycloak/railway.toml` | Yes |
+
+For the Railway **Root Directory** field, enter `frontend`, `backend/Pathway.Api`, or `infra/keycloak` exactly—without a leading slash—if the dashboard rejects an absolute-looking path. The root directory is what makes Railpack see the correct `package.json` or `.csproj`.
 
 4. Add two Railway Postgres services: one for `pathway-api`, and a **separate** one for `pathway-keycloak`.
 5. Set the variables in the main [README](../README.md#deploy-keycloak-on-railway) for every service. Generate public domains before setting the cross-service URLs.
@@ -31,6 +33,10 @@ For the failing service, open **Railway → service → Settings → Source**, t
 | `pathway-keycloak` | Dockerfile | `Dockerfile` (relative to `/infra/keycloak`) |
 
 Save the service settings and choose **Redeploy → Deploy Latest Commit**. For `pathway-web` and `pathway-api`, remove any manually entered Dockerfile path in the Railway dashboard. Do not create a fourth service with root directory `/`; the root contains a monorepo and intentionally has no single start command.
+
+### Fix: “executable could not be found: npm”
+
+This is also a root-directory/provider issue. Confirm `pathway-web` has **Root Directory = `frontend`** (not blank and not repository root), **Builder = Railpack**, and no Dockerfile path. The committed `frontend/.node-version` and `package.json` engines declaration then tell Railpack to install Node 22 and npm before it runs the build and start commands. Save and redeploy the latest commit after pushing this change.
 
 ## Push behavior
 

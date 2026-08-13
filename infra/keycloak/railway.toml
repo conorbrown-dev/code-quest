@@ -1,4 +1,5 @@
 [build]
+# The Railway service root is infra/keycloak, so this Dockerfile is resolved locally.
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 watchPatterns = ["infra/keycloak/**"]
