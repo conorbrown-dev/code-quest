@@ -162,6 +162,8 @@ test('exposes the learning-experience workspaces for a guest learner', async ({ 
   await page.getByRole('button', { name: 'Projects' }).click()
   await page.getByRole('button', { name: 'Open workspace →' }).click()
   await expect(page.getByRole('button', { name: 'Save' })).toBeVisible()
+  await page.getByRole('button', { name: 'Save' }).click()
+  await expect(page.getByText('Workspace saved in this browser. Sign in to sync it across devices.')).toBeVisible()
   await page.getByRole('button', { name: 'Coach' }).click()
   await expect(page.getByRole('button', { name: 'Ask for a next step' })).toBeVisible()
   await page.getByRole('button', { name: 'Community' }).click()
