@@ -4,11 +4,12 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase);
 var app = builder.Build();
 var executions = new SemaphoreSlim(2, 2);
+var sandboxReady = await Sandbox.Probe();
 
-app.MapGet("/health", () => Results.Ok(new { status = "ok", sandbox = Sandbox.Available }));
+app.MapGet("/health", () => Results.Ok(new { status = sandboxReady ? "ok" : "degraded", sandbox = sandboxReady }));
 app.MapPost("/evaluate", async (EvaluationRequest request, CancellationToken cancellationToken) =>
 {
-    if (!Sandbox.Available) return Results.Problem("The OS sandbox is unavailable; refusing to execute learner code.", statusCode: StatusCodes.Status503ServiceUnavailable);
+    if (!sandboxReady) return Results.Problem("The OS sandbox is unavailable; refusing to execute learner code.", statusCode: StatusCodes.Status503ServiceUnavailable);
     if (string.IsNullOrWhiteSpace(request.Code) || request.Code.Length > 50_000) return Results.BadRequest(new { message = "Code must be between 1 and 50,000 characters." });
     var test = LessonTests.For(request.LessonSlug, request.Code);
     if (test is null) return Results.Ok(new EvaluationResult(false, 0, 0, "This exercise has no sandbox test fixture yet.", null));
@@ -44,7 +45,21 @@ static class Sandbox
 {
     // The Docker image installs bubblewrap. The service deliberately refuses execution if the
     // kernel/user-namespace capability is absent instead of falling back to host execution.
-    public static bool Available => File.Exists("/usr/bin/bwrap") || File.Exists("/bin/bwrap");
+    public static async Task<bool> Probe()
+    {
+        var bwrap = File.Exists("/usr/bin/bwrap") ? "/usr/bin/bwrap" : File.Exists("/bin/bwrap") ? "/bin/bwrap" : null;
+        if (bwrap is null) return false;
+        try
+        {
+            var process = new Process { StartInfo = new ProcessStartInfo { FileName = bwrap, RedirectStandardError = true, UseShellExecute = false, CreateNoWindow = true } };
+            foreach (var argument in new[] { "--unshare-all", "--die-with-parent", "--new-session", "--ro-bind", "/", "/", "--proc", "/proc", "--dev", "/dev", "--", "/bin/true" }) process.StartInfo.ArgumentList.Add(argument);
+            process.Start();
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            await process.WaitForExitAsync(timeout.Token);
+            return process.ExitCode == 0;
+        }
+        catch { return false; }
+    }
 
     public static async Task<RunResult> Run(SandboxTest test, CancellationToken cancellationToken)
     {
