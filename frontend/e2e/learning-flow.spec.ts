@@ -14,6 +14,22 @@ test('serves the current C#/.NET curriculum API', async ({ request }) => {
   expect(body.frameworkVersion).toBe('.NET 10')
 })
 
+test('serves the Python Web curriculum and its framework-choice lesson', async ({ request }) => {
+  const course = await request.get(`${apiBaseUrl}/api/courses/python-web`)
+  await expect(course).toBeOK()
+  const body = await course.json()
+  expect(body.languageVersion).toBe('Python 3.14')
+  expect(body.frameworkVersion).toContain('FastAPI')
+  expect(body.modules.flatMap((module: { lessons: { slug: string }[] }) => module.lessons).map((lesson: { slug: string }) => lesson.slug)).toContain('python-framework-choice')
+
+  const frameworkChoice = await request.get(`${apiBaseUrl}/api/lessons/python-framework-choice`)
+  await expect(frameworkChoice).toBeOK()
+  await expect(frameworkChoice.json()).resolves.toMatchObject({
+    title: 'Choose a Python web framework',
+    version: { language: 'Python 3.14' },
+  })
+})
+
 test('loads the first lesson for a guest learner', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('pathway-onboarding-complete', 'true'))
   await page.goto('/')
