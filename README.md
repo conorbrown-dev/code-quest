@@ -40,12 +40,13 @@ The suite verifies API health/current curriculum metadata and that a guest learn
 
 See [Railway + GitHub setup](docs/railway-github-setup.md) for the one-time service configuration and push-to-deploy checklist.
 
-Create two application services from this repository, then set their root directories in Railway. The web and API services use Railpack; only the Keycloak service uses a Dockerfile:
+Create the web, API, Keycloak, and private Modal broker services from this repository. The web, API, and broker use Railpack; only the Keycloak service uses a Dockerfile:
 
 | Service | Root directory | Config-as-code path | Required variables |
 | --- | --- | --- | --- |
 | `pathway-web` | `/frontend` | `/frontend/railway.toml` | `VITE_API_BASE_URL=https://<your-api-domain>`, `VITE_KEYCLOAK_URL=https://<keycloak-domain>`, `VITE_KEYCLOAK_REALM=pathway`, `VITE_KEYCLOAK_CLIENT_ID=pathway-web` **at build time** |
 | `pathway-api` | `/backend/Pathway.Api` | `/backend/Pathway.Api/railway.toml` | `CORS_ORIGINS=https://<your-web-domain>`, `DATABASE_URL=${{Postgres.DATABASE_URL}}`, `KEYCLOAK_AUTHORITY=https://<keycloak-domain>/realms/pathway`, `KEYCLOAK_AUDIENCE=pathway-api` |
+| `pathway-modal-broker` | `/modal-broker` | `/modal-broker/railway.toml` | `MODAL_TOKEN_ID`, `MODAL_TOKEN_SECRET`, `RUNNER_SHARED_SECRET` — private only, no public domain |
 
 Generate a public domain for both services. Set the API URL before deploying the web service, because Vite embeds `VITE_*` values in its static build. The API service binds to Railway’s injected `PORT` and exposes `/health` for the Railway deployment check.
 
@@ -107,9 +108,9 @@ Create an API audience/client named `pathway-api` and add it to the access-token
 
 Add a Railway Postgres service and reference its `DATABASE_URL` from `pathway-api`. The API creates the progress and submission tables on startup.
 
-For production code exercises, create a fourth private Railway service with root directory `/evaluator/Pathway.Evaluator` and config path `/evaluator/Pathway.Evaluator/railway.toml`. It intentionally uses a Dockerfile because the OS sandbox requires `bubblewrap`; do not assign this service a public domain. Set `EVALUATOR_URL=${{PathwayEvaluator.RAILWAY_PRIVATE_DOMAIN}}` on `pathway-api`. The evaluator uses a disposable workspace, a non-root process, a new user/network namespace, a read-only root filesystem, a 8-second wall-clock timeout, and CPU/virtual-memory/process/file-size limits. It refuses execution if Bubblewrap is unavailable rather than falling back to host execution.
+For production code exercises, create a fourth private Railway service named `pathway-modal-broker`, with root directory `/modal-broker` and config path `/modal-broker/railway.toml`. Do not assign it a public domain. Create a Modal API token in the Modal dashboard and set `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET` only on this private broker. Generate one long random `RUNNER_SHARED_SECRET`, set it on the broker, and set the identical value as `EVALUATOR_SHARED_SECRET` on `pathway-api`. Finally set `EVALUATOR_URL=http://pathway-modal-broker.railway.internal:8080` on `pathway-api` (use the private hostname Railway displays for the broker if it differs). The broker creates a fresh Modal gVisor sandbox for each submission with no outbound network, no Railway credentials, 0.5 CPU, 512 MiB memory, a 12-second execution limit, and bounded output.
 
-The public API forwards only code exercises to `POST /evaluate` with `{ "lessonSlug", "code" }`; the worker returns the `ValidationResult` shape from the API. When `ASPNETCORE_ENVIRONMENT=Production`, code exercises deliberately fail closed unless `EVALUATOR_URL` is configured. The in-process deterministic validator exists only for local content development.
+The public API forwards only code exercises to `POST /evaluate` with `{ "lessonSlug", "code" }` and an internal shared-secret header; the broker returns the `ValidationResult` shape from the API. When `ASPNETCORE_ENVIRONMENT=Production`, code exercises deliberately fail closed unless the evaluator URL and secret are configured. The in-process deterministic validator exists only for local content development.
 
 ## Included experience
 

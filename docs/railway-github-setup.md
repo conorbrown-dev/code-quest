@@ -5,7 +5,7 @@ Railway deploys this monorepo through its GitHub integration. GitHub Actions ver
 ## One-time Railway project setup
 
 1. Push this repository to GitHub and connect it to a new Railway project.
-2. Add three services from the same GitHub repository: `pathway-web`, `pathway-api`, and `pathway-keycloak`.
+2. Add four services from the same GitHub repository: `pathway-web`, `pathway-api`, `pathway-keycloak`, and the private `pathway-modal-broker`.
 3. In each service’s **Source** settings, select branch `main`, then set the root directory and config-as-code path below.
 
 | Service | Root directory | Config-as-code path | Public domain |
@@ -13,8 +13,9 @@ Railway deploys this monorepo through its GitHub integration. GitHub Actions ver
 | `Web` | `frontend` | `/frontend/railway.toml` | Yes |
 | `Api` | `backend/Pathway.Api` | `/backend/Pathway.Api/railway.toml` | Yes |
 | `KeyCloak` | `infra/keycloak` | `/infra/keycloak/railway.toml` | Yes |
+| `Modal broker` | `modal-broker` | `/modal-broker/railway.toml` | No |
 
-For the Railway **Root Directory** field, enter `frontend`, `backend/Pathway.Api`, or `infra/keycloak` exactly—without a leading slash—if the dashboard rejects an absolute-looking path. The root directory is what makes Railpack see the correct `package.json` or `.csproj`.
+For the Railway **Root Directory** field, enter `frontend`, `backend/Pathway.Api`, `infra/keycloak`, or `modal-broker` exactly—without a leading slash—if the dashboard rejects an absolute-looking path. The root directory is what makes Railpack see the correct `package.json` or `.csproj`.
 
 4. Add two Railway Postgres services: one for `pathway-api`, and a **separate** one for `pathway-keycloak`.
 5. Set the variables in the main [README](../README.md#deploy-keycloak-on-railway) for every service. Generate public domains before setting the cross-service URLs.
@@ -24,13 +25,14 @@ For the Railway **Root Directory** field, enter `frontend`, `backend/Pathway.Api
 
 That error means Railway is building the repository root (`./`) rather than one of the three service directories, or the service was configured to use Dockerfile when it should use Railpack. It is not an application build error.
 
-For the failing service, open **Railway → service → Settings → Source**, then set both values exactly as listed above. The web and API services use **Railpack**. Only Keycloak uses **Dockerfile**:
+For the failing service, open **Railway → service → Settings → Source**, then set both values exactly as listed above. The web, API, and Modal broker use **Railpack**. Only Keycloak uses **Dockerfile**:
 
 | Service | Builder | Dockerfile path, only if applicable |
 | --- | --- |
 | `pathway-web` | Railpack | — |
 | `pathway-api` | Railpack | — |
 | `pathway-keycloak` | Dockerfile | `Dockerfile` (relative to `/infra/keycloak`) |
+| `pathway-modal-broker` | Railpack | — |
 
 Save the service settings and choose **Redeploy → Deploy Latest Commit**. For `pathway-web` and `pathway-api`, remove any manually entered Dockerfile path in the Railway dashboard. Do not create a fourth service with root directory `/`; the root contains a monorepo and intentionally has no single start command.
 
@@ -49,6 +51,7 @@ This is also a root-directory/provider issue. Confirm `pathway-web` has **Root D
 
 1. Deploy Keycloak and its Postgres database; generate its public domain.
 2. Deploy Pathway API and its Postgres database with `KEYCLOAK_AUTHORITY` and `KEYCLOAK_AUDIENCE` configured.
-3. Deploy Pathway web last, because `VITE_*` values are baked into the static build.
+3. Deploy the private Modal broker and set its Modal token variables plus `RUNNER_SHARED_SECRET`. Set the same secret as `EVALUATOR_SHARED_SECRET` and the broker private URL as `EVALUATOR_URL` on Pathway API.
+4. Deploy Pathway web last, because `VITE_*` values are baked into the static build.
 
 After that, pushes to `main` deploy the affected service automatically.

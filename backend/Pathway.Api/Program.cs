@@ -64,10 +64,19 @@ var submissionEndpoint = app.MapPost("/api/submissions/validate", async (Submiss
     if (!Curriculum.BySlug.TryGetValue(submission.LessonSlug, out var lesson)) return Results.NotFound();
     if (lesson.Exercise.Kind == ExerciseKind.Code && !string.IsNullOrWhiteSpace(configuration["EVALUATOR_URL"]))
     {
+        var evaluatorSharedSecret = configuration["EVALUATOR_SHARED_SECRET"];
+        if (environment.IsProduction() && string.IsNullOrWhiteSpace(evaluatorSharedSecret))
+            return Results.Problem("The code evaluator is not securely configured.", statusCode: StatusCodes.Status503ServiceUnavailable);
         var client = httpClientFactory.CreateClient();
         try
         {
-            var runnerResponse = await client.PostAsJsonAsync($"{configuration["EVALUATOR_URL"]!.TrimEnd('/')}/evaluate", new EvaluatorRequest(submission.LessonSlug, submission.Code ?? string.Empty), cancellationToken);
+            using var runnerRequest = new HttpRequestMessage(HttpMethod.Post, $"{configuration["EVALUATOR_URL"]!.TrimEnd('/')}/evaluate")
+            {
+                Content = JsonContent.Create(new EvaluatorRequest(submission.LessonSlug, submission.Code ?? string.Empty))
+            };
+            if (!string.IsNullOrWhiteSpace(evaluatorSharedSecret))
+                runnerRequest.Headers.TryAddWithoutValidation("X-Pathway-Runner-Key", evaluatorSharedSecret);
+            var runnerResponse = await client.SendAsync(runnerRequest, cancellationToken);
             if (runnerResponse.IsSuccessStatusCode)
             {
                 var evaluated = await runnerResponse.Content.ReadFromJsonAsync<ValidationResult>(cancellationToken: cancellationToken);
