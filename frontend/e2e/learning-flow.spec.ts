@@ -43,6 +43,61 @@ test('loads the first lesson for a guest learner', async ({ page }) => {
   await expect(page.getByRole('button', { name: /Check answer/i })).toBeVisible()
 })
 
+test('onboarding selects a track and enters the guest learning experience', async ({ page }) => {
+  await page.goto('/')
+
+  await expect(page.getByText('CHOOSE YOUR FIRST TRACK')).toBeVisible()
+  await page.getByRole('button', { name: /Python Web: zero to staff/i }).click()
+  await expect(page.getByText('Selected: Python Web: zero to staff')).toBeVisible()
+  await page.getByRole('button', { name: 'Explore as a guest' }).click()
+  await expect(page.getByRole('heading', { name: 'Values and variables' })).toBeVisible()
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('pathway-course-id'))).toBe('python-web')
+})
+
+test('checks an answer, persists progress, unlocks the next lesson, and supports review', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('pathway-onboarding-complete', 'true'))
+  await page.goto('/')
+
+  await page.getByRole('button', { name: /Prints a message to the console/i }).click()
+  await page.getByRole('button', { name: /Check answer/i }).click()
+  await expect(page.getByRole('main').getByText('That’s right. You’ve got the idea.')).toBeVisible()
+  await expect(page.getByRole('button', { name: /Next lesson/i })).toBeVisible()
+  await page.getByRole('button', { name: /Next lesson/i }).click()
+  await expect(page.getByRole('heading', { name: 'Values & variables' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Practice' }).click()
+  await expect(page.getByText('How code works')).toBeVisible()
+  await page.getByRole('button', { name: /Practice again/i }).click()
+  await expect(page.getByRole('heading', { name: 'How code works' })).toBeVisible()
+})
+
+test('validates a code exercise and supports reset and worked-example review', async ({ page }) => {
+  await page.route('**/api/progress', route => route.fulfill({ status: 401 }))
+  await page.route('**/api/submissions/validate', route => route.fulfill({
+    contentType: 'application/json',
+    body: JSON.stringify({ passed: true, passingTests: 2, totalTests: 2, feedback: 'All tests passed. Your solution meets this lesson’s checks.', nextLessonSlug: 'modern-csharp-records' }),
+  }))
+  await page.addInitScript(() => {
+    localStorage.setItem('pathway-onboarding-complete', 'true')
+    localStorage.setItem('pathway-completed-lessons', JSON.stringify(['foundations-how-code-works', 'foundations-values']))
+  })
+  await page.goto('/')
+
+  await page.getByRole('button', { name: 'Making decisions' }).click()
+  const editor = page.locator('.monaco-editor .view-lines')
+  await editor.scrollIntoViewIfNeeded()
+  await editor.click({ position: { x: 80, y: 20 }, force: true })
+  await page.keyboard.press('Control+A')
+  await page.keyboard.type('int age = 16;\nif (age >= 13)\n{\n    Console.WriteLine("You can watch!");\n}', { delay: 10 })
+  await expect(editor).toContainText('You can watch!')
+  await page.getByRole('button', { name: /Run tests/i }).click()
+  await expect(page.getByRole('main').getByText('All tests passed. Your solution meets this lesson’s checks.')).toBeVisible()
+  await page.getByText('Review the worked example').click()
+  await expect(page.getByText('This example demonstrates the same concept.')).toBeVisible()
+  await page.getByTitle('Reset').click()
+  await expect(editor).toContainText('int age = 16;')
+})
+
 test('loads the selected Python track for a guest learner', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem('pathway-onboarding-complete', 'true')
@@ -59,6 +114,8 @@ test('navigates workspaces and switches tracks from the sidebar', async ({ page 
   await page.goto('/')
 
   await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible()
+  await page.getByRole('button', { name: 'Notifications' }).click()
+  await expect(page.getByText('No new notifications.')).toBeVisible()
 
   await page.getByRole('button', { name: 'Practice' }).click()
   await expect(page.getByRole('heading', { name: 'Strengthen the signal.' })).toBeVisible()
@@ -68,6 +125,8 @@ test('navigates workspaces and switches tracks from the sidebar', async ({ page 
   await expect(page.getByRole('heading', { name: 'How code works' })).toBeVisible()
 
   await page.getByRole('button', { name: /C# 14 \/ .NET 10/i }).click()
+  await expect(page.getByRole('menu')).toBeVisible()
   await page.getByRole('menuitem', { name: /Python Web/i }).click()
   await expect(page.getByRole('heading', { name: 'Values and variables' })).toBeVisible()
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('pathway-course-id'))).toBe('python-web')
 })
