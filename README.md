@@ -105,9 +105,11 @@ After the first Keycloak deployment, open its admin console, select realm `pathw
 
 Create an API audience/client named `pathway-api` and add it to the access-token audience for `pathway-web`. The API validates issuer, signature, audience, expiration, and subject through Keycloak’s OIDC metadata. It stores progress and submissions under `keycloak:<sub>` in Postgres. In production the progress and submission endpoints require an authenticated Keycloak bearer token; guest mode is retained only when Keycloak is not configured for local exploration.
 
-Add a Railway Postgres service and reference its `DATABASE_URL` from `pathway-api`. The API creates the progress and submission tables on startup. Keep the eventual code-execution worker as a separate service with no public domain, strict CPU/memory/time limits, and no outbound network access.
+Add a Railway Postgres service and reference its `DATABASE_URL` from `pathway-api`. The API creates the progress and submission tables on startup.
 
-Set `EVALUATOR_URL` on `pathway-api` to the private URL of that worker. The public API forwards only code exercises to `POST /evaluate` with `{ "lessonSlug", "code" }`; the worker returns the `ValidationResult` shape from the API. When `ASPNETCORE_ENVIRONMENT=Production`, code exercises deliberately fail closed unless `EVALUATOR_URL` is configured. The in-process deterministic validator exists only for local content development.
+For production code exercises, create a fourth private Railway service with root directory `/evaluator/Pathway.Evaluator` and config path `/evaluator/Pathway.Evaluator/railway.toml`. It intentionally uses a Dockerfile because the OS sandbox requires `bubblewrap`; do not assign this service a public domain. Set `EVALUATOR_URL=${{PathwayEvaluator.RAILWAY_PRIVATE_DOMAIN}}` on `pathway-api`. The evaluator uses a disposable workspace, a non-root process, a new user/network namespace, a read-only root filesystem, a 8-second wall-clock timeout, and CPU/virtual-memory/process/file-size limits. It refuses execution if Bubblewrap is unavailable rather than falling back to host execution.
+
+The public API forwards only code exercises to `POST /evaluate` with `{ "lessonSlug", "code" }`; the worker returns the `ValidationResult` shape from the API. When `ASPNETCORE_ENVIRONMENT=Production`, code exercises deliberately fail closed unless `EVALUATOR_URL` is configured. The in-process deterministic validator exists only for local content development.
 
 ## Included experience
 

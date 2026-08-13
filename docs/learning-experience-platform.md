@@ -4,7 +4,7 @@ This document describes the API foundation for the next-generation Pathway exper
 
 ## Secure execution boundary
 
-`pathway-api` never runs learner code. It forwards code to `EVALUATOR_URL`, which must point to a private evaluator service. The evaluator is responsible for an isolated runtime per submission with all of the following controls:
+`pathway-api` never runs learner code. It forwards code to `EVALUATOR_URL`, which points to the private `evaluator/Pathway.Evaluator` service. The shipped worker is a fail-closed Bubblewrap implementation; it rejects submissions when Bubblewrap or the required user-namespace support is absent. The evaluator is responsible for an isolated runtime per submission with all of the following controls:
 
 - A disposable filesystem and non-root process.
 - No outbound network access, no host mounts, and no Docker socket.
@@ -12,6 +12,8 @@ This document describes the API foundation for the next-generation Pathway exper
 - CPU, memory, process-count, output-size, and wall-clock limits.
 - No secrets in the execution environment.
 - Structured results only: test counts, compiler/runtime diagnostics, and bounded review metadata.
+
+The evaluator intentionally has no Railway public domain. Its Docker image uses a non-root user and supplies Bubblewrap plus the .NET and Python runtimes. Its current executable fixtures cover the initial C# and Python code lessons; new code lessons must add a deterministic fixture in `LessonTests` before they can advance learners.
 
 The API fails closed for progression if the evaluator is unavailable. It can still provide static review feedback, but never declares a code exercise complete without the private evaluator.
 
