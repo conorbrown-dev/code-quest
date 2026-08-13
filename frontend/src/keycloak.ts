@@ -21,3 +21,8 @@ export function loginWithKeycloak(register = false) {
   if (!keycloak) throw new Error('Keycloak has not been configured.')
   return register ? keycloak.register({ redirectUri: window.location.origin }) : keycloak.login({ redirectUri: window.location.origin })
 }
+
+export function logoutFromKeycloak() {
+  if (!keycloak) return Promise.resolve()
+  return keycloak.logout({ redirectUri: window.location.origin })
+}

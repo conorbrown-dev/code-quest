@@ -58,6 +58,8 @@ test('navigates workspaces and switches tracks from the sidebar', async ({ page 
   await page.addInitScript(() => localStorage.setItem('pathway-onboarding-complete', 'true'))
   await page.goto('/')
 
+  await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible()
+
   await page.getByRole('button', { name: 'Practice' }).click()
   await expect(page.getByRole('heading', { name: 'Strengthen the signal.' })).toBeVisible()
   await page.getByRole('button', { name: 'Projects' }).click()
