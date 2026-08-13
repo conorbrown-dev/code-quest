@@ -13,9 +13,10 @@ builder.Services.AddHttpClient();
 var databaseUrl = builder.Configuration["DATABASE_URL"] ?? builder.Configuration.GetConnectionString("Pathway");
 if (!string.IsNullOrWhiteSpace(databaseUrl))
     builder.Services.AddDbContextFactory<ProgressDbContext>(options => options.UseNpgsql(ToNpgsqlConnectionString(databaseUrl)));
-var allowedOrigins = (builder.Configuration["CORS_ORIGINS"] ?? "http://localhost:5173")
+var allowedOrigins = (builder.Configuration["CORS_ORIGINS"] ?? "http://localhost:5173,http://127.0.0.1:5173")
     .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod()));
+builder.Services.AddAuthorization();
 var keycloakAuthority = builder.Configuration["KEYCLOAK_AUTHORITY"]?.TrimEnd('/');
 var keycloakAudience = builder.Configuration["KEYCLOAK_AUDIENCE"];
 if (!string.IsNullOrWhiteSpace(keycloakAuthority) && !string.IsNullOrWhiteSpace(keycloakAudience))
@@ -27,13 +28,15 @@ if (!string.IsNullOrWhiteSpace(keycloakAuthority) && !string.IsNullOrWhiteSpace(
         options.MapInboundClaims = false;
         options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
     });
-    builder.Services.AddAuthorization();
 }
 
 var app = builder.Build();
 app.UseCors();
-app.UseAuthentication();
-app.UseAuthorization();
+if (!string.IsNullOrWhiteSpace(keycloakAuthority) && !string.IsNullOrWhiteSpace(keycloakAudience))
+{
+    app.UseAuthentication();
+    app.UseAuthorization();
+}
 if (!string.IsNullOrWhiteSpace(databaseUrl))
 {
     await using var scope = app.Services.CreateAsyncScope();

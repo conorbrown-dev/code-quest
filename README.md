@@ -17,6 +17,25 @@ cd backend/Pathway.Api && dotnet run
 
 The Vite dev server proxies `/api` to the API at `http://localhost:5100`.
 
+## Browser smoke tests
+
+Install the Playwright browser once, then run the same suite locally or against Railway:
+
+```sh
+cd frontend
+npx playwright install chromium
+
+# Local: start the API in another terminal first.
+npm run test:e2e
+
+# Production
+PLAYWRIGHT_BASE_URL=https://code-quest-production.up.railway.app \
+PLAYWRIGHT_API_BASE_URL=https://api-production-7d4e.up.railway.app \
+npm run test:e2e
+```
+
+The suite verifies API health/current curriculum metadata and that a guest learner can load and interact with the first lesson. It intentionally does not create production accounts or execute code exercises.
+
 ## Deploy on Railway
 
 See [Railway + GitHub setup](docs/railway-github-setup.md) for the one-time service configuration and push-to-deploy checklist.

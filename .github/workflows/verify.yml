@@ -45,6 +45,34 @@ jobs:
       - run: dotnet restore
       - run: dotnet build --no-restore --configuration Release
 
+  browser-smoke:
+    name: Local browser smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: npm ci
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - run: ASPNETCORE_URLS=http://127.0.0.1:5100 dotnet run --no-launch-profile &
+        working-directory: backend/Pathway.Api
+      - run: |
+          for attempt in {1..30}; do
+            curl --fail --silent http://127.0.0.1:5100/health && exit 0
+            sleep 1
+          done
+          exit 1
+      - run: PLAYWRIGHT_VITE_API_BASE_URL=http://127.0.0.1:5100 npm run test:e2e
+        working-directory: frontend
+
   keycloak-config:
     name: Keycloak configuration
     runs-on: ubuntu-latest
