@@ -75,7 +75,7 @@ test('validates a code exercise and supports reset and worked-example review', a
   await page.route('**/api/progress', route => route.fulfill({ status: 401 }))
   await page.route('**/api/submissions/validate', route => route.fulfill({
     contentType: 'application/json',
-    body: JSON.stringify({ passed: true, passingTests: 2, totalTests: 2, feedback: 'All tests passed. Your solution meets this lesson’s checks.', nextLessonSlug: 'modern-csharp-records' }),
+    body: JSON.stringify({ passed: true, passingTests: 2, totalTests: 2, feedback: 'All tests passed. Your solution meets this lesson’s checks.', nextLessonSlug: 'modern-csharp-records', codeReview: { summary: '1 focused suggestion found. These are advisory and do not change your test result.', suggestions: ['Prefer interpolated strings (`$"..."`) to `string.Format` when formatting a small, readable message.'] } }),
   }))
   await page.addInitScript(() => {
     localStorage.setItem('pathway-onboarding-complete', 'true')
@@ -92,6 +92,8 @@ test('validates a code exercise and supports reset and worked-example review', a
   await expect(editor).toContainText('You can watch!')
   await page.getByRole('button', { name: /Run tests/i }).click()
   await expect(page.getByRole('main').getByText('All tests passed. Your solution meets this lesson’s checks.')).toBeVisible()
+  await page.getByText('Code review suggestions').click()
+  await expect(page.getByText('Prefer interpolated strings')).toBeVisible()
   await page.getByText('Review the worked example').click()
   await expect(page.getByText('This example demonstrates the same concept.')).toBeVisible()
   await page.getByTitle('Reset').click()

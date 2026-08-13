@@ -70,7 +70,12 @@ var submissionEndpoint = app.MapPost("/api/submissions/validate", async (Submiss
             if (runnerResponse.IsSuccessStatusCode)
             {
                 var evaluated = await runnerResponse.Content.ReadFromJsonAsync<ValidationResult>(cancellationToken: cancellationToken);
-                if (evaluated is not null) { await PersistSubmission(services, await ResolveLearnerId(httpContext, services, cancellationToken), submission, evaluated.Passed, cancellationToken); return Results.Ok(evaluated); }
+                if (evaluated is not null)
+                {
+                    var reviewed = evaluated with { CodeReview = evaluated.CodeReview ?? BuildCodeReview(lesson, submission.Code ?? string.Empty) };
+                    await PersistSubmission(services, await ResolveLearnerId(httpContext, services, cancellationToken), submission, reviewed.Passed, cancellationToken);
+                    return Results.Ok(reviewed);
+                }
             }
             return Results.Problem("The code evaluator did not return a usable result.", statusCode: StatusCodes.Status503ServiceUnavailable);
         }
@@ -82,7 +87,7 @@ var submissionEndpoint = app.MapPost("/api/submissions/validate", async (Submiss
     // Development-only deterministic checks make local lesson authoring fast. In production,
     // set EVALUATOR_URL to a private sandbox worker; never execute learner code in this API.
     if (lesson.Exercise.Kind == ExerciseKind.Code && environment.IsProduction())
-        return Results.Problem("A code evaluator has not been configured.", statusCode: StatusCodes.Status503ServiceUnavailable);
+        return Results.Ok(new ValidationResult(false, 0, 0, "Automated execution is not configured yet. Your static code review is ready below; a sandbox evaluator is required before code can be marked complete.", null, BuildCodeReview(lesson, submission.Code ?? string.Empty)));
     var validation = lesson.Exercise.Kind switch
     {
         ExerciseKind.MultipleChoice => ValidateChoice(lesson, submission.Answer),
@@ -135,13 +140,13 @@ static ValidationResult ValidateCode(Lesson lesson, string code)
             "python-fastapi-endpoint" => code.Contains("@app.get", StringComparison.Ordinal) && code.Contains("def", StringComparison.Ordinal),
             _ => false
         };
-        return new ValidationResult(pythonPassed, pythonPassed ? 2 : 0, 2, pythonPassed ? "All tests passed. Your Python solution meets this lesson’s checks." : lesson.Exercise.Hint, pythonPassed ? lesson.NextSlug : null);
+        return new ValidationResult(pythonPassed, pythonPassed ? 2 : 0, 2, pythonPassed ? "All tests passed. Your Python solution meets this lesson’s checks." : lesson.Exercise.Hint, pythonPassed ? lesson.NextSlug : null, BuildCodeReview(lesson, code));
     }
     var syntaxError = CSharpSyntaxTree.ParseText(code, new CSharpParseOptions(LanguageVersion.Preview))
         .GetDiagnostics()
         .FirstOrDefault(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
     if (syntaxError is not null)
-        return new ValidationResult(false, 0, 2, $"C# syntax error: {syntaxError.GetMessage()}", null);
+        return new ValidationResult(false, 0, 2, $"C# syntax error: {syntaxError.GetMessage()}", null, BuildCodeReview(lesson, code));
     var passed = lesson.Slug switch
     {
         "foundations-making-decisions" => code.Contains("if", StringComparison.Ordinal) && code.Contains("age >= 13", StringComparison.Ordinal) && code.Contains("You can watch!", StringComparison.Ordinal),
@@ -150,7 +155,34 @@ static ValidationResult ValidateCode(Lesson lesson, string code)
         _ => false
     };
     var message = passed ? "All tests passed. Your solution meets this lesson’s checks." : lesson.Exercise.Hint;
-    return new ValidationResult(passed, passed ? 2 : 0, 2, message, passed ? lesson.NextSlug : null);
+    return new ValidationResult(passed, passed ? 2 : 0, 2, message, passed ? lesson.NextSlug : null, BuildCodeReview(lesson, code));
+}
+
+static CodeReview BuildCodeReview(Lesson lesson, string code)
+{
+    var suggestions = new List<string>();
+    var lines = code.Split('\n');
+    if (lines.Any(line => line.Length > 120)) suggestions.Add("Keep lines under roughly 120 characters where practical so code remains easy to scan in reviews and diffs.");
+
+    if (lesson.Slug.StartsWith("python-", StringComparison.Ordinal))
+    {
+        if (code.Contains(" == True", StringComparison.Ordinal) || code.Contains(" == False", StringComparison.Ordinal)) suggestions.Add("Prefer direct truthiness (`if value:` or `if not value:`) over comparing a boolean to `True` or `False`.");
+        if (code.Contains("except Exception", StringComparison.Ordinal)) suggestions.Add("Catch the narrowest exception you can handle; a broad `except Exception` can hide programming errors.");
+        if (code.Contains(" + \"", StringComparison.Ordinal) || code.Contains("\" +", StringComparison.Ordinal)) suggestions.Add("For user-facing string composition, an f-string is usually clearer than chained `+` concatenation.");
+        if (code.Contains("def ", StringComparison.Ordinal) && !code.Contains(" -> ", StringComparison.Ordinal)) suggestions.Add("Consider a return type annotation for public functions so readers and type checkers can verify the contract.");
+    }
+    else
+    {
+        if (code.Contains("string.Format(", StringComparison.Ordinal)) suggestions.Add("Prefer interpolated strings (`$\"...\"`) to `string.Format` when formatting a small, readable message.");
+        if (code.Contains(" == null", StringComparison.Ordinal) || code.Contains(" != null", StringComparison.Ordinal)) suggestions.Add("Consider pattern matching (`is null` / `is not null`) for modern, intention-revealing null checks.");
+        if (code.Contains(".Count() > 0", StringComparison.Ordinal)) suggestions.Add("Prefer `.Any()` when you only need to know whether an enumerable contains an item.");
+        if (code.Contains("new List<", StringComparison.Ordinal) && code.Contains("{", StringComparison.Ordinal)) suggestions.Add("When targeting modern C#, consider a collection expression (`[]`) where it makes collection initialization simpler.");
+    }
+
+    var summary = suggestions.Count == 0
+        ? "No readability or idiom concerns detected by the lightweight review. A human reviewer should still evaluate names, domain fit, and edge cases."
+        : $"{suggestions.Count} focused suggestion{(suggestions.Count == 1 ? string.Empty : "s")} found. These are advisory and do not change your test result.";
+    return new CodeReview(summary, suggestions.ToArray());
 }
 
 record CourseCatalogItem(string Id, string Title, string LanguageId, string LanguageVersion, string FrameworkVersion, bool Available);
@@ -164,7 +196,8 @@ record Choice(string Id, string Text);
 record Submission(string LessonSlug, string? Answer, string? Code);
 record LearnerProgressResponse(string LearnerId, string[] CompletedLessonSlugs);
 record EvaluatorRequest(string LessonSlug, string Code);
-record ValidationResult(bool Passed, int PassingTests, int TotalTests, string Feedback, string? NextLessonSlug);
+record CodeReview(string Summary, string[] Suggestions);
+record ValidationResult(bool Passed, int PassingTests, int TotalTests, string Feedback, string? NextLessonSlug, CodeReview? CodeReview = null);
 enum ExerciseKind { MultipleChoice, Code }
 
 static class Curriculum
