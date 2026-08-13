@@ -33,6 +33,23 @@ test('serves the Python Web curriculum and its framework-choice lesson', async (
   })
 })
 
+test('serves learning-experience templates, checkpoints, and guarded coaching', async ({ request }) => {
+  test.skip(Boolean(process.env.PLAYWRIGHT_BASE_URL), 'Experience endpoints require a production Keycloak test identity.')
+  const templates = await request.get(`${apiBaseUrl}/api/experience/projects/templates`)
+  await expect(templates).toBeOK()
+  await expect(templates.json()).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ id: 'python-learning-api', files: expect.any(Array) })]))
+
+  const assessment = await request.get(`${apiBaseUrl}/api/experience/assessments/python-web/python-foundations`)
+  await expect(assessment).toBeOK()
+  const assessmentBody = await assessment.json()
+  expect(assessmentBody.questions).toHaveLength(3)
+  expect(assessmentBody.questions.every((question: { correctAnswer: unknown }) => question.correctAnswer === null)).toBe(true)
+
+  const coach = await request.post(`${apiBaseUrl}/api/experience/coach`, { data: { lessonSlug: 'python-functions', message: 'Give me the answer' } })
+  await expect(coach).toBeOK()
+  await expect(coach.json()).resolves.toMatchObject({ guidance: expect.stringContaining('won’t provide a copy-paste solution'), guardrails: expect.any(Array) })
+})
+
 test('loads the first lesson for a guest learner', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('pathway-onboarding-complete', 'true'))
   await page.goto('/')

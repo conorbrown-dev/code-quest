@@ -43,6 +43,7 @@ if (!string.IsNullOrWhiteSpace(databaseUrl))
     var database = scope.ServiceProvider.GetRequiredService<IDbContextFactory<ProgressDbContext>>();
     await using var context = await database.CreateDbContextAsync();
     await context.Database.EnsureCreatedAsync();
+    await EnsureLearningExperienceSchema(context);
 }
 app.MapGet("/health", () => Results.Ok(new { status = "ok", courseVersion = Curriculum.Version }));
 app.MapGet("/openapi/v1.json", () => Results.Ok(new { openapi = "3.0.3", info = new { title = "Pathway API", version = "v1" } }));
@@ -97,7 +98,8 @@ var submissionEndpoint = app.MapPost("/api/submissions/validate", async (Submiss
     await PersistSubmission(services, await ResolveLearnerId(httpContext, services, cancellationToken), submission, validation.Passed, cancellationToken);
     return Results.Ok(validation);
 });
-if (!string.IsNullOrWhiteSpace(keycloakAuthority) && !string.IsNullOrWhiteSpace(keycloakAudience)) { progressEndpoint.RequireAuthorization(); submissionEndpoint.RequireAuthorization(); }
+var experienceEndpoints = app.MapLearningExperienceEndpoints();
+if (!string.IsNullOrWhiteSpace(keycloakAuthority) && !string.IsNullOrWhiteSpace(keycloakAudience)) { progressEndpoint.RequireAuthorization(); submissionEndpoint.RequireAuthorization(); experienceEndpoints.RequireAuthorization(); }
 app.Run();
 
 static Task<string> ResolveLearnerId(HttpContext context, IServiceProvider services, CancellationToken cancellationToken)
@@ -114,6 +116,18 @@ static async Task PersistSubmission(IServiceProvider services, string learnerId,
     database.Submissions.Add(new LearnerSubmission { LearnerId = learnerId, LessonSlug = submission.LessonSlug, Answer = submission.Answer, Code = submission.Code, Passed = passed });
     if (passed && !await database.Progress.AnyAsync(item => item.LearnerId == learnerId && item.LessonSlug == submission.LessonSlug, cancellationToken))
         database.Progress.Add(new LearnerProgress { LearnerId = learnerId, LessonSlug = submission.LessonSlug, CompletedAt = DateTimeOffset.UtcNow });
+    if (passed)
+    {
+        var existingReview = await database.ReviewSchedules.SingleOrDefaultAsync(item => item.LearnerId == learnerId && item.LessonSlug == submission.LessonSlug, cancellationToken);
+        if (existingReview is null)
+            database.ReviewSchedules.Add(new ReviewSchedule { LearnerId = learnerId, LessonSlug = submission.LessonSlug, IntervalDays = 1, LastReviewedAt = DateTimeOffset.UtcNow, DueAt = DateTimeOffset.UtcNow.AddDays(1) });
+        else
+        {
+            existingReview.IntervalDays = Math.Min(existingReview.IntervalDays * 2, 30);
+            existingReview.LastReviewedAt = DateTimeOffset.UtcNow;
+            existingReview.DueAt = DateTimeOffset.UtcNow.AddDays(existingReview.IntervalDays);
+        }
+    }
     await database.SaveChangesAsync(cancellationToken);
 }
 
@@ -124,6 +138,30 @@ static string ToNpgsqlConnectionString(string value)
     var builder = new Npgsql.NpgsqlConnectionStringBuilder { Host = uri.Host, Port = uri.Port, Database = uri.AbsolutePath.Trim('/'), Username = Uri.UnescapeDataString(userInfo[0]), Password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : string.Empty, SslMode = Npgsql.SslMode.Require };
     return builder.ConnectionString;
 }
+
+static async Task EnsureLearningExperienceSchema(ProgressDbContext database) => await database.Database.ExecuteSqlRawAsync("""
+    CREATE TABLE IF NOT EXISTS workspace_projects (
+        "Id" uuid PRIMARY KEY, "LearnerId" character varying(100) NOT NULL, "TemplateId" character varying(100) NOT NULL,
+        "Title" character varying(160) NOT NULL, "UpdatedAt" timestamp with time zone NOT NULL);
+    CREATE UNIQUE INDEX IF NOT EXISTS "IX_workspace_projects_LearnerId_TemplateId" ON workspace_projects ("LearnerId", "TemplateId");
+    CREATE TABLE IF NOT EXISTS workspace_files (
+        "Id" uuid PRIMARY KEY, "ProjectId" uuid NOT NULL, "Path" character varying(260) NOT NULL,
+        "Content" character varying(100000) NOT NULL, "UpdatedAt" timestamp with time zone NOT NULL);
+    CREATE UNIQUE INDEX IF NOT EXISTS "IX_workspace_files_ProjectId_Path" ON workspace_files ("ProjectId", "Path");
+    CREATE TABLE IF NOT EXISTS review_schedules (
+        "Id" uuid PRIMARY KEY, "LearnerId" character varying(100) NOT NULL, "LessonSlug" character varying(200) NOT NULL,
+        "IntervalDays" integer NOT NULL, "DueAt" timestamp with time zone NOT NULL, "LastReviewedAt" timestamp with time zone NOT NULL);
+    CREATE UNIQUE INDEX IF NOT EXISTS "IX_review_schedules_LearnerId_LessonSlug" ON review_schedules ("LearnerId", "LessonSlug");
+    CREATE TABLE IF NOT EXISTS community_posts (
+        "Id" uuid PRIMARY KEY, "AuthorId" character varying(100) NOT NULL, "CourseId" character varying(100) NOT NULL,
+        "Title" character varying(180) NOT NULL, "Body" character varying(10000) NOT NULL, "NeedsMentor" boolean NOT NULL,
+        "CreatedAt" timestamp with time zone NOT NULL);
+    CREATE INDEX IF NOT EXISTS "IX_community_posts_CourseId_CreatedAt" ON community_posts ("CourseId", "CreatedAt");
+    CREATE TABLE IF NOT EXISTS community_replies (
+        "Id" uuid PRIMARY KEY, "PostId" uuid NOT NULL, "AuthorId" character varying(100) NOT NULL,
+        "Body" character varying(10000) NOT NULL, "IsMentor" boolean NOT NULL, "CreatedAt" timestamp with time zone NOT NULL);
+    CREATE INDEX IF NOT EXISTS "IX_community_replies_PostId_CreatedAt" ON community_replies ("PostId", "CreatedAt");
+    """);
 
 static ValidationResult ValidateChoice(Lesson lesson, string? answer)
 {
