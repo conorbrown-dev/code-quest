@@ -53,3 +53,19 @@ test('loads the selected Python track for a guest learner', async ({ page }) => 
   await expect(page.getByRole('heading', { name: 'Values and variables' })).toBeVisible()
   await expect(page.getByText('What is `completed_lessons` in this example?')).toBeVisible()
 })
+
+test('navigates workspaces and switches tracks from the sidebar', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('pathway-onboarding-complete', 'true'))
+  await page.goto('/')
+
+  await page.getByRole('button', { name: 'Practice' }).click()
+  await expect(page.getByRole('heading', { name: 'Strengthen the signal.' })).toBeVisible()
+  await page.getByRole('button', { name: 'Projects' }).click()
+  await expect(page.getByRole('heading', { name: 'Build the real thing.' })).toBeVisible()
+  await page.getByRole('button', { name: 'Learn' }).click()
+  await expect(page.getByRole('heading', { name: 'How code works' })).toBeVisible()
+
+  await page.getByRole('button', { name: /C# 14 \/ .NET 10/i }).click()
+  await page.getByRole('menuitem', { name: /Python Web/i }).click()
+  await expect(page.getByRole('heading', { name: 'Values and variables' })).toBeVisible()
+})
