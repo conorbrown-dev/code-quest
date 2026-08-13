@@ -18,6 +18,20 @@ Railway deploys this monorepo through its GitHub integration. GitHub Actions ver
 5. Set the variables in the main [README](../README.md#deploy-keycloak-on-railway) for every service. Generate public domains before setting the cross-service URLs.
 6. In Keycloak, add the Railway web URL as a redirect URI and web origin for `pathway-web`.
 
+### Fix: “Railpack could not determine how to build the app”
+
+That error means Railway is building the repository root (`./`) rather than one of the three service directories, or the service was configured to use Dockerfile when it should use Railpack. It is not an application build error.
+
+For the failing service, open **Railway → service → Settings → Source**, then set both values exactly as listed above. The web and API services use **Railpack**. Only Keycloak uses **Dockerfile**:
+
+| Service | Builder | Dockerfile path, only if applicable |
+| --- | --- |
+| `pathway-web` | Railpack | — |
+| `pathway-api` | Railpack | — |
+| `pathway-keycloak` | Dockerfile | `Dockerfile` (relative to `/infra/keycloak`) |
+
+Save the service settings and choose **Redeploy → Deploy Latest Commit**. For `pathway-web` and `pathway-api`, remove any manually entered Dockerfile path in the Railway dashboard. Do not create a fourth service with root directory `/`; the root contains a monorepo and intentionally has no single start command.
+
 ## Push behavior
 
 - Pull requests and pushes to `main` run `.github/workflows/verify.yml`.

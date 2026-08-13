@@ -21,7 +21,7 @@ The Vite dev server proxies `/api` to the API at `http://localhost:5100`.
 
 See [Railway + GitHub setup](docs/railway-github-setup.md) for the one-time service configuration and push-to-deploy checklist.
 
-Create two services from this repository, then set their root directories in Railway:
+Create two application services from this repository, then set their root directories in Railway. The web and API services use Railpack; only the Keycloak service uses a Dockerfile:
 
 | Service | Root directory | Config-as-code path | Required variables |
 | --- | --- | --- | --- |
