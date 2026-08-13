@@ -123,7 +123,7 @@ public static class LearningExperienceEndpoints
         return assessment is null ? Results.NotFound() : Results.Ok(assessment with { Questions = assessment.Questions.Select(question => question with { CorrectAnswer = null }).ToArray() });
     }
 
-    private static IResult SubmitAssessment(string courseId, string moduleId, AssessmentSubmission submission)
+    private static async Task<IResult> SubmitAssessment(string courseId, string moduleId, AssessmentSubmission submission, HttpContext context, IServiceProvider services, CancellationToken cancellationToken)
     {
         var assessment = AssessmentCatalog.Get(courseId, moduleId);
         if (assessment is null) return Results.NotFound();
@@ -131,6 +131,19 @@ public static class LearningExperienceEndpoints
         var correct = assessment.Questions.Count(question => answers.TryGetValue(question.Id, out var answer) && answer == question.CorrectAnswer);
         var passed = correct >= Math.Ceiling(assessment.Questions.Length * .7);
         var recommended = assessment.Questions.Where(question => !answers.TryGetValue(question.Id, out var answer) || answer != question.CorrectAnswer).Select(question => question.ReviewLessonSlug).Distinct().ToArray();
+        var factory = services.GetService<IDbContextFactory<ProgressDbContext>>();
+        if (factory is not null)
+        {
+            var learnerId = ResolveLearnerId(context);
+            await using var db = await factory.CreateDbContextAsync(cancellationToken);
+            foreach (var lessonSlug in recommended)
+            {
+                var review = await db.ReviewSchedules.SingleOrDefaultAsync(item => item.LearnerId == learnerId && item.LessonSlug == lessonSlug, cancellationToken);
+                if (review is null) db.ReviewSchedules.Add(new ReviewSchedule { LearnerId = learnerId, LessonSlug = lessonSlug, IntervalDays = 1, LastReviewedAt = DateTimeOffset.UtcNow, DueAt = DateTimeOffset.UtcNow });
+                else { review.IntervalDays = 1; review.LastReviewedAt = DateTimeOffset.UtcNow; review.DueAt = DateTimeOffset.UtcNow; }
+            }
+            if (recommended.Length > 0) await db.SaveChangesAsync(cancellationToken);
+        }
         return Results.Ok(new AssessmentResultResponse(passed, correct, assessment.Questions.Length, recommended, passed ? "Module checkpoint passed. Keep the retrieval practice going." : "Review the suggested lessons, then return for another attempt."));
     }
 

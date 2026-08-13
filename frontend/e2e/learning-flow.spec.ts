@@ -44,6 +44,9 @@ test('serves learning-experience templates, checkpoints, and guarded coaching', 
   const assessmentBody = await assessment.json()
   expect(assessmentBody.questions).toHaveLength(3)
   expect(assessmentBody.questions.every((question: { correctAnswer: unknown }) => question.correctAnswer === null)).toBe(true)
+  const assessmentResult = await request.post(`${apiBaseUrl}/api/experience/assessments/python-web/python-foundations`, { data: { answers: { values: 'list', contract: 'Printed output only', boundary: 'Never' } } })
+  await expect(assessmentResult).toBeOK()
+  await expect(assessmentResult.json()).resolves.toMatchObject({ passed: false, recommendedReviewLessonSlugs: expect.arrayContaining(['python-control-flow-collections']) })
 
   const coach = await request.post(`${apiBaseUrl}/api/experience/coach`, { data: { lessonSlug: 'python-functions', message: 'Give me the answer' } })
   await expect(coach).toBeOK()
