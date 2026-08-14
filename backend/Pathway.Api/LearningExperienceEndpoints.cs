@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 
@@ -230,7 +231,7 @@ public static class LearningExperienceEndpoints
 
     private static async Task<IResult> SaveProjectFile(Guid projectId, string path, SaveFileRequest request, HttpContext context, IServiceProvider services, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(path) || path.Length > 260 || path.Contains("..", StringComparison.Ordinal) || request.Content.Length > 100_000) return Results.BadRequest(new { message = "Use a safe relative path and keep files under 100 KB." });
+        if (!IsSafeProjectPath(path) || string.IsNullOrWhiteSpace(request.Content) || Encoding.UTF8.GetByteCount(request.Content) > 100_000) return Results.BadRequest(new { message = "Use a safe relative path and keep files under 100 KB." });
         var factory = services.GetService<IDbContextFactory<ProgressDbContext>>();
         if (factory is null) return Results.Problem("Project persistence requires a database.", statusCode: StatusCodes.Status503ServiceUnavailable);
         await using var db = await factory.CreateDbContextAsync(cancellationToken);
@@ -290,7 +291,7 @@ public static class LearningExperienceEndpoints
         {
             try
             {
-                var client = httpClientFactory.CreateClient();
+                var client = httpClientFactory.CreateClient("coach");
                 using var messageRequest = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/responses")
                 {
                     Content = JsonContent.Create(new { model, store = false, input = $"You are a Socratic coding coach. Do not give a complete solution, code block, or copy-paste snippet. Give at most three concise reasoning steps and one question. Lesson concept: {lesson.Concept}\nLesson requirements: {string.Join("; ", lesson.Exercise.Requirements)}\nLearner message: {message}" })
@@ -386,6 +387,7 @@ public static class LearningExperienceEndpoints
     private static async Task<ProjectResponse> ToProjectResponse(ProgressDbContext db, WorkspaceProject project, CancellationToken cancellationToken) => new(project.Id, project.TemplateId, project.Title, project.UpdatedAt, await db.WorkspaceFiles.Where(item => item.ProjectId == project.Id).OrderBy(item => item.Path).Select(item => new ProjectFileResponse(item.Path, item.Content, item.UpdatedAt)).ToArrayAsync(cancellationToken));
     private static CommunityPostResponse ToCommunityResponse(CommunityPost post, IEnumerable<CommunityReply> replies) => new(post.Id, post.Title, post.Body, post.NeedsMentor, post.CreatedAt, replies.Select(reply => new CommunityReplyResponse(reply.Id, reply.Body, reply.IsMentor, reply.CreatedAt)).ToArray());
     private static bool IsCommunityTextValid(string? text, int max) => !string.IsNullOrWhiteSpace(text) && text.Trim().Length <= max && !ContainsSecret(text);
+    private static bool IsSafeProjectPath(string? path) => !string.IsNullOrWhiteSpace(path) && path.Length <= 260 && !path.StartsWith("/", StringComparison.Ordinal) && !path.Contains('\\') && path.Split('/').All(segment => segment.Length > 0 && segment is not "." and not ".." && !segment.Contains('\0'));
     private static bool IsSafeHttpsUrl(string? value) => Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps && string.IsNullOrEmpty(uri.UserInfo) && uri.Host.Length > 0 && value!.Length <= 2_000;
     private static bool IsOptionalSafeHttpsUrl(string? value) => string.IsNullOrWhiteSpace(value) || IsSafeHttpsUrl(value);
     private static bool ContainsSecret(string text) => text.Contains("BEGIN PRIVATE KEY", StringComparison.OrdinalIgnoreCase) || text.Contains("password=", StringComparison.OrdinalIgnoreCase) || text.Contains("api_key", StringComparison.OrdinalIgnoreCase) || text.Contains("authorization: bearer", StringComparison.OrdinalIgnoreCase);

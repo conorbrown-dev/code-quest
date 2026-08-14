@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using System.Text;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
@@ -9,8 +10,10 @@ using Microsoft.CodeAnalysis.CSharp;
 using Pathway.Api;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 512 * 1024);
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
-builder.Services.AddHttpClient();
+builder.Services.AddHttpClient("evaluator", client => client.Timeout = TimeSpan.FromSeconds(15));
+builder.Services.AddHttpClient("coach", client => client.Timeout = TimeSpan.FromSeconds(12));
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -34,6 +37,8 @@ builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy.Wi
 builder.Services.AddAuthorization();
 var keycloakAuthority = builder.Configuration["KEYCLOAK_AUTHORITY"]?.TrimEnd('/');
 var keycloakAudience = builder.Configuration["KEYCLOAK_AUDIENCE"];
+if (builder.Environment.IsProduction() && (string.IsNullOrWhiteSpace(keycloakAuthority) || string.IsNullOrWhiteSpace(keycloakAudience)))
+    throw new InvalidOperationException("KEYCLOAK_AUTHORITY and KEYCLOAK_AUDIENCE are required in production.");
 if (!string.IsNullOrWhiteSpace(keycloakAuthority) && !string.IsNullOrWhiteSpace(keycloakAudience))
 {
     builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
@@ -46,12 +51,19 @@ if (!string.IsNullOrWhiteSpace(keycloakAuthority) && !string.IsNullOrWhiteSpace(
 }
 
 var app = builder.Build();
+app.UseExceptionHandler(exceptionApp => exceptionApp.Run(async context =>
+{
+    context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+    await context.Response.WriteAsJsonAsync(new { message = "An unexpected server error occurred." });
+}));
 app.Use(async (context, next) =>
 {
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
     context.Response.Headers["X-Frame-Options"] = "DENY";
     context.Response.Headers["Referrer-Policy"] = "no-referrer";
     context.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
+    context.Response.Headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'";
+    if (app.Environment.IsProduction()) context.Response.Headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
     await next(context);
 });
 app.UseCors();
@@ -96,12 +108,14 @@ progressEndpoint.RequireRateLimiting("learner");
 var submissionEndpoint = app.MapPost("/api/submissions/validate", async (Submission submission, HttpContext httpContext, IServiceProvider services, IHttpClientFactory httpClientFactory, IConfiguration configuration, IHostEnvironment environment, CancellationToken cancellationToken) =>
 {
     if (!Curriculum.BySlug.TryGetValue(submission.LessonSlug, out var lesson)) return Results.NotFound();
+    if ((submission.Answer?.Length ?? 0) > 200 || Encoding.UTF8.GetByteCount(submission.Code ?? string.Empty) > 50_000)
+        return Results.BadRequest(new { message = "Answers must be under 200 characters and code must be at most 50 KB." });
     if (lesson.Exercise.Kind == ExerciseKind.Code && !string.IsNullOrWhiteSpace(configuration["EVALUATOR_URL"]))
     {
         var evaluatorSharedSecret = configuration["EVALUATOR_SHARED_SECRET"];
         if (environment.IsProduction() && string.IsNullOrWhiteSpace(evaluatorSharedSecret))
             return Results.Problem("The code evaluator is not securely configured.", statusCode: StatusCodes.Status503ServiceUnavailable);
-        var client = httpClientFactory.CreateClient();
+        var client = httpClientFactory.CreateClient("evaluator");
         try
         {
             using var runnerRequest = new HttpRequestMessage(HttpMethod.Post, $"{configuration["EVALUATOR_URL"]!.TrimEnd('/')}/evaluate")
