@@ -131,6 +131,27 @@ test('loads the selected Python track for a guest learner', async ({ page }) => 
   await expect(page.getByText('What is `completed_lessons` in this example?')).toBeVisible()
 })
 
+test('unlocks resilient HTTP clients after the preceding Python lesson passes', async ({ page }) => {
+  const completed = [
+    'python-values', 'python-functions', 'python-data-models', 'python-tests-errors', 'python-http', 'python-framework-choice',
+    'python-fastapi-endpoint', 'python-flask-composition', 'python-django-product', 'python-persistence', 'python-concurrency',
+    'python-security-observability', 'python-project-foundations', 'python-environments-packaging', 'python-control-flow-collections',
+    'python-modules-imports', 'python-objects-protocols', 'python-errors-resources'
+  ]
+  await page.addInitScript((progress) => {
+    localStorage.setItem('pathway-onboarding-complete', 'true')
+    localStorage.setItem('pathway-course-id', 'python-web')
+    localStorage.setItem('pathway-completed-lessons', JSON.stringify(progress))
+  }, completed)
+  await page.route('**/api/progress', route => route.fulfill({ status: 401 }))
+  await page.goto('/')
+
+  await page.getByRole('button', { name: 'Test with pytest and a deliberate pyramid' }).click()
+  await page.getByRole('button', { name: /The observable status and response contract/i }).click()
+  await page.getByRole('button', { name: /Check answer/i }).click()
+  await expect(page.getByRole('button', { name: 'Call HTTP services resiliently' })).toBeEnabled()
+})
+
 test('navigates workspaces and switches tracks from the sidebar', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('pathway-onboarding-complete', 'true'))
   await page.goto('/')

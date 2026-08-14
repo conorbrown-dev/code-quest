@@ -59,7 +59,14 @@ function App() {
     try {
       const response = await fetch(`${api}/api/submissions/validate`, { method: 'POST', headers: apiHeaders(account), body: JSON.stringify({ lessonSlug: lesson.slug, answer, code }) })
       if (!response.ok) throw Error(); const next: Result = await response.json(); setResult(next)
-      if (next.passed) { const updated = [...new Set([...completed, lesson.slug])]; setCompleted(updated); localStorage.setItem('pathway-completed-lessons', JSON.stringify(updated)); notify(next.feedback) }
+      if (next.passed) {
+        setCompleted(current => {
+          const updated = [...new Set([...current, lesson.slug])]
+          localStorage.setItem('pathway-completed-lessons', JSON.stringify(updated))
+          return updated
+        })
+        notify(next.feedback)
+      }
     } catch { notify('Validation service is unavailable. Try again shortly.') }
   }
   useEffect(() => { const handler = (event: KeyboardEvent) => { if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') { event.preventDefault(); void submit() } }; window.addEventListener('keydown', handler); return () => window.removeEventListener('keydown', handler) })
