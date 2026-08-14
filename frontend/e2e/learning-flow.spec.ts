@@ -102,7 +102,8 @@ test('validates a code exercise and supports reset and worked-example review', a
   }))
   await page.addInitScript(() => {
     localStorage.setItem('pathway-onboarding-complete', 'true')
-    localStorage.setItem('pathway-completed-lessons', JSON.stringify(['foundations-how-code-works', 'foundations-values']))
+    localStorage.setItem('pathway-learner-id', 'code-exercise-guest')
+    localStorage.setItem('pathway-completed-lessons:guest:code-exercise-guest', JSON.stringify(['foundations-how-code-works', 'foundations-values']))
   })
   await page.goto('/')
 
@@ -144,7 +145,8 @@ test('unlocks resilient HTTP clients after the preceding Python lesson passes', 
   await page.addInitScript((progress) => {
     localStorage.setItem('pathway-onboarding-complete', 'true')
     localStorage.setItem('pathway-course-id', 'python-web')
-    localStorage.setItem('pathway-completed-lessons', JSON.stringify(progress))
+    localStorage.setItem('pathway-learner-id', 'python-unlock-guest')
+    localStorage.setItem('pathway-completed-lessons:guest:python-unlock-guest', JSON.stringify(progress))
   }, completed)
   await page.route('**/api/progress', route => route.fulfill({ status: 401 }))
   await page.goto('/')
@@ -153,6 +155,17 @@ test('unlocks resilient HTTP clients after the preceding Python lesson passes', 
   await page.getByRole('button', { name: /The observable status and response contract/i }).click()
   await page.getByRole('button', { name: /Check answer/i }).click()
   await expect(page.getByRole('button', { name: 'Call HTTP services resiliently' })).toBeEnabled()
+})
+
+test('does not show legacy browser progress after the owner logs out', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('pathway-onboarding-complete', 'true')
+    localStorage.setItem('pathway-learner-id', 'new-guest')
+    localStorage.setItem('pathway-completed-lessons', JSON.stringify(['foundations-how-code-works']))
+  })
+  await page.goto('/')
+
+  await expect(page.getByRole('button', { name: 'Values & variables locked' })).toBeVisible()
 })
 
 test('navigates workspaces and switches tracks from the sidebar', async ({ page }) => {

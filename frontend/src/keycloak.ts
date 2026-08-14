@@ -7,14 +7,14 @@ const clientId = import.meta.env.VITE_KEYCLOAK_CLIENT_ID
 export const keycloakConfigured = Boolean(url && realm && clientId)
 export const keycloak = keycloakConfigured ? new Keycloak({ url, realm, clientId }) : null
 
-export type KeycloakAccount = { token: string; displayName: string; email: string }
+export type KeycloakAccount = { token: string; displayName: string; email: string; subject: string }
 
 export async function initializeKeycloak(): Promise<KeycloakAccount | null> {
   if (!keycloak) return null
   const authenticated = await keycloak.init({ onLoad: 'check-sso', pkceMethod: 'S256', checkLoginIframe: false })
   if (!authenticated || !keycloak.token) return null
   const profile = keycloak.tokenParsed
-  return { token: keycloak.token, displayName: profile?.name ?? profile?.preferred_username ?? 'Learner', email: profile?.email ?? '' }
+  return { token: keycloak.token, displayName: profile?.name ?? profile?.preferred_username ?? 'Learner', email: profile?.email ?? '', subject: profile?.sub ?? profile?.email ?? profile?.preferred_username ?? 'unknown' }
 }
 
 export function loginWithKeycloak(register = false) {
