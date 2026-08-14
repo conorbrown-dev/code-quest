@@ -66,6 +66,7 @@ test('serves learning-experience templates, checkpoints, and guarded coaching', 
 test('loads the first lesson for a guest learner', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('pathway-onboarding-complete', 'true'))
   await page.goto('/')
+  await expect(page).toHaveTitle('Pathway — Learn C#')
 
   await expect(page.getByRole('heading', { name: 'What a computer actually does' })).toBeVisible()
   await expect(page.getByText("Which component holds a program's active working data?")).toBeVisible()
@@ -181,6 +182,7 @@ test('does not show legacy browser progress after the owner logs out', async ({ 
 test('navigates workspaces and switches tracks from the sidebar', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('pathway-onboarding-complete', 'true'))
   await page.goto('/')
+  await expect(page).toHaveTitle('Pathway — Learn C#')
 
   await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible()
   await page.getByRole('button', { name: 'Notifications' }).click()
@@ -197,6 +199,7 @@ test('navigates workspaces and switches tracks from the sidebar', async ({ page 
   await expect(page.getByRole('menu')).toBeVisible()
   await page.getByRole('menuitem', { name: /Python Web/i }).click()
   await expect(page.getByRole('heading', { name: 'What a computer actually does' })).toBeVisible()
+  await expect(page).toHaveTitle('Pathway — Learn Python')
   await expect.poll(() => page.evaluate(() => localStorage.getItem('pathway-course-id'))).toBe('python-web')
 })
 

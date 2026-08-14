@@ -47,6 +47,7 @@ function App() {
   const [onboarding, setOnboarding] = useState(() => !localStorage.getItem('pathway-onboarding-complete'))
   const [workspace, setWorkspace] = useState<Workspace>('learn')
   useEffect(() => applyAccent(localStorage.getItem('pathway-accent') ?? 'purple'), [])
+  useEffect(() => { if (course) document.title = `Pathway — Learn ${course.languageId === 'python' ? 'Python' : 'C#'}` }, [course])
   const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(''), 2600) }
   useEffect(() => { initializeKeycloak().then(setAccount).catch(() => notify('Keycloak sign-in could not be initialized.')) }, [])
   useEffect(() => {
