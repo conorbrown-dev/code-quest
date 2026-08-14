@@ -29,6 +29,7 @@ function App() {
   const [toast, setToast] = useState('')
   const [completed, setCompleted] = useState<string[]>(() => JSON.parse(localStorage.getItem('pathway-completed-lessons') ?? '[]'))
   const [account, setAccount] = useState<Account | null>(null)
+  const accountIdentity = account?.email || account?.displayName || 'guest'
   const [onboarding, setOnboarding] = useState(() => !localStorage.getItem('pathway-onboarding-complete'))
   const [workspace, setWorkspace] = useState<Workspace>('learn')
   const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(''), 2600) }
@@ -38,7 +39,7 @@ function App() {
     if (!client || !account) return
     const refresh = window.setInterval(() => client.updateToken(60).then(() => {
       const refreshedToken = client.token
-      if (refreshedToken) setAccount(current => current ? { ...current, token: refreshedToken } : current)
+      if (refreshedToken) setAccount(current => current && current.token !== refreshedToken ? { ...current, token: refreshedToken } : current)
     }).catch(() => {
       setAccount(null)
       void loginWithKeycloak(false)
@@ -51,7 +52,7 @@ function App() {
     catch { notify('Could not load that lesson. Check the API connection.') }
     finally { setLoading(false) }
   }
-  useEffect(() => { fetch(`${api}/api/courses/${courseId}`).then(r => r.ok ? r.json() : Promise.reject()).then((nextCourse: Course) => { const firstSlug = nextCourse.modules.flatMap(module => module.lessons).sort((a, b) => a.order - b.order)[0]?.slug; if (!firstSlug) throw Error(); return Promise.all([Promise.resolve(nextCourse), fetch(`${api}/api/lessons/${firstSlug}`).then(r => r.json()), fetch(`${api}/api/progress`, { headers: apiHeaders(account) }).then(r => r.ok ? r.json() : null)]) }).then(([nextCourse, nextLesson, progress]) => { setCourse(nextCourse); setLesson(nextLesson); setCode(nextLesson.exercise.starterCode ?? ''); if (progress?.completedLessonSlugs) { setCompleted(progress.completedLessonSlugs); localStorage.setItem('pathway-completed-lessons', JSON.stringify(progress.completedLessonSlugs)) } }).catch(() => notify('Start the API to load the curriculum.')).finally(() => setLoading(false)) }, [account, courseId])
+  useEffect(() => { fetch(`${api}/api/courses/${courseId}`).then(r => r.ok ? r.json() : Promise.reject()).then((nextCourse: Course) => { const firstSlug = nextCourse.modules.flatMap(module => module.lessons).sort((a, b) => a.order - b.order)[0]?.slug; if (!firstSlug) throw Error(); return Promise.all([Promise.resolve(nextCourse), fetch(`${api}/api/lessons/${firstSlug}`).then(r => r.json()), fetch(`${api}/api/progress`, { headers: apiHeaders(account) }).then(r => r.ok ? r.json() : null)]) }).then(([nextCourse, nextLesson, progress]) => { setCourse(nextCourse); setLesson(nextLesson); setCode(nextLesson.exercise.starterCode ?? ''); if (progress?.completedLessonSlugs) { setCompleted(progress.completedLessonSlugs); localStorage.setItem('pathway-completed-lessons', JSON.stringify(progress.completedLessonSlugs)) } }).catch(() => notify('Start the API to load the curriculum.')).finally(() => setLoading(false)) }, [accountIdentity, courseId])
   const submit = async () => {
     if (!lesson) return
     if (lesson.exercise.kind === 'MultipleChoice' && !answer) return notify('Choose an answer first.')
