@@ -45,7 +45,7 @@ Create the web, API, Keycloak, and private Modal broker services from this repos
 
 | Service | Root directory | Config-as-code path | Required variables |
 | --- | --- | --- | --- |
-| `pathway-web` | `/frontend` | `/frontend/railway.toml` | `VITE_API_BASE_URL=https://<your-api-domain>`, `VITE_KEYCLOAK_URL=https://<keycloak-domain>`, `VITE_KEYCLOAK_REALM=pathway`, `VITE_KEYCLOAK_CLIENT_ID=pathway-web` **at build time** |
+| `pathway-web` | `/frontend` | `/frontend/railway.toml` | `VITE_API_BASE_URL=https://<your-api-domain>`, `VITE_KEYCLOAK_URL=https://<keycloak-domain>`, `VITE_KEYCLOAK_REALM=pathway`, `VITE_KEYCLOAK_CLIENT_ID=pathway-web`, optional `VITE_DONATION_URL=https://<your-donation-provider-link>` **at build time** |
 | `pathway-api` | `/backend/Pathway.Api` | `/backend/Pathway.Api/railway.toml` | `CORS_ORIGINS=https://pathway.orangecastle.net`, `DATABASE_URL=${{Postgres.DATABASE_URL}}`, `KEYCLOAK_AUTHORITY=https://<keycloak-domain>/realms/pathway`, `KEYCLOAK_AUDIENCE=pathway-api` |
 | `pathway-modal-broker` | `/modal-broker` | `/modal-broker/railway.toml` | `MODAL_TOKEN_ID`, `MODAL_TOKEN_SECRET`, `RUNNER_SHARED_SECRET` — private only, no public domain |
 
