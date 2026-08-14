@@ -29,7 +29,7 @@ npx playwright install chromium
 npm run test:e2e
 
 # Production
-PLAYWRIGHT_BASE_URL=https://code-quest-production.up.railway.app \
+PLAYWRIGHT_BASE_URL=https://pathway.orangecastle.net \
 PLAYWRIGHT_API_BASE_URL=https://api-production-7d4e.up.railway.app \
 npm run test:e2e
 ```
@@ -46,7 +46,7 @@ Create the web, API, Keycloak, and private Modal broker services from this repos
 | Service | Root directory | Config-as-code path | Required variables |
 | --- | --- | --- | --- |
 | `pathway-web` | `/frontend` | `/frontend/railway.toml` | `VITE_API_BASE_URL=https://<your-api-domain>`, `VITE_KEYCLOAK_URL=https://<keycloak-domain>`, `VITE_KEYCLOAK_REALM=pathway`, `VITE_KEYCLOAK_CLIENT_ID=pathway-web` **at build time** |
-| `pathway-api` | `/backend/Pathway.Api` | `/backend/Pathway.Api/railway.toml` | `CORS_ORIGINS=https://<your-web-domain>`, `DATABASE_URL=${{Postgres.DATABASE_URL}}`, `KEYCLOAK_AUTHORITY=https://<keycloak-domain>/realms/pathway`, `KEYCLOAK_AUDIENCE=pathway-api` |
+| `pathway-api` | `/backend/Pathway.Api` | `/backend/Pathway.Api/railway.toml` | `CORS_ORIGINS=https://pathway.orangecastle.net`, `DATABASE_URL=${{Postgres.DATABASE_URL}}`, `KEYCLOAK_AUTHORITY=https://<keycloak-domain>/realms/pathway`, `KEYCLOAK_AUDIENCE=pathway-api` |
 | `pathway-modal-broker` | `/modal-broker` | `/modal-broker/railway.toml` | `MODAL_TOKEN_ID`, `MODAL_TOKEN_SECRET`, `RUNNER_SHARED_SECRET` — private only, no public domain |
 
 Generate a public domain for both services. Set the API URL before deploying the web service, because Vite embeds `VITE_*` values in its static build. The API service binds to Railway’s injected `PORT` and exposes `/health` for the Railway deployment check.
@@ -103,7 +103,7 @@ KC_DB_USERNAME=${{KeycloakPostgres.PGUSER}}
 KC_DB_PASSWORD=${{KeycloakPostgres.PGPASSWORD}}
 ```
 
-After the first Keycloak deployment, open its admin console, select realm `pathway`, and add the Railway frontend URL to **Valid redirect URIs** (`https://<web-domain>/*`) and **Web origins** (`https://<web-domain>`). The realm import deliberately ignores existing realms on later restarts, so make production realm changes in the Keycloak admin console or manage them with a separate Keycloak configuration workflow.
+After the first Keycloak deployment, open its admin console, select realm `pathway`, and add `https://pathway.orangecastle.net/*` to **Valid redirect URIs** and `https://pathway.orangecastle.net` to **Web origins**. The realm import includes this domain for fresh installs but deliberately ignores existing realms on later restarts, so add it in the admin console for an existing production realm.
 
 Create an API audience/client named `pathway-api` and add it to the access-token audience for `pathway-web`. The API validates issuer, signature, audience, expiration, and subject through Keycloak’s OIDC metadata. It stores progress and submissions under `keycloak:<sub>` in Postgres. In production the progress and submission endpoints require an authenticated Keycloak bearer token; guest mode is retained only when Keycloak is not configured for local exploration.
 

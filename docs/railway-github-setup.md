@@ -19,7 +19,7 @@ For the Railway **Root Directory** field, enter `frontend`, `backend/Pathway.Api
 
 4. Add two Railway Postgres services: one for `pathway-api`, and a **separate** one for `pathway-keycloak`.
 5. Set the variables in the main [README](../README.md#deploy-keycloak-on-railway) for every service. Generate public domains before setting the cross-service URLs.
-6. In Keycloak, add the Railway web URL as a redirect URI and web origin for `pathway-web`.
+6. Set `CORS_ORIGINS=https://pathway.orangecastle.net` on `pathway-api`. In Keycloak, add `https://pathway.orangecastle.net/*` as a redirect URI and `https://pathway.orangecastle.net` as a web origin for `pathway-web`.
 
 ### Fix: “Railpack could not determine how to build the app”
 
