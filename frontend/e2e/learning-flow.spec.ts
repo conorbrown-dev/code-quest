@@ -200,6 +200,15 @@ test('navigates workspaces and switches tracks from the sidebar', async ({ page 
   await expect.poll(() => page.evaluate(() => localStorage.getItem('pathway-course-id'))).toBe('python-web')
 })
 
+test('persists the selected neon accent after a reload', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('pathway-onboarding-complete', 'true'))
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Pink theme' }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-accent', 'pink')
+  await page.reload()
+  await expect(page.locator('html')).toHaveAttribute('data-accent', 'pink')
+})
+
 test('exposes the learning-experience workspaces for a guest learner', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'Explore as a guest' }).click()
