@@ -11,6 +11,8 @@ public sealed class ProgressDbContext(DbContextOptions<ProgressDbContext> option
     public DbSet<ReviewSchedule> ReviewSchedules => Set<ReviewSchedule>();
     public DbSet<CommunityPost> CommunityPosts => Set<CommunityPost>();
     public DbSet<CommunityReply> CommunityReplies => Set<CommunityReply>();
+    public DbSet<CareerOutcomeCheckIn> CareerOutcomeCheckIns => Set<CareerOutcomeCheckIn>();
+    public DbSet<PeerReviewProfile> PeerReviewProfiles => Set<PeerReviewProfile>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -72,6 +74,25 @@ public sealed class ProgressDbContext(DbContextOptions<ProgressDbContext> option
             entity.HasIndex(item => new { item.PostId, item.CreatedAt });
             entity.Property(item => item.AuthorId).HasMaxLength(100);
             entity.Property(item => item.Body).HasMaxLength(10_000);
+        });
+        modelBuilder.Entity<CareerOutcomeCheckIn>(entity =>
+        {
+            entity.ToTable("career_outcome_checkins");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => new { item.LearnerId, item.CourseId }).IsUnique();
+            entity.Property(item => item.LearnerId).HasMaxLength(100);
+            entity.Property(item => item.CourseId).HasMaxLength(100);
+            entity.Property(item => item.JobSearchStage).HasMaxLength(80);
+            entity.Property(item => item.PortfolioUrl).HasMaxLength(2_000);
+        });
+        modelBuilder.Entity<PeerReviewProfile>(entity =>
+        {
+            entity.ToTable("peer_review_profiles");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => new { item.LearnerId, item.CourseId }).IsUnique();
+            entity.Property(item => item.LearnerId).HasMaxLength(100);
+            entity.Property(item => item.CourseId).HasMaxLength(100);
+            entity.Property(item => item.Focus).HasMaxLength(500);
         });
     }
 }
@@ -144,4 +165,27 @@ public sealed class CommunityReply
     public required string Body { get; init; }
     public bool IsMentor { get; init; }
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
+}
+
+public sealed class CareerOutcomeCheckIn
+{
+    public Guid Id { get; init; } = Guid.NewGuid();
+    public required string LearnerId { get; init; }
+    public required string CourseId { get; init; }
+    public int InterviewReadiness { get; set; }
+    public int MentorReadiness { get; set; }
+    public string? JobSearchStage { get; set; }
+    public string? PortfolioUrl { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
+}
+
+public sealed class PeerReviewProfile
+{
+    public Guid Id { get; init; } = Guid.NewGuid();
+    public required string LearnerId { get; init; }
+    public required string CourseId { get; init; }
+    public required string Focus { get; set; }
+    public bool AvailableForPeerReview { get; set; }
+    public bool WantsMentorOfficeHours { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

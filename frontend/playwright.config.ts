@@ -12,6 +12,9 @@ export default defineConfig({
   use: {
     baseURL: externalBaseUrl ?? 'http://127.0.0.1:5173',
     trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+    ...(process.env.PLAYWRIGHT_AUTH_STORAGE_STATE ? { storageState: process.env.PLAYWRIGHT_AUTH_STORAGE_STATE } : {}),
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: externalBaseUrl

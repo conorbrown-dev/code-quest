@@ -62,8 +62,8 @@ jobs:
       - run: npm ci
       - run: npm test
 
-  browser-smoke:
-    name: Local browser smoke test
+  browser-e2e:
+    name: Complete local browser E2E suite
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
