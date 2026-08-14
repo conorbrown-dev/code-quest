@@ -374,6 +374,29 @@ static class Curriculum
         new(PythonCourse.Id, PythonCourse.Title, PythonCourse.LanguageId, PythonCourse.LanguageVersion, PythonCourse.FrameworkVersion, true)
     ];
 
-    private static Course BuildCourse(string id, string title, string languageId, string languageVersion, string frameworkVersion, string reviewed, Lesson[] lessons) => new(id, title, languageId, languageVersion, frameworkVersion, reviewed,
-        lessons.GroupBy(lesson => lesson.Module).OrderBy(group => group.Min(lesson => lesson.Order)).Select(group => new Module(group.Key.ToLowerInvariant().Replace(' ', '-'), group.Key, group.Key.Contains("foundations", StringComparison.OrdinalIgnoreCase) ? "Beginner" : group.Key.Contains("staff", StringComparison.OrdinalIgnoreCase) ? "Staff" : "Professional", group.OrderBy(lesson => lesson.Order).Select(l => new LessonSummary(l.Slug, l.Title, l.Order)).ToArray())).ToArray());
+    private static Course BuildCourse(string id, string title, string languageId, string languageVersion, string frameworkVersion, string reviewed, Lesson[] lessons) => new(id, title, languageId, languageVersion, frameworkVersion, reviewed, BuildModules(lessons));
+
+    private static IReadOnlyList<Module> BuildModules(Lesson[] lessons)
+    {
+        var modules = new List<Module>();
+        var current = new List<Lesson>();
+        foreach (var lesson in lessons.OrderBy(lesson => lesson.Order))
+        {
+            if (current.Count > 0 && !string.Equals(current[0].Module, lesson.Module, StringComparison.Ordinal))
+            {
+                modules.Add(ToModule(current, modules.Count));
+                current = [];
+            }
+            current.Add(lesson);
+        }
+        if (current.Count > 0) modules.Add(ToModule(current, modules.Count));
+        return modules;
+    }
+
+    private static Module ToModule(IReadOnlyList<Lesson> lessons, int index)
+    {
+        var title = lessons[0].Module;
+        var level = title.Contains("foundations", StringComparison.OrdinalIgnoreCase) ? "Beginner" : title.Contains("staff", StringComparison.OrdinalIgnoreCase) ? "Staff" : "Professional";
+        return new Module($"{title.ToLowerInvariant().Replace(' ', '-')}-{index + 1}", title, level, lessons.Select(lesson => new LessonSummary(lesson.Slug, lesson.Title, lesson.Order)).ToArray());
+    }
 }

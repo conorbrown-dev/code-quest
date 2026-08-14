@@ -23,6 +23,9 @@ test('serves the Python Web curriculum and its framework-choice lesson', async (
   const lessons = body.modules.flatMap((module: { lessons: { slug: string; order: number }[] }) => module.lessons)
   expect(lessons).toHaveLength(33)
   expect(lessons.map((lesson: { slug: string }) => lesson.slug)).toEqual(expect.arrayContaining(['python-framework-choice', 'python-project-foundations', 'python-system-design', 'python-staff-architecture']))
+  expect(lessons.map((lesson: { order: number }) => lesson.order)).toEqual([...Array(33)].map((_, index) => index + 1))
+  expect(lessons.map((lesson: { slug: string }) => lesson.slug)).toEqual(expect.arrayContaining(['python-testing-pytest', 'python-http-clients']))
+  expect(lessons.findIndex((lesson: { slug: string }) => lesson.slug === 'python-http-clients')).toBe(lessons.findIndex((lesson: { slug: string }) => lesson.slug === 'python-testing-pytest') + 1)
   expect(lessons.sort((a: { order: number }, b: { order: number }) => a.order - b.order).at(-1)).toMatchObject({ slug: 'python-staff-architecture', order: 33 })
 
   const frameworkChoice = await request.get(`${apiBaseUrl}/api/lessons/python-framework-choice`)
@@ -181,7 +184,7 @@ test('exposes the learning-experience workspaces for a guest learner', async ({ 
   await expect(page.getByRole('heading', { name: 'Make progress visible.' })).toBeVisible()
   await expect(page.getByRole('heading', { name: /checkpoint/i })).toBeVisible()
   await page.getByRole('button', { name: 'Projects' }).click()
-  await page.getByRole('button', { name: 'Open workspace →' }).click()
+  await page.getByRole('button', { name: 'Open workspace →' }).first().click()
   await expect(page.getByRole('button', { name: 'Save' })).toBeVisible()
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByText('Workspace saved in this browser. Sign in to sync it across devices.')).toBeVisible()
