@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using System.Net.Http.Json;
 using System.Security.Claims;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.CodeAnalysis;
@@ -10,6 +11,20 @@ using Pathway.Api;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddHttpClient();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = (context, _) =>
+    {
+        context.HttpContext.Response.Headers.RetryAfter = "60";
+        return ValueTask.CompletedTask;
+    };
+    options.AddPolicy("public-read", context => FixedWindow(context, permitLimit: 180));
+    options.AddPolicy("learner", context => FixedWindow(context, permitLimit: 90));
+    options.AddPolicy("submission", context => FixedWindow(context, permitLimit: 10));
+    options.AddPolicy("coach", context => FixedWindow(context, permitLimit: 20));
+    options.AddPolicy("community-write", context => FixedWindow(context, permitLimit: 15));
+});
 var databaseUrl = builder.Configuration["DATABASE_URL"] ?? builder.Configuration.GetConnectionString("Pathway");
 if (!string.IsNullOrWhiteSpace(databaseUrl))
     builder.Services.AddDbContextFactory<ProgressDbContext>(options => options.UseNpgsql(ToNpgsqlConnectionString(databaseUrl)));
@@ -31,7 +46,16 @@ if (!string.IsNullOrWhiteSpace(keycloakAuthority) && !string.IsNullOrWhiteSpace(
 }
 
 var app = builder.Build();
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    context.Response.Headers["X-Frame-Options"] = "DENY";
+    context.Response.Headers["Referrer-Policy"] = "no-referrer";
+    context.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
+    await next(context);
+});
 app.UseCors();
+app.UseRateLimiter();
 if (!string.IsNullOrWhiteSpace(keycloakAuthority) && !string.IsNullOrWhiteSpace(keycloakAudience))
 {
     app.UseAuthentication();
@@ -45,11 +69,20 @@ if (!string.IsNullOrWhiteSpace(databaseUrl))
     await context.Database.EnsureCreatedAsync();
     await EnsureLearningExperienceSchema(context);
 }
-app.MapGet("/health", () => Results.Ok(new { status = "ok", courseVersion = Curriculum.Version }));
-app.MapGet("/openapi/v1.json", () => Results.Ok(new { openapi = "3.0.3", info = new { title = "Pathway API", version = "v1" } }));
-app.MapGet("/api/courses", () => Results.Ok(Curriculum.Catalog));
-app.MapGet("/api/courses/{courseId}", (string courseId) => Curriculum.Courses.TryGetValue(courseId, out var course) ? Results.Ok(course) : Results.NotFound());
-app.MapGet("/api/lessons/{slug}", (string slug) => Curriculum.BySlug.TryGetValue(slug, out var lesson) ? Results.Ok(lesson) : Results.NotFound());
+app.MapGet("/health", () => Results.Ok(new { status = "ok", courseVersion = Curriculum.Version })).RequireRateLimiting("public-read");
+app.MapGet("/ready", async (IServiceProvider services, CancellationToken cancellationToken) =>
+{
+    var factory = services.GetService<IDbContextFactory<ProgressDbContext>>();
+    if (factory is null) return Results.Problem("The progress database is not configured.", statusCode: StatusCodes.Status503ServiceUnavailable);
+    await using var database = await factory.CreateDbContextAsync(cancellationToken);
+    return await database.Database.CanConnectAsync(cancellationToken)
+        ? Results.Ok(new { status = "ready" })
+        : Results.Problem("The progress database is unavailable.", statusCode: StatusCodes.Status503ServiceUnavailable);
+}).RequireRateLimiting("public-read");
+app.MapGet("/openapi/v1.json", () => Results.Ok(new { openapi = "3.0.3", info = new { title = "Pathway API", version = "v1" } })).RequireRateLimiting("public-read");
+app.MapGet("/api/courses", () => Results.Ok(Curriculum.Catalog)).RequireRateLimiting("public-read");
+app.MapGet("/api/courses/{courseId}", (string courseId) => Curriculum.Courses.TryGetValue(courseId, out var course) ? Results.Ok(course) : Results.NotFound()).RequireRateLimiting("public-read");
+app.MapGet("/api/lessons/{slug}", (string slug) => Curriculum.BySlug.TryGetValue(slug, out var lesson) ? Results.Ok(lesson) : Results.NotFound()).RequireRateLimiting("public-read");
 var progressEndpoint = app.MapGet("/api/progress", async (HttpContext httpContext, IServiceProvider services, CancellationToken cancellationToken) =>
 {
     var learnerId = await ResolveLearnerId(httpContext, services, cancellationToken);
@@ -59,6 +92,7 @@ var progressEndpoint = app.MapGet("/api/progress", async (HttpContext httpContex
     var completed = await database.Progress.Where(item => item.LearnerId == learnerId).OrderBy(item => item.CompletedAt).Select(item => item.LessonSlug).ToArrayAsync(cancellationToken);
     return Results.Ok(new LearnerProgressResponse(learnerId, completed));
 });
+progressEndpoint.RequireRateLimiting("learner");
 var submissionEndpoint = app.MapPost("/api/submissions/validate", async (Submission submission, HttpContext httpContext, IServiceProvider services, IHttpClientFactory httpClientFactory, IConfiguration configuration, IHostEnvironment environment, CancellationToken cancellationToken) =>
 {
     if (!Curriculum.BySlug.TryGetValue(submission.LessonSlug, out var lesson)) return Results.NotFound();
@@ -107,6 +141,7 @@ var submissionEndpoint = app.MapPost("/api/submissions/validate", async (Submiss
     await PersistSubmission(services, await ResolveLearnerId(httpContext, services, cancellationToken), submission, validation.Passed, cancellationToken);
     return Results.Ok(validation);
 });
+submissionEndpoint.RequireRateLimiting("submission");
 var experienceEndpoints = app.MapLearningExperienceEndpoints();
 if (!string.IsNullOrWhiteSpace(keycloakAuthority) && !string.IsNullOrWhiteSpace(keycloakAudience)) { progressEndpoint.RequireAuthorization(); submissionEndpoint.RequireAuthorization(); experienceEndpoints.RequireAuthorization(); }
 app.Run();
@@ -138,6 +173,19 @@ static async Task PersistSubmission(IServiceProvider services, string learnerId,
         }
     }
     await database.SaveChangesAsync(cancellationToken);
+}
+
+static RateLimitPartition<string> FixedWindow(HttpContext context, int permitLimit)
+{
+    var subject = context.User.FindFirstValue("sub");
+    var key = !string.IsNullOrWhiteSpace(subject) ? $"user:{subject}" : $"ip:{context.Connection.RemoteIpAddress?.ToString() ?? "unknown"}";
+    return RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions
+    {
+        PermitLimit = permitLimit,
+        Window = TimeSpan.FromMinutes(1),
+        QueueLimit = 0,
+        AutoReplenishment = true
+    });
 }
 
 static string ToNpgsqlConnectionString(string value)

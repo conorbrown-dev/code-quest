@@ -11,6 +11,7 @@ public static class LearningExperienceEndpoints
     public static RouteGroupBuilder MapLearningExperienceEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/api/experience");
+        group.RequireRateLimiting("learner");
         group.MapGet("/dashboard", GetDashboard);
         group.MapGet("/reviews", GetDueReviews);
         group.MapPost("/reviews/{lessonSlug}/complete", CompleteReview);
@@ -21,10 +22,10 @@ public static class LearningExperienceEndpoints
         group.MapPut("/projects/{projectId:guid}/files/{*path}", SaveProjectFile);
         group.MapGet("/assessments/{courseId}/{moduleId}", GetAssessment);
         group.MapPost("/assessments/{courseId}/{moduleId}", SubmitAssessment);
-        group.MapPost("/coach", Coach);
+        group.MapPost("/coach", Coach).RequireRateLimiting("coach");
         group.MapGet("/community/{courseId}", GetCommunityPosts);
-        group.MapPost("/community/{courseId}", CreateCommunityPost);
-        group.MapPost("/community/posts/{postId:guid}/replies", CreateCommunityReply);
+        group.MapPost("/community/{courseId}", CreateCommunityPost).RequireRateLimiting("community-write");
+        group.MapPost("/community/posts/{postId:guid}/replies", CreateCommunityReply).RequireRateLimiting("community-write");
         return group;
     }
 

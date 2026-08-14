@@ -8,6 +8,7 @@ on:
       - 'frontend/**'
       - 'backend/Pathway.Api/**'
       - 'infra/keycloak/**'
+      - 'modal-broker/**'
       - 'docker-compose.keycloak.yml'
       - '.github/workflows/verify.yml'
 
@@ -44,6 +45,22 @@ jobs:
           dotnet-version: 10.0.x
       - run: dotnet restore
       - run: dotnet build --no-restore --configuration Release
+
+  modal-broker:
+    name: Modal broker tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: modal-broker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: modal-broker/package-lock.json
+      - run: npm ci
+      - run: npm test
 
   browser-smoke:
     name: Local browser smoke test
