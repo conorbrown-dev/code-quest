@@ -1,5 +1,7 @@
 # Pathway
 
+Implemented by AI. Designed by human intelligence.
+
 A full-stack learning platform prototype for teaching C#/.NET from first principles through staff-level engineering.
 
 ## Stack
