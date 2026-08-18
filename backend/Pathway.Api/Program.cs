@@ -528,11 +528,58 @@ static class Curriculum
             ("rust-mentoring-leverage", "Staff practice", "Create organizational leverage", "Staff impact compounds through standards, mentoring, paved roads, clear ownership, and decisions other teams can safely reuse.", "Create a Rust service template with CI, tracing, and dependency policy", "leverage", ["leverage", "heroics", "gatekeeping"], "Leverage makes many engineers and teams more effective."),
             ("rust-staff-capstone", "Staff practice", "Staff Rust platform capstone", "Design and evolve a multi-tenant learning platform with Rust services, explicit contracts, reliability targets, safe rollout, and team ownership.", "Context: 10M learners; Decision: modular Axum service + Postgres + durable queue", "rollout", ["rollout", "big-bang", "undefined ownership"], "A staff-level design includes a reversible rollout and accountable owners.")
         };
-        var result = lessons.Select((item, index) => new Lesson(item.Slug, item.Module, index + 1, item.Title, item.Concept, item.Concept, $"{item.Concept} Apply it in a small project, explain the tradeoff, and use tests or operational evidence to verify it.", item.Example, new Exercise(ExerciseKind.MultipleChoice, "Check your understanding", item.Title, ["Choose one answer"], null, item.Answer, item.Choices.Select(choice => new Choice(choice, choice)).ToArray(), item.Hint, ["Explains the core decision"]), index + 1 < lessons.Length ? lessons[index + 1].Slug : null, RustDocs)).ToArray();
+        var result = lessons.Select((item, index) => new Lesson(item.Slug, item.Module, index + 1, item.Title, item.Concept, item.Concept, $"{item.Concept} Apply it in a small project, explain the tradeoff, and use tests or operational evidence to verify it.", item.Example, new Exercise(ExerciseKind.MultipleChoice, item.Title, RustQuestion(item.Slug), ["Choose one answer"], null, item.Answer, item.Choices.Select(choice => new Choice(choice, choice)).ToArray(), item.Hint, ["Explains the core decision"]), index + 1 < lessons.Length ? lessons[index + 1].Slug : null, RustDocs)).ToArray();
         result[6] = result[6] with { Exercise = new Exercise(ExerciseKind.Code, "Write a greeting function", "Implement `greet` so it returns a non-empty greeting for a name.", ["Define `fn greet(name: &str) -> String`", "Return a greeting using the name"], "fn greet(name: &str) -> String {\n    todo!()\n}", null, [], "Use `format!` to build an owned String.", ["Returns a greeting"] ) };
         result[15] = result[15] with { Exercise = new Exercise(ExerciseKind.Code, "Move a value intentionally", "Define `take_name` that accepts an owned String and returns its length.", ["Accept a `String` parameter", "Return its `usize` length"], "fn take_name(name: String) -> usize {\n    todo!()\n}", null, [], "Use `name.len()`; ownership moves into this function.", ["Uses owned input"] ) };
         return result;
     }
+
+    private static string RustQuestion(string slug) => slug switch
+    {
+        "rust-computer-model" => "What is the operating system’s name for a program that is currently running?",
+        "rust-bits-memory-storage" => "Where are a program’s active values held while it is running?",
+        "rust-processes-files-shell" => "What does a process return to its shell to indicate success or failure?",
+        "rust-networks-http" => "What does an HTTP client send before it receives a response?",
+        "rust-security-trust" => "What should an API do to data from an untrusted caller before relying on it?",
+        "rust-toolchain-cargo" => "Which Rust tool creates projects, resolves dependencies, builds, and tests?",
+        "rust-hello-functions" => "Which part of a Rust function signature declares the value it returns?",
+        "rust-bindings-types" => "Which keyword makes a Rust binding mutable?",
+        "rust-control-flow" => "Which construct lets Rust check an enum’s states exhaustively?",
+        "rust-collections-strings" => "Which collection is an ordered, growable sequence of values?",
+        "rust-option-result" => "Which Rust type makes an absent value explicit?",
+        "rust-errors-panics" => "What does the `?` operator do when an expression returns an error?",
+        "rust-debugging-tests" => "Which test macro asserts that two values are equal?",
+        "rust-crates-modules" => "What is Rust’s compilation and package unit called?",
+        "rust-cargo-quality" => "Which Cargo command reports common non-idiomatic patterns?",
+        "rust-ownership" => "What is transferred when an owned `String` is passed by value?",
+        "rust-borrowing-references" => "What does an `&str` parameter let a function do with string data?",
+        "rust-lifetimes" => "What do Rust lifetimes describe for references?",
+        "rust-structs-enums" => "Which type models a fixed set of meaningful states?",
+        "rust-traits-generics" => "What specifies the behavior a generic type must provide?",
+        "rust-iterators-closures" => "Before they are consumed, most iterator adapters are what?",
+        "rust-smart-pointers" => "Which standard type shares immutable ownership across threads?",
+        "rust-concurrency-send-sync" => "Which marker trait means a value can move safely to another thread?",
+        "rust-async-tokio" => "Which keyword suspends an async function until a future is ready?",
+        "rust-structured-concurrency" => "What bounds how long a dependency can consume a task’s capacity?",
+        "rust-unsafe-ffi" => "What should you do with unsafe operations in a larger codebase?",
+        "rust-web-axum" => "Which Axum type maps HTTP paths and methods to handlers?",
+        "rust-api-contracts" => "Which API change is usually safest for existing clients?",
+        "rust-extractors-errors" => "Where should an HTTP service validate untrusted request input?",
+        "rust-database-transactions" => "What property means a transaction commits all of its work or none of it?",
+        "rust-auth-security" => "What determines whether an authenticated actor may act on a resource?",
+        "rust-testing-integration" => "What should an HTTP integration test assert?",
+        "rust-observability" => "What sets a measurable reliability target for a user-visible service?",
+        "rust-performance-profiling" => "What should you do before adding a cache or changing an architecture for performance?",
+        "rust-resilience-queues" => "What property makes retrying an operation safe from duplicate effects?",
+        "rust-containers-delivery" => "What tells a traffic router that an instance can receive requests now?",
+        "rust-systems-wasm-embedded" => "What should determine which Rust deployment target or architecture you choose?",
+        "rust-staff-design" => "What should a staff-level architecture decision begin with?",
+        "rust-staff-architecture" => "What record preserves a decision’s context, alternatives, and tradeoffs?",
+        "rust-incident-learning" => "What is the first priority during an incident?",
+        "rust-mentoring-leverage" => "Which staff behavior multiplies the effectiveness of other engineers?",
+        "rust-staff-capstone" => "What makes a delivery plan safer when changing a production system?",
+        _ => throw new ArgumentOutOfRangeException(nameof(slug), slug, "Rust lesson is missing an assessment question.")
+    };
 
     private static Course BuildCourse(string id, string title, string languageId, string languageVersion, string frameworkVersion, string reviewed, Lesson[] lessons) => new(id, title, languageId, languageVersion, frameworkVersion, reviewed, BuildModules(lessons));
 

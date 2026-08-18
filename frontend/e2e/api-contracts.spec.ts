@@ -4,7 +4,7 @@ const apiBaseUrl = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://127.0.0.1:5100
 
 type LessonSummary = { slug: string; order: number }
 type Course = { id: string; modules: { lessons: LessonSummary[] }[] }
-type Lesson = LessonSummary & { nextSlug?: string; exercise: { kind: string; correctAnswer?: string; choices: { id: string }[] } }
+type Lesson = LessonSummary & { nextSlug?: string; exercise: { kind: string; prompt: string; correctAnswer?: string; choices: { id: string }[] } }
 
 const orderedLessons = (course: Course) => course.modules.flatMap(module => module.lessons).sort((left, right) => left.order - right.order)
 
@@ -59,6 +59,25 @@ test.describe('public API contract', () => {
       }
     })
   }
+
+  test('Rust multiple-choice exercises are direct questions with selectable answers', async ({ request }) => {
+    const courseResponse = await request.get(`${apiBaseUrl}/api/courses/rust-systems`)
+    await expect(courseResponse).toBeOK()
+    const summaries = orderedLessons(await courseResponse.json() as Course)
+    const lessons = await Promise.all(summaries.map(async summary => {
+      const response = await request.get(`${apiBaseUrl}/api/lessons/${summary.slug}`)
+      await expect(response).toBeOK()
+      return await response.json() as Lesson
+    }))
+
+    const questions = lessons.filter(lesson => lesson.exercise.kind === 'multiple-choice')
+    expect(questions).toHaveLength(40)
+    for (const lesson of questions) {
+      expect(lesson.exercise.prompt).toMatch(/\?$/)
+      expect(lesson.exercise.correctAnswer).toBeTruthy()
+      expect(lesson.exercise.choices.map(choice => choice.id)).toContain(lesson.exercise.correctAnswer)
+    }
+  })
 
   test('validates both failed and successful multiple-choice submissions for an isolated guest', async ({ request }) => {
     const learnerId = `playwright-contract-${crypto.randomUUID()}`
