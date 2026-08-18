@@ -264,6 +264,16 @@ static ValidationResult ValidateChoice(Lesson lesson, string? answer)
 }
 static ValidationResult ValidateCode(Lesson lesson, string code)
 {
+    if (lesson.Slug.StartsWith("rust-", StringComparison.Ordinal))
+    {
+        var rustPassed = lesson.Slug switch
+        {
+            "rust-hello-functions" => code.Contains("fn greet", StringComparison.Ordinal) && code.Contains("format!", StringComparison.Ordinal),
+            "rust-ownership" => code.Contains("fn take_name", StringComparison.Ordinal) && code.Contains("String", StringComparison.Ordinal) && code.Contains(".len()", StringComparison.Ordinal),
+            _ => false
+        };
+        return new ValidationResult(rustPassed, rustPassed ? 2 : 0, 2, rustPassed ? "All tests passed. Your Rust solution meets this lesson’s checks." : lesson.Exercise.Hint, rustPassed ? lesson.NextSlug : null, BuildCodeReview(lesson, code));
+    }
     if (lesson.Slug.StartsWith("python-", StringComparison.Ordinal))
     {
         var pythonPassed = lesson.Slug switch
@@ -296,7 +306,13 @@ static CodeReview BuildCodeReview(Lesson lesson, string code)
     var lines = code.Split('\n');
     if (lines.Any(line => line.Length > 120)) suggestions.Add("Keep lines under roughly 120 characters where practical so code remains easy to scan in reviews and diffs.");
 
-    if (lesson.Slug.StartsWith("python-", StringComparison.Ordinal))
+    if (lesson.Slug.StartsWith("rust-", StringComparison.Ordinal))
+    {
+        if (code.Contains(".unwrap()", StringComparison.Ordinal)) suggestions.Add("Avoid `unwrap()` on inputs or I/O paths where failure is possible; propagate, map, or explicitly recover from errors.");
+        if (code.Contains("unsafe", StringComparison.Ordinal) && !code.Contains("SAFETY", StringComparison.Ordinal)) suggestions.Add("Document the invariant that makes an unsafe operation sound with a nearby `SAFETY:` comment, and prefer a small safe wrapper.");
+        if (code.Contains("tokio::spawn", StringComparison.Ordinal) && !code.Contains("timeout", StringComparison.Ordinal)) suggestions.Add("Spawned async work needs a bounded lifetime and ownership policy; consider timeout, cancellation, and concurrency limits.");
+    }
+    else if (lesson.Slug.StartsWith("python-", StringComparison.Ordinal))
     {
         if (code.Contains(" == True", StringComparison.Ordinal) || code.Contains(" == False", StringComparison.Ordinal)) suggestions.Add("Prefer direct truthiness (`if value:` or `if not value:`) over comparing a boolean to `True` or `False`.");
         if (code.Contains("except Exception", StringComparison.Ordinal)) suggestions.Add("Catch the narrowest exception you can handle; a broad `except Exception` can hide programming errors.");
@@ -446,19 +462,77 @@ static class Curriculum
         .Concat(PythonLessons.Select(lesson => lesson with { Order = lesson.Order + 9 }))
         .Concat(PythonProfessionalLessons.Select(lesson => lesson with { Order = lesson.Order + 9 }))
         .ToArray();
-    public static readonly Dictionary<string, Lesson> BySlug = Lessons.Concat(PythonAllLessons).ToDictionary(lesson => lesson.Slug, StringComparer.Ordinal);
+    private static readonly VersionStamp RustDocs = new("Rust 1.97", "Edition 2024 · Cargo · Tokio · Axum", "2026-08-18", "https://doc.rust-lang.org/stable/book/");
+    public static readonly Lesson[] RustLessons = BuildRustLessons();
+    public static readonly Dictionary<string, Lesson> BySlug = Lessons.Concat(PythonAllLessons).Concat(RustLessons).ToDictionary(lesson => lesson.Slug, StringComparer.Ordinal);
     public static readonly Course Course = BuildCourse("csharp-dotnet", "C# / .NET: zero to staff", "csharp", "C# 14", ".NET 10", "2026-08-14", Lessons);
     public static readonly Course PythonCourse = BuildCourse("python-web", "Python Web: zero to staff", "python", "Python 3.14", "FastAPI · Flask · Django", "2026-08-14", PythonAllLessons);
+    public static readonly Course RustCourse = BuildCourse("rust-systems", "Rust Systems: zero to staff", "rust", "Rust 1.97", "Edition 2024 · Tokio · Axum", "2026-08-18", RustLessons);
     public static readonly IReadOnlyDictionary<string, Course> Courses = new Dictionary<string, Course>(StringComparer.Ordinal)
     {
         [Course.Id] = Course,
-        [PythonCourse.Id] = PythonCourse
+        [PythonCourse.Id] = PythonCourse,
+        [RustCourse.Id] = RustCourse
     };
     public static readonly IReadOnlyList<CourseCatalogItem> Catalog =
     [
         new(Course.Id, Course.Title, Course.LanguageId, Course.LanguageVersion, Course.FrameworkVersion, true),
-        new(PythonCourse.Id, PythonCourse.Title, PythonCourse.LanguageId, PythonCourse.LanguageVersion, PythonCourse.FrameworkVersion, true)
+        new(PythonCourse.Id, PythonCourse.Title, PythonCourse.LanguageId, PythonCourse.LanguageVersion, PythonCourse.FrameworkVersion, true),
+        new(RustCourse.Id, RustCourse.Title, RustCourse.LanguageId, RustCourse.LanguageVersion, RustCourse.FrameworkVersion, true)
     ];
+
+    private static Lesson[] BuildRustLessons()
+    {
+        var lessons = new (string Slug, string Module, string Title, string Concept, string Example, string Answer, string[] Choices, string Hint)[]
+        {
+            ("rust-computer-model", "Computing foundations", "How a computer follows instructions", "Programs are instructions transformed into machine operations by tools and the operating system.", "source → compiler → executable → process", "process", ["process", "monitor", "folder"], "A running program is a process."),
+            ("rust-bits-memory-storage", "Computing foundations", "Bits, memory, and storage", "Memory holds working values while storage keeps data after power is removed.", "let count: u8 = 8;", "memory", ["memory", "DNS", "keyboard"], "Variables live in memory while a program runs."),
+            ("rust-processes-files-shell", "Computing foundations", "Processes, files, and the shell", "The shell starts programs and lets you inspect files, paths, and exit codes.", "cargo new hello_rust", "exit code", ["exit code", "borrow", "packet"], "An exit code tells the shell whether a process succeeded."),
+            ("rust-networks-http", "Computing foundations", "Networks and HTTP", "DNS names destinations; HTTP defines request and response semantics over a network.", "GET /health HTTP/1.1", "request", ["request", "crate", "thread"], "A client sends a request and receives a response."),
+            ("rust-security-trust", "Computing foundations", "Trust boundaries and HTTPS", "Input, networks, browsers, and dependencies are trust boundaries; TLS protects data in transit, not unsafe design.", "validate input at the API boundary", "validate", ["validate", "trust", "log secrets"], "Treat external data as untrusted until validated."),
+            ("rust-toolchain-cargo", "Rust foundations", "Install Rust and use Cargo", "rustup manages toolchains; Cargo creates, builds, tests, and packages Rust projects.", "cargo new learner_service\ncargo test", "Cargo", ["Cargo", "git", "DNS"], "Cargo is Rust's build and package tool."),
+            ("rust-hello-functions", "Rust foundations", "Functions and output", "Functions name a focused behavior; parameters and return types make the contract visible.", "fn greet(name: &str) -> String { format!(\"Hello, {name}\") }", "return type", ["return type", "macro only", "database"], "The `-> String` declares the returned value type."),
+            ("rust-bindings-types", "Rust foundations", "Bindings, types, and mutability", "Bindings are immutable by default; make mutation explicit and choose types based on the domain.", "let mut retries: u8 = 0;", "mut", ["mut", "unsafe", "async"], "`mut` makes a binding mutable."),
+            ("rust-control-flow", "Rust foundations", "Decisions and repetition", "Use expressions, `if`, `match`, and iterators to make each decision exhaustive and legible.", "match status { 200..=299 => true, _ => false }", "match", ["match", "panic", "clone"], "`match` can force handling of every enum variant."),
+            ("rust-collections-strings", "Rust foundations", "Collections, UTF-8, and ownership", "Vec, HashMap, and String model different data; strings are UTF-8 bytes, so indexing is deliberately constrained.", "let names: Vec<String> = vec![String::from(\"Ada\")];", "Vec", ["Vec", "Option", "trait"], "A Vec is an ordered growable collection."),
+            ("rust-option-result", "Rust foundations", "Absence and failure with Option and Result", "Make expected absence and recoverable failure visible in the type system.", "fn find(id: u64) -> Option<User> { None }", "Option", ["Option", "null", "exception only"], "Option represents a value that may be absent."),
+            ("rust-errors-panics", "Rust foundations", "Recoverable errors and panics", "Return Result for expected failures; reserve panic for broken invariants or truly unrecoverable states.", "let config = read_config()?;", "propagate", ["propagate", "ignore", "panic always"], "`?` propagates an error to a caller that can decide what to do."),
+            ("rust-debugging-tests", "Rust foundations", "Read compiler errors and test behavior", "The compiler, debugger, logs, and focused tests are evidence tools, not obstacles to work around.", "#[test]\nfn adds_two_numbers() { assert_eq!(add(1, 1), 2); }", "assert_eq", ["assert_eq", "println only", "release build"], "A test assertion verifies an observable expectation."),
+            ("rust-crates-modules", "Project workflow", "Crates, modules, and package boundaries", "A crate is a compilation unit; modules make dependencies and public interfaces intentional.", "pub mod domain;\nmod adapters;", "crate", ["crate", "binary packet", "process"], "A crate is Rust's compilation and packaging unit."),
+            ("rust-cargo-quality", "Project workflow", "Format, lint, document, and lock dependencies", "cargo fmt, clippy, tests, docs, and reviewed lockfiles create a repeatable engineering baseline.", "cargo fmt --check\ncargo clippy -- -D warnings", "clippy", ["clippy", "curl", "rustup only"], "Clippy finds many likely mistakes and non-idiomatic patterns."),
+            ("rust-ownership", "Memory-safe Rust", "Ownership and moves", "Every value has one owner; moving transfers responsibility for cleanup without a garbage collector.", "let second = first; // first moved for String", "move", ["move", "copy", "leak"], "Moving a String transfers ownership to the new binding."),
+            ("rust-borrowing-references", "Memory-safe Rust", "Borrow values with references", "References let code read or mutate data without taking ownership, under rules that prevent data races.", "fn len(name: &str) -> usize { name.len() }", "borrow", ["borrow", "duplicate", "serialize"], "`&str` borrows string data instead of owning it."),
+            ("rust-lifetimes", "Memory-safe Rust", "Lifetimes describe valid references", "Lifetimes connect reference validity to the data they point at; prefer owned values when they simplify boundaries.", "fn first<'a>(a: &'a str, _: &str) -> &'a str { a }", "validity", ["validity", "speed", "networking"], "Lifetimes prevent a reference outliving its data."),
+            ("rust-structs-enums", "Memory-safe Rust", "Model states with structs and enums", "Structs model related data; enums model a closed set of meaningful states.", "enum Enrollment { Active, Cancelled }", "enum", ["enum", "global", "pointer"], "An enum makes state alternatives explicit."),
+            ("rust-traits-generics", "Memory-safe Rust", "Traits, generics, and composition", "Traits express behavior contracts; generics reuse code while preserving static type checking.", "fn print<T: std::fmt::Display>(value: T) { println!(\"{value}\"); }", "trait bound", ["trait bound", "inheritance tree", "reflection"], "A trait bound specifies required behavior."),
+            ("rust-iterators-closures", "Memory-safe Rust", "Iterators and closures", "Iterator adapters describe transformations without exposing accidental loop mechanics.", "let active: Vec<_> = users.iter().filter(|u| u.active).collect();", "lazy", ["lazy", "unsafe", "global"], "Most iterator adapters are lazy until consumed."),
+            ("rust-smart-pointers", "Memory-safe Rust", "Heap data and shared ownership", "Box, Rc, Arc, RefCell, and Mutex solve distinct ownership problems; choose the smallest capability that fits.", "let shared = std::sync::Arc::new(config);", "Arc", ["Arc", "Vec", "Result"], "Arc supports shared ownership across threads."),
+            ("rust-concurrency-send-sync", "Concurrency and systems", "Threads, Send, Sync, and channels", "Rust uses ownership to prevent data races; Send and Sync describe safe cross-thread transfer and sharing.", "std::thread::spawn(move || work());", "Send", ["Send", "Clone", "Display"], "Send means a value can be transferred between threads safely."),
+            ("rust-async-tokio", "Concurrency and systems", "Async I/O with Tokio", "Async improves throughput for waiting I/O when work is bounded, cancellation-aware, and free of blocking calls.", "async fn fetch() -> Result<(), Error> { Ok(()) }", "await", ["await", "mut", "macro"], "`await` yields while an async operation is waiting."),
+            ("rust-structured-concurrency", "Concurrency and systems", "Bound tasks, cancellation, and backpressure", "Every spawned task needs ownership, limits, timeouts, cancellation, and a failure policy.", "let result = tokio::time::timeout(Duration::from_secs(2), task).await;", "timeout", ["timeout", "unbounded spawn", "blocking loop"], "Timeouts bound how long a dependency can consume capacity."),
+            ("rust-unsafe-ffi", "Concurrency and systems", "Unsafe, FFI, and sound abstractions", "Unsafe permits operations the compiler cannot prove safe; isolate it behind documented, tested safe APIs.", "// SAFETY: pointer came from a valid non-null slice", "isolate", ["isolate", "spread", "avoid tests"], "Unsafe code should be small, documented, and contained."),
+            ("rust-web-axum", "Service delivery", "Build an HTTP service with Axum", "Keep HTTP extraction and framework wiring at the edge; keep domain rules ordinary Rust.", "Router::new().route(\"/health\", get(health))", "Router", ["Router", "Mutex", "Cargo.lock"], "An Axum Router maps HTTP paths and methods to handlers."),
+            ("rust-api-contracts", "Service delivery", "Design compatible API contracts", "Define resource shapes, validation, errors, pagination, and idempotency before handlers.", "POST /v1/enrollments\nIdempotency-Key: abc", "additive", ["additive", "breaking rename", "undocumented"], "Additive optional changes are usually safer for existing clients."),
+            ("rust-extractors-errors", "Service delivery", "Validate input and map errors", "Extract and validate untrusted input at the boundary; map domain errors deliberately to HTTP responses.", "Result<Json<Lesson>, ApiError>", "boundary", ["boundary", "database only", "browser only"], "Boundary validation prevents invalid data reaching core logic."),
+            ("rust-database-transactions", "Service delivery", "Persist state with transactions", "A transaction is the atomic unit for a business operation; use parameterized queries and reviewed migrations.", "sqlx::query!(\"INSERT INTO enrollment ...\")", "atomic", ["atomic", "eventual only", "unrelated"], "An atomic transaction succeeds entirely or rolls back."),
+            ("rust-auth-security", "Service delivery", "Authentication, authorization, and secrets", "Identity does not grant access: authorize each action and resource, protect secrets, and set secure defaults.", "if actor.org_id != lesson.org_id { return Err(ApiError::Forbidden); }", "authorization", ["authorization", "authentication only", "frontend hiding"], "Authorization answers whether this actor may perform this action."),
+            ("rust-testing-integration", "Quality and operations", "Test at useful boundaries", "Unit tests protect rules, integration tests protect adapters, and a few end-to-end tests protect critical journeys.", "#[tokio::test]\nasync fn health_is_ok() { /* assert contract */ }", "contract", ["contract", "private call order", "every timestamp"], "Integration tests should assert behavior a client relies on."),
+            ("rust-observability", "Quality and operations", "Logs, metrics, traces, and SLOs", "Operational signals must answer whether users are succeeding and who can act when they are not.", "tracing::info!(request_id, \"enrollment_created\");", "SLO", ["SLO", "debug noise", "secret log"], "An SLO sets a measurable target for a user-visible service level."),
+            ("rust-performance-profiling", "Quality and operations", "Measure performance before optimizing", "Profile CPU, allocation, I/O, contention, and query time before changing architecture or adding caches.", "p95 latency: 180ms → target: 120ms", "measure", ["measure", "guess", "cache everything"], "A measurement identifies the constraint and success criterion."),
+            ("rust-resilience-queues", "Quality and operations", "Queues, retries, and idempotency", "Durable asynchronous work needs idempotency keys, bounded retries, dead-letter handling, and ownership.", "if already_processed(event.id) { return Ok(()); }", "idempotent", ["idempotent", "fast", "async"], "Idempotency makes repeated processing safe."),
+            ("rust-containers-delivery", "Quality and operations", "Deliver a Rust service safely", "Build reproducibly, configure at runtime, run as non-root where practical, and expose readiness and graceful shutdown.", "FROM rust:1.97 AS build", "readiness", ["readiness", "syntax", "future success"], "Readiness means an instance can safely receive traffic now."),
+            ("rust-systems-wasm-embedded", "Systems practice", "Choose Rust domains deliberately", "Rust fits services, CLI tools, WebAssembly, embedded software, and performance-sensitive components; constraints choose the architecture.", "target = \"wasm32-unknown-unknown\"", "constraints", ["constraints", "trend", "language loyalty"], "Start from user and system constraints, not a fashionable target."),
+            ("rust-staff-design", "Staff practice", "Design systems through constraints", "Staff engineers make assumptions, boundaries, failure modes, capacity, ownership, and reversal signals explicit.", "ADR: modular service + queue; revisit at sustained queue-delay SLO breach", "evidence", ["evidence", "diagram only", "microservices by default"], "Staff decisions begin with evidence and measurable constraints."),
+            ("rust-staff-architecture", "Staff practice", "Make architecture decisions durable", "Write an ADR that records context, alternatives, consequences, rollout, ownership, and when to revisit.", "Decision: isolate unsafe parser behind audited crate boundary", "ADR", ["ADR", "chat message", "unreviewed rewrite"], "An ADR preserves reasoning so teams can evaluate and revisit it."),
+            ("rust-incident-learning", "Staff practice", "Lead incident learning", "Mitigate user impact first, communicate clearly, learn without blame, and turn evidence into prevention work.", "Mitigate → stabilize → investigate → learn → verify", "mitigate", ["mitigate", "assign blame", "wait silently"], "The first responsibility in an incident is reducing user impact safely."),
+            ("rust-mentoring-leverage", "Staff practice", "Create organizational leverage", "Staff impact compounds through standards, mentoring, paved roads, clear ownership, and decisions other teams can safely reuse.", "Create a Rust service template with CI, tracing, and dependency policy", "leverage", ["leverage", "heroics", "gatekeeping"], "Leverage makes many engineers and teams more effective."),
+            ("rust-staff-capstone", "Staff practice", "Staff Rust platform capstone", "Design and evolve a multi-tenant learning platform with Rust services, explicit contracts, reliability targets, safe rollout, and team ownership.", "Context: 10M learners; Decision: modular Axum service + Postgres + durable queue", "rollout", ["rollout", "big-bang", "undefined ownership"], "A staff-level design includes a reversible rollout and accountable owners.")
+        };
+        var result = lessons.Select((item, index) => new Lesson(item.Slug, item.Module, index + 1, item.Title, item.Concept, item.Concept, $"{item.Concept} Apply it in a small project, explain the tradeoff, and use tests or operational evidence to verify it.", item.Example, new Exercise(ExerciseKind.MultipleChoice, "Check your understanding", item.Title, ["Choose one answer"], null, item.Answer, item.Choices.Select(choice => new Choice(choice, choice)).ToArray(), item.Hint, ["Explains the core decision"]), index + 1 < lessons.Length ? lessons[index + 1].Slug : null, RustDocs)).ToArray();
+        result[6] = result[6] with { Exercise = new Exercise(ExerciseKind.Code, "Write a greeting function", "Implement `greet` so it returns a non-empty greeting for a name.", ["Define `fn greet(name: &str) -> String`", "Return a greeting using the name"], "fn greet(name: &str) -> String {\n    todo!()\n}", null, [], "Use `format!` to build an owned String.", ["Returns a greeting"] ) };
+        result[15] = result[15] with { Exercise = new Exercise(ExerciseKind.Code, "Move a value intentionally", "Define `take_name` that accepts an owned String and returns its length.", ["Accept a `String` parameter", "Return its `usize` length"], "fn take_name(name: String) -> usize {\n    todo!()\n}", null, [], "Use `name.len()`; ownership moves into this function.", ["Uses owned input"] ) };
+        return result;
+    }
 
     private static Course BuildCourse(string id, string title, string languageId, string languageVersion, string frameworkVersion, string reviewed, Lesson[] lessons) => new(id, title, languageId, languageVersion, frameworkVersion, reviewed, BuildModules(lessons));
 

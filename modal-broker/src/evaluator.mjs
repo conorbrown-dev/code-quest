@@ -14,6 +14,20 @@ export function fixtureFor(lessonSlug, code) {
         command: ['python3', '/workspace/main.py'],
         tests: 2,
       }
+    case 'rust-hello-functions':
+      return {
+        files: { 'main.rs': `${code}\n\nfn main() {\n    let result = greet(\"Ada\");\n    assert!(!result.trim().is_empty());\n    assert!(result.contains(\"Ada\"));\n    println!(\"PATHWAY_TEST_PASS\");\n}\n` },
+        command: ['/bin/sh', '-c', 'rustc --edition=2024 /workspace/main.rs -o /workspace/main && /workspace/main'],
+        tests: 2,
+        runtime: 'rust',
+      }
+    case 'rust-ownership':
+      return {
+        files: { 'main.rs': `${code}\n\nfn main() {\n    assert_eq!(take_name(String::from(\"Ada\")), 3);\n    println!(\"PATHWAY_TEST_PASS\");\n}\n` },
+        command: ['/bin/sh', '-c', 'rustc --edition=2024 /workspace/main.rs -o /workspace/main && /workspace/main'],
+        tests: 2,
+        runtime: 'rust',
+      }
     case 'foundations-making-decisions':
       return {
         files: {

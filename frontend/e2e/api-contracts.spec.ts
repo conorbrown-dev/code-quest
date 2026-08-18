@@ -25,6 +25,7 @@ test.describe('public API contract', () => {
     await expect(catalog.json()).resolves.toEqual(expect.arrayContaining([
       expect.objectContaining({ id: 'csharp-dotnet', available: true }),
       expect.objectContaining({ id: 'python-web', available: true }),
+      expect.objectContaining({ id: 'rust-systems', available: true }),
     ]))
   })
 
@@ -34,7 +35,7 @@ test.describe('public API contract', () => {
     expect((await request.post(`${apiBaseUrl}/api/submissions/validate`, { data: { lessonSlug: 'not-a-lesson', answer: 'anything' } })).status()).toBe(404)
   })
 
-  for (const courseId of ['csharp-dotnet', 'python-web']) {
+  for (const courseId of ['csharp-dotnet', 'python-web', 'rust-systems']) {
     test(`${courseId} has contiguous lessons and representative next-lesson links`, async ({ request }) => {
       const courseResponse = await request.get(`${apiBaseUrl}/api/courses/${courseId}`)
       await expect(courseResponse).toBeOK()

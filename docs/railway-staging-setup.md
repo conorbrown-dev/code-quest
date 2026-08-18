@@ -1,0 +1,51 @@
+# Railway staging environment
+
+Staging should be a separate Railway **environment** in the same project (or a separate Railway project if access control or billing requires it). It must have its own services, domains, databases, identity realm, and evaluator secret. Never point staging at a production Postgres database, Keycloak realm, Modal credentials, or public domain.
+
+## Create the environment
+
+1. In Railway, open the Pathway project and create an environment named `staging` from the current `main` deployment. If production is already using the default environment, leave it unchanged.
+2. In the `staging` environment, create these services from the same repository and set the listed root/config paths:
+
+| Service | Root directory | Config-as-code path | Public? |
+| --- | --- | --- | --- |
+| `pathway-web-staging` | `frontend` | `/frontend/railway.toml` | Yes |
+| `pathway-api-staging` | `backend/Pathway.Api` | `/backend/Pathway.Api/railway.toml` | Yes |
+| `pathway-keycloak-staging` | `infra/keycloak` | `/infra/keycloak/railway.toml` | Yes |
+| `pathway-modal-broker-staging` | `modal-broker` | `/modal-broker/railway.toml` | No |
+
+3. Add two new Postgres services in the `staging` environment: one for the API and one for staging Keycloak. Do not duplicate production database references.
+4. Set each service’s source branch to `staging` if the team uses a long-lived staging branch. If staging follows `main`, keep the branch as `main` and use Railway’s environment deploy controls; do not configure both mechanisms at once.
+5. Generate staging-only public domains, for example `staging.pathway.example` and `api-staging.pathway.example`. Do not reuse production domains.
+
+## Variables
+
+Copy the production variable names, but use staging values and independently generated secrets:
+
+| Service | Required staging variables |
+| --- | --- |
+| API | `CORS_ORIGINS=https://staging.pathway.example`, staging `DATABASE_URL`, staging `KEYCLOAK_AUTHORITY`, `KEYCLOAK_AUDIENCE=pathway-api-staging`, `EVALUATOR_URL=http://pathway-modal-broker-staging.railway.internal:8080`, staging-only `EVALUATOR_SHARED_SECRET` |
+| Web | `VITE_API_BASE_URL=https://api-staging.pathway.example`, staging Keycloak URL/realm/client ID, and any staging-only donation URL; these are build-time variables |
+| Keycloak | staging hostname, admin bootstrap values, and staging Postgres reference; import a staging realm rather than the production realm |
+| Modal broker | staging-only `MODAL_TOKEN_ID`, `MODAL_TOKEN_SECRET`, and the same staging-only runner secret as the API; keep the service private |
+
+Create a separate Keycloak client such as `pathway-web-staging`, with redirect URI `https://staging.pathway.example/*` and web origin `https://staging.pathway.example`. Never add the staging origin to the production realm.
+
+## Promotion and testing flow
+
+1. Open a pull request and wait for GitHub Actions verification.
+2. Merge or push the candidate to the configured staging branch/environment.
+3. Wait for all four staging services and both staging databases to deploy. Confirm API `/ready` is healthy and broker `/health` is healthy.
+4. Run the staging smoke workflow from **Actions → Staging smoke checks**, supplying the staging API URL. It verifies health, readiness, the course catalog, and the 42-lesson Rust course.
+5. Exercise sign-in, progress persistence, one multiple-choice submission, one Rust code submission, and the staging project workflow with a disposable staging account.
+6. Only after staging evidence is recorded should the exact commit be promoted to production. Production remains deployed by the existing Railway GitHub integration; staging failures must not trigger production redeploys.
+
+## Safety checks
+
+- Keep staging Postgres and Keycloak Postgres separate from production and enable short-lived test-data cleanup or a documented retention window.
+- Use a different Modal account/token or a strict staging budget and alert. Rotate the staging runner secret independently.
+- Restrict staging domains with Railway access controls, an identity-aware proxy, or an allowlist if the environment is not intended for public learners.
+- Do not put production learner data, bearer tokens, or production secrets into staging logs or test fixtures.
+- Before production promotion, verify the API and web variables still reference production domains and services; Vite embeds `VITE_*` values at build time.
+
+The committed `railway.toml` files are intentionally environment-neutral. Railway environment isolation belongs in the dashboard, where service references, variables, domains, and databases can be verified before a deploy.

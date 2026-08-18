@@ -27,7 +27,7 @@ async function evaluate(payload) {
   const fixture = fixtureFor(payload.lessonSlug, payload.code)
   if (!fixture) return { passed: false, passingTests: 0, totalTests: 0, feedback: 'This exercise has no isolated test fixture yet.', nextLessonSlug: null }
   const app = await client.apps.fromName('code-quest-evaluator', { createIfMissing: true })
-  const image = modalImage(client)
+  const image = modalImage(client, fixture.runtime)
   const sandbox = await client.sandboxes.create(app, image, { command: ['sleep', 'infinity'], workdir: '/workspace', cpu: 0.5, cpuLimit: 0.5, memoryMiB: 512, memoryLimitMiB: 512, timeoutMs: 20_000, idleTimeoutMs: 20_000, blockNetwork: true })
   try {
     for (const [path, content] of Object.entries(fixture.files)) await sandbox.filesystem.writeText(content, `/workspace/${path}`)
@@ -36,7 +36,8 @@ async function evaluate(payload) {
     return evaluationResult(fixture, exitCode, boundedOutput(stdout, stderr))
   } finally { await sandbox.terminate().catch(() => undefined); sandbox.detach() }
 }
-function modalImage(modal) {
+function modalImage(modal, runtime) {
+  if (runtime === 'rust') return modal.images.fromRegistry('rust:1.97-slim')
   return modal.images.fromRegistry('mcr.microsoft.com/dotnet/sdk:10.0').dockerfileCommands(['RUN apt-get update && apt-get install -y --no-install-recommends python3 coreutils && rm -rf /var/lib/apt/lists/*'])
 }
 

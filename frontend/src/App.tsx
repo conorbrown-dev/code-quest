@@ -1,167 +1,1548 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import Editor from '@monaco-editor/react'
-import './onboarding.css'
-import { ExperienceHub } from './ExperienceHub'
-import { initializeKeycloak, keycloak, keycloakConfigured, loginWithKeycloak, logoutFromKeycloak } from './keycloak'
-import { ArrowRight, Bell, Check, ChevronDown, Clipboard, Code2, Flame, FolderKanban, LockKeyhole, LogIn, LogOut, Play, RotateCcw, Sparkles, UserRound } from 'lucide-react'
+import { useEffect, useState, type ReactNode } from "react";
+import Editor from "@monaco-editor/react";
+import "./onboarding.css";
+import { ExperienceHub } from "./ExperienceHub";
+import {
+  initializeKeycloak,
+  keycloak,
+  keycloakConfigured,
+  loginWithKeycloak,
+  logoutFromKeycloak,
+} from "./keycloak";
+import {
+  ArrowRight,
+  Bell,
+  Check,
+  ChevronDown,
+  Clipboard,
+  Code2,
+  Flame,
+  FolderKanban,
+  LockKeyhole,
+  LogIn,
+  LogOut,
+  Play,
+  RotateCcw,
+  Sparkles,
+  UserRound,
+} from "lucide-react";
 
-type Choice = { id: string; text: string }
-type Exercise = { kind: 'MultipleChoice' | 'Code'; title: string; prompt: string; requirements: string[]; starterCode?: string; choices: Choice[]; hint: string; tests: string[] }
-type Lesson = { slug: string; module: string; order: number; title: string; subtitle: string; concept: string; body: string; example: string; exercise: Exercise; nextSlug?: string; version: { language: string; framework: string; lastReviewed: string; sourceUrl: string } }
-type Course = { id: string; title: string; languageId: string; languageVersion: string; frameworkVersion: string; lastReviewed: string; modules: { title: string; level: string; lessons: { slug: string; title: string; order: number }[] }[] }
-type CodeReview = { summary: string; suggestions: string[] }
-type Result = { passed: boolean; passingTests: number; totalTests: number; feedback: string; nextLessonSlug?: string; codeReview?: CodeReview }
-type Account = { token: string; displayName: string; email: string; subject: string }
-type Workspace = 'learn' | 'practice' | 'projects' | 'dashboard' | 'community' | 'coach'
-const api = import.meta.env.VITE_API_BASE_URL ?? ''
-const donationUrl = import.meta.env.VITE_DONATION_URL?.trim()
-const accentOptions = [{ id: 'purple', label: 'Purple', value: '#b981ff' }, { id: 'pink', label: 'Pink', value: '#ff4fa3' }, { id: 'green', label: 'Green', value: '#42f58d' }, { id: 'cyan', label: 'Cyan', value: '#28dfff' }, { id: 'red', label: 'Red', value: '#ff4d5f' }, { id: 'yellow', label: 'Yellow', value: '#ffe34f' }, { id: 'orange', label: 'Orange', value: '#ff9138' }]
+type Choice = { id: string; text: string };
+type Exercise = {
+  kind: "MultipleChoice" | "Code";
+  title: string;
+  prompt: string;
+  requirements: string[];
+  starterCode?: string;
+  choices: Choice[];
+  hint: string;
+  tests: string[];
+};
+type Lesson = {
+  slug: string;
+  module: string;
+  order: number;
+  title: string;
+  subtitle: string;
+  concept: string;
+  body: string;
+  example: string;
+  exercise: Exercise;
+  nextSlug?: string;
+  version: {
+    language: string;
+    framework: string;
+    lastReviewed: string;
+    sourceUrl: string;
+  };
+};
+type Course = {
+  id: string;
+  title: string;
+  languageId: string;
+  languageVersion: string;
+  frameworkVersion: string;
+  lastReviewed: string;
+  modules: {
+    title: string;
+    level: string;
+    lessons: { slug: string; title: string; order: number }[];
+  }[];
+};
+type CodeReview = { summary: string; suggestions: string[] };
+type Result = {
+  passed: boolean;
+  passingTests: number;
+  totalTests: number;
+  feedback: string;
+  nextLessonSlug?: string;
+  codeReview?: CodeReview;
+};
+type Account = {
+  token: string;
+  displayName: string;
+  email: string;
+  subject: string;
+};
+type Workspace =
+  "learn" | "practice" | "projects" | "dashboard" | "community" | "coach";
+const api = import.meta.env.VITE_API_BASE_URL ?? "";
+const donationUrl = import.meta.env.VITE_DONATION_URL?.trim();
+const accentOptions = [
+  { id: "purple", label: "Purple", value: "#b981ff" },
+  { id: "pink", label: "Pink", value: "#ff4fa3" },
+  { id: "green", label: "Green", value: "#42f58d" },
+  { id: "cyan", label: "Cyan", value: "#28dfff" },
+  { id: "red", label: "Red", value: "#ff4d5f" },
+  { id: "yellow", label: "Yellow", value: "#ffe34f" },
+  { id: "orange", label: "Orange", value: "#ff9138" },
+];
 const applyAccent = (accent: string) => {
-  const color = accentOptions.find(option => option.id === accent)?.value ?? accentOptions[0].value
-  document.documentElement.dataset.accent = accent
-  const favicon = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="#0f0d17"/><path d="M14 34h17L25 52l25-28H34l6-12z" fill="${color}"/></svg>`)}`
-  document.querySelector<HTMLLinkElement>('link[rel="icon"]')?.setAttribute('href', favicon)
-}
-const defaultCourseId = 'csharp-dotnet'
-const learnerId = (() => { const current = localStorage.getItem('pathway-learner-id'); if (current) return current; const next = crypto.randomUUID(); localStorage.setItem('pathway-learner-id', next); return next })()
-const progressStorageKey = (owner: string) => `pathway-completed-lessons:${owner}`
+  const color =
+    accentOptions.find((option) => option.id === accent)?.value ??
+    accentOptions[0].value;
+  document.documentElement.dataset.accent = accent;
+  const favicon = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="#0f0d17"/><path d="M14 34h17L25 52l25-28H34l6-12z" fill="${color}"/></svg>`)}`;
+  document
+    .querySelector<HTMLLinkElement>('link[rel="icon"]')
+    ?.setAttribute("href", favicon);
+};
+const defaultCourseId = "csharp-dotnet";
+const learnerId = (() => {
+  const current = localStorage.getItem("pathway-learner-id");
+  if (current) return current;
+  const next = crypto.randomUUID();
+  localStorage.setItem("pathway-learner-id", next);
+  return next;
+})();
+const progressStorageKey = (owner: string) =>
+  `pathway-completed-lessons:${owner}`;
 const readProgress = (owner: string) => {
-  const saved = localStorage.getItem(progressStorageKey(owner))
-  return saved ? JSON.parse(saved) as string[] : []
-}
-const apiHeaders = (account: Account | null): Record<string, string> => account ? { 'content-type': 'application/json', Authorization: `Bearer ${account.token}` } : { 'content-type': 'application/json', 'X-Learner-Id': learnerId }
+  const saved = localStorage.getItem(progressStorageKey(owner));
+  return saved ? (JSON.parse(saved) as string[]) : [];
+};
+const apiHeaders = (account: Account | null): Record<string, string> =>
+  account
+    ? {
+        "content-type": "application/json",
+        Authorization: `Bearer ${account.token}`,
+      }
+    : { "content-type": "application/json", "X-Learner-Id": learnerId };
 
 function App() {
-  const [course, setCourse] = useState<Course | null>(null)
-  const [courseId, setCourseId] = useState(() => localStorage.getItem('pathway-course-id') ?? defaultCourseId)
-  const [lesson, setLesson] = useState<Lesson | null>(null)
-  const [answer, setAnswer] = useState('')
-  const [code, setCode] = useState('')
-  const [result, setResult] = useState<Result | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [toast, setToast] = useState('')
-  const [completed, setCompleted] = useState<string[]>(() => readProgress(`guest:${learnerId}`))
-  const [account, setAccount] = useState<Account | null>(null)
-  const progressOwner = account ? `keycloak:${account.subject}` : `guest:${learnerId}`
-  const accountIdentity = account?.subject || 'guest'
-  const [onboarding, setOnboarding] = useState(() => !localStorage.getItem('pathway-onboarding-complete'))
-  const [workspace, setWorkspace] = useState<Workspace>('learn')
-  useEffect(() => applyAccent(localStorage.getItem('pathway-accent') ?? 'purple'), [])
-  useEffect(() => { if (course) document.title = `Pathway — Learn ${course.languageId === 'python' ? 'Python' : 'C#'}` }, [course])
-  const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(''), 2600) }
-  useEffect(() => { initializeKeycloak().then(setAccount).catch(() => notify('Keycloak sign-in could not be initialized.')) }, [])
+  const [course, setCourse] = useState<Course | null>(null);
+  const [courseId, setCourseId] = useState(
+    () => localStorage.getItem("pathway-course-id") ?? defaultCourseId,
+  );
+  const [lesson, setLesson] = useState<Lesson | null>(null);
+  const [answer, setAnswer] = useState("");
+  const [code, setCode] = useState("");
+  const [result, setResult] = useState<Result | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState("");
+  const [completed, setCompleted] = useState<string[]>(() =>
+    readProgress(`guest:${learnerId}`),
+  );
+  const [account, setAccount] = useState<Account | null>(null);
+  const progressOwner = account
+    ? `keycloak:${account.subject}`
+    : `guest:${learnerId}`;
+  const accountIdentity = account?.subject || "guest";
+  const [onboarding, setOnboarding] = useState(
+    () => !localStorage.getItem("pathway-onboarding-complete"),
+  );
+  const [workspace, setWorkspace] = useState<Workspace>("learn");
+  useEffect(
+    () => applyAccent(localStorage.getItem("pathway-accent") ?? "purple"),
+    [],
+  );
   useEffect(() => {
-    const client = keycloak
-    if (!client || !account) return
-    const refresh = window.setInterval(() => client.updateToken(60).then(() => {
-      const refreshedToken = client.token
-      if (refreshedToken) setAccount(current => current && current.token !== refreshedToken ? { ...current, token: refreshedToken } : current)
-    }).catch(() => {
-      setAccount(null)
-      void loginWithKeycloak(false)
-    }), 30_000)
-    return () => window.clearInterval(refresh)
-  }, [account])
+    if (course)
+      document.title = `Pathway — Learn ${course.languageId === "python" ? "Python" : course.languageId === "rust" ? "Rust" : "C#"}`;
+  }, [course]);
+  const notify = (message: string) => {
+    setToast(message);
+    window.setTimeout(() => setToast(""), 2600);
+  };
+  useEffect(() => {
+    initializeKeycloak()
+      .then(setAccount)
+      .catch(() => notify("Keycloak sign-in could not be initialized."));
+  }, []);
+  useEffect(() => {
+    const client = keycloak;
+    if (!client || !account) return;
+    const refresh = window.setInterval(
+      () =>
+        client
+          .updateToken(60)
+          .then(() => {
+            const refreshedToken = client.token;
+            if (refreshedToken)
+              setAccount((current) =>
+                current && current.token !== refreshedToken
+                  ? { ...current, token: refreshedToken }
+                  : current,
+              );
+          })
+          .catch(() => {
+            setAccount(null);
+            void loginWithKeycloak(false);
+          }),
+      30_000,
+    );
+    return () => window.clearInterval(refresh);
+  }, [account]);
   const loadLesson = async (slug: string) => {
-    setLoading(true); setResult(null); setAnswer('')
-    try { const response = await fetch(`${api}/api/lessons/${slug}`); if (!response.ok) throw Error(); const next: Lesson = await response.json(); setLesson(next); setCode(next.exercise.starterCode ?? '') }
-    catch { notify('Could not load that lesson. Check the API connection.') }
-    finally { setLoading(false) }
-  }
-  useEffect(() => { fetch(`${api}/api/courses/${courseId}`).then(r => r.ok ? r.json() : Promise.reject()).then((nextCourse: Course) => { const firstSlug = nextCourse.modules.flatMap(module => module.lessons).sort((a, b) => a.order - b.order)[0]?.slug; if (!firstSlug) throw Error(); return Promise.all([Promise.resolve(nextCourse), fetch(`${api}/api/lessons/${firstSlug}`).then(r => r.json()), fetch(`${api}/api/progress`, { headers: apiHeaders(account) }).then(r => r.ok ? r.json() : null)]) }).then(([nextCourse, nextLesson, progress]) => { setCourse(nextCourse); setLesson(nextLesson); setCode(nextLesson.exercise.starterCode ?? ''); const stored = progress?.completedLessonSlugs ?? readProgress(progressOwner); setCompleted(stored); localStorage.setItem(progressStorageKey(progressOwner), JSON.stringify(stored)) }).catch(() => notify('Start the API to load the curriculum.')).finally(() => setLoading(false)) }, [accountIdentity, courseId])
+    setLoading(true);
+    setResult(null);
+    setAnswer("");
+    try {
+      const response = await fetch(`${api}/api/lessons/${slug}`);
+      if (!response.ok) throw Error();
+      const next: Lesson = await response.json();
+      setLesson(next);
+      setCode(next.exercise.starterCode ?? "");
+    } catch {
+      notify("Could not load that lesson. Check the API connection.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
+    fetch(`${api}/api/courses/${courseId}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((nextCourse: Course) => {
+        const firstSlug = nextCourse.modules
+          .flatMap((module) => module.lessons)
+          .sort((a, b) => a.order - b.order)[0]?.slug;
+        if (!firstSlug) throw Error();
+        return Promise.all([
+          Promise.resolve(nextCourse),
+          fetch(`${api}/api/lessons/${firstSlug}`).then((r) => r.json()),
+          fetch(`${api}/api/progress`, { headers: apiHeaders(account) }).then(
+            (r) => (r.ok ? r.json() : null),
+          ),
+        ]);
+      })
+      .then(([nextCourse, nextLesson, progress]) => {
+        setCourse(nextCourse);
+        setLesson(nextLesson);
+        setCode(nextLesson.exercise.starterCode ?? "");
+        const stored =
+          progress?.completedLessonSlugs ?? readProgress(progressOwner);
+        setCompleted(stored);
+        localStorage.setItem(
+          progressStorageKey(progressOwner),
+          JSON.stringify(stored),
+        );
+      })
+      .catch(() => notify("Start the API to load the curriculum."))
+      .finally(() => setLoading(false));
+  }, [accountIdentity, courseId]);
   const submit = async () => {
-    if (!lesson) return
-    if (lesson.exercise.kind === 'MultipleChoice' && !answer) return notify('Choose an answer first.')
+    if (!lesson) return;
+    if (lesson.exercise.kind === "MultipleChoice" && !answer)
+      return notify("Choose an answer first.");
     try {
-      const response = await fetch(`${api}/api/submissions/validate`, { method: 'POST', headers: apiHeaders(account), body: JSON.stringify({ lessonSlug: lesson.slug, answer, code }) })
-      if (!response.ok) throw Error(); const next: Result = await response.json(); setResult(next)
+      const response = await fetch(`${api}/api/submissions/validate`, {
+        method: "POST",
+        headers: apiHeaders(account),
+        body: JSON.stringify({ lessonSlug: lesson.slug, answer, code }),
+      });
+      if (!response.ok) throw Error();
+      const next: Result = await response.json();
+      setResult(next);
       if (next.passed) {
-        setCompleted(current => {
-          const updated = [...new Set([...current, lesson.slug])]
-          localStorage.setItem(progressStorageKey(progressOwner), JSON.stringify(updated))
-          return updated
-        })
-        notify(next.feedback)
+        setCompleted((current) => {
+          const updated = [...new Set([...current, lesson.slug])];
+          localStorage.setItem(
+            progressStorageKey(progressOwner),
+            JSON.stringify(updated),
+          );
+          return updated;
+        });
+        notify(next.feedback);
       }
-    } catch { notify('Validation service is unavailable. Try again shortly.') }
-  }
-  useEffect(() => { const handler = (event: KeyboardEvent) => { if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') { event.preventDefault(); void submit() } }; window.addEventListener('keydown', handler); return () => window.removeEventListener('keydown', handler) })
-  if (loading && !lesson) return <div className="app-dark grid min-h-screen place-items-center bg-canvas font-display text-2xl text-forest">Loading your learning path…</div>
-  if (!lesson || !course) return <div className="app-dark grid min-h-screen place-items-center bg-canvas text-sm text-[#687169]">The curriculum API is unavailable.</div>
-  if (onboarding) return <Onboarding course={course} selectedCourseId={courseId} onSelectCourse={(id) => { localStorage.setItem('pathway-course-id', id); setCourseId(id) }} onComplete={(nextAccount) => { if(nextAccount) setAccount(nextAccount); localStorage.setItem('pathway-onboarding-complete', 'true'); setOnboarding(false) }} />
-  const hasPassed = result?.passed === true
-  const orderedLessons = course.modules.flatMap(module => module.lessons).sort((a, b) => a.order - b.order)
-  const available = new Set(orderedLessons.filter((item, index) => index === 0 || completed.includes(orderedLessons[index - 1].slug)).map(item => item.slug))
-  const logout = () => { setCompleted(readProgress(`guest:${learnerId}`)); setAccount(null); void logoutFromKeycloak() }
-  if (workspace === 'dashboard' || workspace === 'projects' || workspace === 'community' || workspace === 'coach') return <div className="app-dark min-h-screen bg-canvas lg:flex"><Sidebar course={course} current={lesson.slug} completed={completed} available={available} workspace={workspace} onNavigate={setWorkspace} onChangeCourse={(id) => { localStorage.setItem('pathway-course-id', id); setCourseId(id); setWorkspace('learn') }} onSelect={loadLesson} onLocked={() => notify('Complete the previous lesson to unlock this one.')}/><main className="min-w-0 flex-1"><header className="top-shell flex h-[70px] items-center justify-between border-b border-[#3b3052] bg-[#0f0d17] px-6 sm:px-10"><p className="text-sm text-[#bdb2cf]">‹ <span>{{ dashboard: 'Progress dashboard', projects: 'Project studio', community: 'Community', coach: 'Guided coach' }[workspace]}</span></p><div className="flex items-center gap-3">{donationUrl && <a href={donationUrl} target="_blank" rel="noreferrer" className="hidden rounded-md bg-pine px-3 py-2 text-xs font-bold text-white sm:block">Support Pathway</a>}{account ? <ProfileMenu account={account} onLogout={logout} /> : <button onClick={() => void loginWithKeycloak(false)} className="hidden rounded-md border border-[#7652a6] px-3 py-1.5 text-xs font-semibold text-[#e2d3ff] hover:bg-[#7a43c52b] sm:block">Sign in</button>}<button onClick={() => notify('No new notifications.')} className="relative text-[#bdb2cf]" aria-label="Notifications"><Bell size={19}/><i className="absolute right-0 top-0 h-1.5 w-1.5 rounded-full bg-[#e86f49]"/></button></div></header><ExperienceHub view={workspace} course={course} completed={completed} onSelectLesson={(slug) => { setWorkspace('learn'); void loadLesson(slug) }} onNotice={notify}/></main><div className={`app-toast fixed bottom-6 left-1/2 z-20 -translate-x-1/2 rounded-md bg-[#26342d] px-4 py-2.5 text-xs text-white transition ${toast ? 'opacity-100' : 'pointer-events-none translate-y-3 opacity-0'}`}>{toast}</div></div>
-  return <div className="app-dark min-h-screen bg-canvas lg:flex"><Sidebar course={course} current={lesson.slug} completed={completed} available={available} workspace={workspace} onNavigate={setWorkspace} onChangeCourse={(id) => { localStorage.setItem('pathway-course-id', id); setCourseId(id); setWorkspace('learn') }} onSelect={loadLesson} onLocked={() => notify('Complete the previous lesson to unlock this one.')}/><main className="min-w-0 flex-1"><header className="top-shell flex h-[70px] items-center justify-between border-b border-[#e4e1d8] bg-[#faf8f2] px-6 sm:px-10"><p className="text-sm text-[#70766f]">‹ <span>{workspace === 'learn' ? lesson.module : workspace === 'practice' ? 'Practice' : 'Projects'}</span></p><div className="flex items-center gap-3"><a href={lesson.version.sourceUrl} target="_blank" rel="noreferrer" className="hidden text-xs text-[#70766f] sm:block">{lesson.version.language} · {lesson.version.framework}</a>{donationUrl && <a href={donationUrl} target="_blank" rel="noreferrer" className="hidden rounded-md bg-pine px-3 py-2 text-xs font-bold text-white sm:block">Support Pathway</a>}{account ? <ProfileMenu account={account} onLogout={logout} /> : <button onClick={() => void loginWithKeycloak(false)} className="hidden rounded-md border border-[#7652a6] px-3 py-1.5 text-xs font-semibold text-[#e2d3ff] hover:bg-[#7a43c52b] sm:block">Sign in</button>}<button onClick={() => notify('No new notifications.')} className="relative text-[#70766f]" aria-label="Notifications"><Bell size={19}/><i className="absolute right-0 top-0 h-1.5 w-1.5 rounded-full bg-[#e86f49]"/></button></div></header>{workspace === 'learn' ? <section className="mx-auto grid min-h-[calc(100vh-70px)] max-w-[1400px] grid-cols-1 lg:grid-cols-[48%_52%]"><LessonContent lesson={lesson}/><ExercisePanel lesson={lesson} answer={answer} setAnswer={setAnswer} code={code} setCode={setCode} result={result} passed={hasPassed} submit={submit} onReset={() => setCode(lesson.exercise.starterCode ?? '')} onNext={() => lesson.nextSlug && loadLesson(lesson.nextSlug)}/></section> : <WorkspacePanel workspace={workspace} course={course} completed={completed} available={available} onLearn={() => setWorkspace('learn')} onSelect={(slug) => { setWorkspace('learn'); void loadLesson(slug) }} onLocked={() => notify('Complete the previous lesson to unlock this one.')}/>}</main><div className={`app-toast fixed bottom-6 left-1/2 z-20 -translate-x-1/2 rounded-md bg-[#26342d] px-4 py-2.5 text-xs text-white transition ${toast ? 'opacity-100' : 'pointer-events-none translate-y-3 opacity-0'}`}>{toast}</div></div>
+    } catch {
+      notify("Validation service is unavailable. Try again shortly.");
+    }
+  };
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+        event.preventDefault();
+        void submit();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  });
+  if (loading && !lesson)
+    return (
+      <div className="app-dark grid min-h-screen place-items-center bg-canvas font-display text-2xl text-forest">
+        Loading your learning path…
+      </div>
+    );
+  if (!lesson || !course)
+    return (
+      <div className="app-dark grid min-h-screen place-items-center bg-canvas text-sm text-[#687169]">
+        The curriculum API is unavailable.
+      </div>
+    );
+  if (onboarding)
+    return (
+      <Onboarding
+        course={course}
+        selectedCourseId={courseId}
+        onSelectCourse={(id) => {
+          localStorage.setItem("pathway-course-id", id);
+          setCourseId(id);
+        }}
+        onComplete={(nextAccount) => {
+          if (nextAccount) setAccount(nextAccount);
+          localStorage.setItem("pathway-onboarding-complete", "true");
+          setOnboarding(false);
+        }}
+      />
+    );
+  const hasPassed = result?.passed === true;
+  const orderedLessons = course.modules
+    .flatMap((module) => module.lessons)
+    .sort((a, b) => a.order - b.order);
+  const available = new Set(
+    orderedLessons
+      .filter(
+        (item, index) =>
+          index === 0 || completed.includes(orderedLessons[index - 1].slug),
+      )
+      .map((item) => item.slug),
+  );
+  const logout = () => {
+    setCompleted(readProgress(`guest:${learnerId}`));
+    setAccount(null);
+    void logoutFromKeycloak();
+  };
+  if (
+    workspace === "dashboard" ||
+    workspace === "projects" ||
+    workspace === "community" ||
+    workspace === "coach"
+  )
+    return (
+      <div className="app-dark min-h-screen bg-canvas lg:flex">
+        <Sidebar
+          course={course}
+          current={lesson.slug}
+          completed={completed}
+          available={available}
+          workspace={workspace}
+          onNavigate={setWorkspace}
+          onChangeCourse={(id) => {
+            localStorage.setItem("pathway-course-id", id);
+            setCourseId(id);
+            setWorkspace("learn");
+          }}
+          onSelect={loadLesson}
+          onLocked={() =>
+            notify("Complete the previous lesson to unlock this one.")
+          }
+        />
+        <main className="min-w-0 flex-1">
+          <header className="top-shell flex h-[70px] items-center justify-between border-b border-[#3b3052] bg-[#0f0d17] px-6 sm:px-10">
+            <p className="text-sm text-[#bdb2cf]">
+              ‹{" "}
+              <span>
+                {
+                  {
+                    dashboard: "Progress dashboard",
+                    projects: "Project studio",
+                    community: "Community",
+                    coach: "Guided coach",
+                  }[workspace]
+                }
+              </span>
+            </p>
+            <div className="flex items-center gap-3">
+              {donationUrl && (
+                <a
+                  href={donationUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hidden rounded-md bg-pine px-3 py-2 text-xs font-bold text-white sm:block"
+                >
+                  Support Pathway
+                </a>
+              )}
+              {account ? (
+                <ProfileMenu account={account} onLogout={logout} />
+              ) : (
+                <button
+                  onClick={() => void loginWithKeycloak(false)}
+                  className="hidden rounded-md border border-[#7652a6] px-3 py-1.5 text-xs font-semibold text-[#e2d3ff] hover:bg-[#7a43c52b] sm:block"
+                >
+                  Sign in
+                </button>
+              )}
+              <button
+                onClick={() => notify("No new notifications.")}
+                className="relative text-[#bdb2cf]"
+                aria-label="Notifications"
+              >
+                <Bell size={19} />
+                <i className="absolute right-0 top-0 h-1.5 w-1.5 rounded-full bg-[#e86f49]" />
+              </button>
+            </div>
+          </header>
+          <ExperienceHub
+            view={workspace}
+            course={course}
+            completed={completed}
+            onSelectLesson={(slug) => {
+              setWorkspace("learn");
+              void loadLesson(slug);
+            }}
+            onNotice={notify}
+          />
+        </main>
+        <div
+          className={`app-toast fixed bottom-6 left-1/2 z-20 -translate-x-1/2 rounded-md bg-[#26342d] px-4 py-2.5 text-xs text-white transition ${toast ? "opacity-100" : "pointer-events-none translate-y-3 opacity-0"}`}
+        >
+          {toast}
+        </div>
+      </div>
+    );
+  return (
+    <div className="app-dark min-h-screen bg-canvas lg:flex">
+      <Sidebar
+        course={course}
+        current={lesson.slug}
+        completed={completed}
+        available={available}
+        workspace={workspace}
+        onNavigate={setWorkspace}
+        onChangeCourse={(id) => {
+          localStorage.setItem("pathway-course-id", id);
+          setCourseId(id);
+          setWorkspace("learn");
+        }}
+        onSelect={loadLesson}
+        onLocked={() =>
+          notify("Complete the previous lesson to unlock this one.")
+        }
+      />
+      <main className="min-w-0 flex-1">
+        <header className="top-shell flex h-[70px] items-center justify-between border-b border-[#e4e1d8] bg-[#faf8f2] px-6 sm:px-10">
+          <p className="text-sm text-[#70766f]">
+            ‹{" "}
+            <span>
+              {workspace === "learn"
+                ? lesson.module
+                : workspace === "practice"
+                  ? "Practice"
+                  : "Projects"}
+            </span>
+          </p>
+          <div className="flex items-center gap-3">
+            <a
+              href={lesson.version.sourceUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="hidden text-xs text-[#70766f] sm:block"
+            >
+              {lesson.version.language} · {lesson.version.framework}
+            </a>
+            {donationUrl && (
+              <a
+                href={donationUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="hidden rounded-md bg-pine px-3 py-2 text-xs font-bold text-white sm:block"
+              >
+                Support Pathway
+              </a>
+            )}
+            {account ? (
+              <ProfileMenu account={account} onLogout={logout} />
+            ) : (
+              <button
+                onClick={() => void loginWithKeycloak(false)}
+                className="hidden rounded-md border border-[#7652a6] px-3 py-1.5 text-xs font-semibold text-[#e2d3ff] hover:bg-[#7a43c52b] sm:block"
+              >
+                Sign in
+              </button>
+            )}
+            <button
+              onClick={() => notify("No new notifications.")}
+              className="relative text-[#70766f]"
+              aria-label="Notifications"
+            >
+              <Bell size={19} />
+              <i className="absolute right-0 top-0 h-1.5 w-1.5 rounded-full bg-[#e86f49]" />
+            </button>
+          </div>
+        </header>
+        {workspace === "learn" ? (
+          <section className="mx-auto grid min-h-[calc(100vh-70px)] max-w-[1400px] grid-cols-1 lg:grid-cols-[48%_52%]">
+            <LessonContent lesson={lesson} />
+            <ExercisePanel
+              lesson={lesson}
+              answer={answer}
+              setAnswer={setAnswer}
+              code={code}
+              setCode={setCode}
+              result={result}
+              passed={hasPassed}
+              submit={submit}
+              onReset={() => setCode(lesson.exercise.starterCode ?? "")}
+              onNext={() => lesson.nextSlug && loadLesson(lesson.nextSlug)}
+            />
+          </section>
+        ) : (
+          <WorkspacePanel
+            workspace={workspace}
+            course={course}
+            completed={completed}
+            available={available}
+            onLearn={() => setWorkspace("learn")}
+            onSelect={(slug) => {
+              setWorkspace("learn");
+              void loadLesson(slug);
+            }}
+            onLocked={() =>
+              notify("Complete the previous lesson to unlock this one.")
+            }
+          />
+        )}
+      </main>
+      <div
+        className={`app-toast fixed bottom-6 left-1/2 z-20 -translate-x-1/2 rounded-md bg-[#26342d] px-4 py-2.5 text-xs text-white transition ${toast ? "opacity-100" : "pointer-events-none translate-y-3 opacity-0"}`}
+      >
+        {toast}
+      </div>
+    </div>
+  );
 }
 
-function Onboarding({ course, selectedCourseId, onSelectCourse, onComplete }: { course: Course; selectedCourseId: string; onSelectCourse: (courseId: string) => void; onComplete: (account: Account | null) => void }) {
-  const [mode, setMode] = useState<'welcome' | 'register' | 'login'>('welcome')
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [submitting, setSubmitting] = useState(false)
+function Onboarding({
+  course,
+  selectedCourseId,
+  onSelectCourse,
+  onComplete,
+}: {
+  course: Course;
+  selectedCourseId: string;
+  onSelectCourse: (courseId: string) => void;
+  onComplete: (account: Account | null) => void;
+}) {
+  const [mode, setMode] = useState<"welcome" | "register" | "login">("welcome");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const authenticate = async () => {
-    setError(''); setSubmitting(true)
+    setError("");
+    setSubmitting(true);
     try {
-      if (!keycloakConfigured) throw new Error('Keycloak is not configured yet. Add the VITE_KEYCLOAK_URL, VITE_KEYCLOAK_REALM, and VITE_KEYCLOAK_CLIENT_ID variables.')
-      localStorage.setItem('pathway-onboarding-complete', 'true')
-      await loginWithKeycloak(mode === 'register')
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Something went wrong.'); setSubmitting(false) }
-  }
-  const pythonSelected = selectedCourseId === 'python-web'
-  return <main className="onboarding app-dark grid min-h-screen place-items-center overflow-hidden px-5 py-10"><div className="onboarding-grid"/><section className="relative z-10 w-full max-w-[960px]"><div className="mb-12 flex items-center justify-between"><div className="flex items-center gap-2 font-display text-2xl font-bold tracking-[-1px]"><span className="brand-orbit text-3xl">⌁</span>pathway</div><span className="rounded-full border border-[#9860ef55] bg-[#8d4be214] px-3 py-1 text-[10px] font-bold tracking-[1.4px] text-[#c9a6ff]">YOUR CODING PATH</span></div>{mode === 'welcome' ? <div className="grid gap-12 lg:grid-cols-[1.05fr_.95fr] lg:items-end"><div><p className="mb-5 text-xs font-bold tracking-[2px] text-[#b77dff]">LEARN WITH INTENTION</p><h1 className="max-w-[620px] font-display text-5xl font-bold leading-[.98] tracking-[-3px] text-white sm:text-7xl">Build the skills<br/>that <span className="neon-text">compound.</span></h1><p className="mt-7 max-w-[480px] text-base leading-relaxed text-[#aaa3b6]">A guided path from your first line of code to the technical judgment expected of a staff engineer.</p></div><div className="onboarding-card rounded-2xl p-6 sm:p-8"><p className="text-[10px] font-bold tracking-[1.5px] text-[#ad7cf4]">CHOOSE YOUR FIRST TRACK</p><button onClick={() => onSelectCourse('csharp-dotnet')} className={`track-option mt-5 flex w-full items-center gap-4 rounded-xl p-4 text-left ${!pythonSelected ? 'ring-1 ring-[#bd87ff]' : ''}`}><span className="grid h-11 w-11 place-items-center rounded-lg bg-[#a567ff] font-mono text-sm font-bold text-white shadow-lg shadow-[#8d4cff55]">C#</span><span><strong className="block text-sm text-white">C# / .NET: zero to staff</strong><small className="mt-1 block text-xs text-[#aaa3b6]">C# 14 · .NET 10</small></span>{!pythonSelected && <Check className="ml-auto text-[#c198ff]" size={19}/>}</button><button onClick={() => onSelectCourse('python-web')} className={`track-option mt-3 flex w-full items-center gap-4 rounded-xl p-4 text-left ${pythonSelected ? 'ring-1 ring-[#bd87ff]' : ''}`}><span className="grid h-11 w-11 place-items-center rounded-lg bg-[#3776ab] font-mono text-sm font-bold text-white">Py</span><span><strong className="block text-sm text-white">Python Web: zero to staff</strong><small className="mt-1 block text-xs text-[#aaa3b6]">Python 3.14 · FastAPI · Flask · Django</small></span>{pythonSelected && <Check className="ml-auto text-[#c198ff]" size={19}/>}</button><p className="mt-4 text-xs text-[#aaa3b6]">Selected: {course.title}</p><button onClick={() => setMode('register')} className="onboarding-cta mt-6 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3.5 text-sm font-bold text-white">Start this path <ArrowRight size={17}/></button><button onClick={() => setMode('login')} className="mt-4 w-full text-xs text-[#bcb5c9] hover:text-white">Already learning with Pathway? <span className="text-[#bc88ff]">Sign in</span></button><button onClick={() => onComplete(null)} className="mt-5 w-full text-[11px] text-[#7d758b] hover:text-[#aaa3b6]">Explore as a guest</button></div></div> : <div className="mx-auto max-w-[440px] onboarding-card rounded-2xl p-7 sm:p-9"><button onClick={() => setMode('welcome')} className="mb-6 text-xs text-[#a39bad] hover:text-white">← Back</button><div className="mb-7 flex h-11 w-11 items-center justify-center rounded-xl bg-[#9353ef2c] text-[#c395ff]"><LogIn size={20}/></div><h1 className="font-display text-3xl font-bold tracking-[-1.5px] text-white">{mode === 'login' ? 'Welcome back.' : 'Make it yours.'}</h1><p className="mt-2 text-sm leading-relaxed text-[#a9a2b7]">{mode === 'login' ? 'Sign in to continue your learning path.' : 'Your progress syncs securely across devices.'}</p><div className="mt-7 grid gap-4">{mode === 'register' && <label className="grid gap-1.5 text-xs font-semibold text-[#c5bdd2]">Name<input value={name} onChange={event=>setName(event.target.value)} autoComplete="name" placeholder="Ada Lovelace" className="onboarding-input rounded-lg px-3 py-3 text-sm outline-none"/></label>}<label className="grid gap-1.5 text-xs font-semibold text-[#c5bdd2]">Email<input value={email} onChange={event=>setEmail(event.target.value)} type="email" autoComplete="email" placeholder="you@example.com" className="onboarding-input rounded-lg px-3 py-3 text-sm outline-none"/></label><label className="grid gap-1.5 text-xs font-semibold text-[#c5bdd2]">Password<input value={password} onChange={event=>setPassword(event.target.value)} type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} placeholder="At least 10 characters" className="onboarding-input rounded-lg px-3 py-3 text-sm outline-none"/></label>{error && <p className="rounded-lg border border-[#ff659655] bg-[#ff4d8215] px-3 py-2 text-xs text-[#ffb3cc]">{error}</p>}<button disabled={submitting} onClick={authenticate} className="onboarding-cta mt-2 rounded-lg px-4 py-3.5 text-sm font-bold text-white disabled:opacity-60">{submitting ? 'One moment…' : mode === 'login' ? 'Sign in' : 'Create account'}</button></div><button onClick={() => setMode(mode === 'login' ? 'register' : 'login')} className="mt-5 w-full text-xs text-[#aaa3b6]">{mode === 'login' ? 'New here? ' : 'Already have an account? '}<span className="text-[#c193ff]">{mode === 'login' ? 'Create one' : 'Sign in'}</span></button></div>}</section><footer className="relative z-10 mt-8 flex justify-center gap-4 text-[11px] text-[#8b809a]"><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a><a href="/support.html">Support</a></footer></main>
+      if (!keycloakConfigured)
+        throw new Error(
+          "Keycloak is not configured yet. Add the VITE_KEYCLOAK_URL, VITE_KEYCLOAK_REALM, and VITE_KEYCLOAK_CLIENT_ID variables.",
+        );
+      localStorage.setItem("pathway-onboarding-complete", "true");
+      await loginWithKeycloak(mode === "register");
+    } catch (reason) {
+      setError(
+        reason instanceof Error ? reason.message : "Something went wrong.",
+      );
+      setSubmitting(false);
+    }
+  };
+  const pythonSelected = selectedCourseId === "python-web";
+  const rustSelected = selectedCourseId === "rust-systems";
+  const csharpSelected = selectedCourseId === "csharp-dotnet";
+  return (
+    <main className="onboarding app-dark grid min-h-screen place-items-center overflow-hidden px-5 py-10">
+      <div className="onboarding-grid" />
+      <section className="relative z-10 w-full max-w-[960px]">
+        <div className="mb-12 flex items-center justify-between">
+          <div className="flex items-center gap-2 font-display text-2xl font-bold tracking-[-1px]">
+            <span className="brand-orbit text-3xl">⌁</span>pathway
+          </div>
+          <span className="rounded-full border border-[#9860ef55] bg-[#8d4be214] px-3 py-1 text-[10px] font-bold tracking-[1.4px] text-[#c9a6ff]">
+            YOUR CODING PATH
+          </span>
+        </div>
+        {mode === "welcome" ? (
+          <div className="grid gap-12 lg:grid-cols-[1.05fr_.95fr] lg:items-end">
+            <div>
+              <p className="mb-5 text-xs font-bold tracking-[2px] text-[#b77dff]">
+                LEARN WITH INTENTION
+              </p>
+              <h1 className="max-w-[620px] font-display text-5xl font-bold leading-[.98] tracking-[-3px] text-white sm:text-7xl">
+                Build the skills
+                <br />
+                that <span className="neon-text">compound.</span>
+              </h1>
+              <p className="mt-7 max-w-[480px] text-base leading-relaxed text-[#aaa3b6]">
+                A guided path from your first line of code to the technical
+                judgment expected of a staff engineer.
+              </p>
+            </div>
+            <div className="onboarding-card rounded-2xl p-6 sm:p-8">
+              <p className="text-[10px] font-bold tracking-[1.5px] text-[#ad7cf4]">
+                CHOOSE YOUR FIRST TRACK
+              </p>
+              <button
+                onClick={() => onSelectCourse("csharp-dotnet")}
+                className={`track-option mt-5 flex w-full items-center gap-4 rounded-xl p-4 text-left ${csharpSelected ? "ring-1 ring-[#bd87ff]" : ""}`}
+              >
+                <span className="grid h-11 w-11 place-items-center rounded-lg bg-[#a567ff] font-mono text-sm font-bold text-white shadow-lg shadow-[#8d4cff55]">
+                  C#
+                </span>
+                <span>
+                  <strong className="block text-sm text-white">
+                    C# / .NET: zero to staff
+                  </strong>
+                  <small className="mt-1 block text-xs text-[#aaa3b6]">
+                    C# 14 · .NET 10
+                  </small>
+                </span>
+                {csharpSelected && (
+                  <Check className="ml-auto text-[#c198ff]" size={19} />
+                )}
+              </button>
+              <button
+                onClick={() => onSelectCourse("python-web")}
+                className={`track-option mt-3 flex w-full items-center gap-4 rounded-xl p-4 text-left ${pythonSelected ? "ring-1 ring-[#bd87ff]" : ""}`}
+              >
+                <span className="grid h-11 w-11 place-items-center rounded-lg bg-[#3776ab] font-mono text-sm font-bold text-white">
+                  Py
+                </span>
+                <span>
+                  <strong className="block text-sm text-white">
+                    Python Web: zero to staff
+                  </strong>
+                  <small className="mt-1 block text-xs text-[#aaa3b6]">
+                    Python 3.14 · FastAPI · Flask · Django
+                  </small>
+                </span>
+                {pythonSelected && (
+                  <Check className="ml-auto text-[#c198ff]" size={19} />
+                )}
+              </button>
+              <button
+                onClick={() => onSelectCourse("rust-systems")}
+                className={`track-option mt-3 flex w-full items-center gap-4 rounded-xl p-4 text-left ${rustSelected ? "ring-1 ring-[#bd87ff]" : ""}`}
+              >
+                <span className="grid h-11 w-11 place-items-center rounded-lg bg-[#dea584] font-mono text-sm font-bold text-[#2b1d16]">
+                  Rs
+                </span>
+                <span>
+                  <strong className="block text-sm text-white">
+                    Rust Systems: zero to staff
+                  </strong>
+                  <small className="mt-1 block text-xs text-[#aaa3b6]">
+                    Rust 1.97 · Tokio · Axum
+                  </small>
+                </span>
+                {rustSelected && (
+                  <Check className="ml-auto text-[#c198ff]" size={19} />
+                )}
+              </button>
+              <p className="mt-4 text-xs text-[#aaa3b6]">
+                Selected: {course.title}
+              </p>
+              <button
+                onClick={() => setMode("register")}
+                className="onboarding-cta mt-6 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3.5 text-sm font-bold text-white"
+              >
+                Start this path <ArrowRight size={17} />
+              </button>
+              <button
+                onClick={() => setMode("login")}
+                className="mt-4 w-full text-xs text-[#bcb5c9] hover:text-white"
+              >
+                Already learning with Pathway?{" "}
+                <span className="text-[#bc88ff]">Sign in</span>
+              </button>
+              <button
+                onClick={() => onComplete(null)}
+                className="mt-5 w-full text-[11px] text-[#7d758b] hover:text-[#aaa3b6]"
+              >
+                Explore as a guest
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="mx-auto max-w-[440px] onboarding-card rounded-2xl p-7 sm:p-9">
+            <button
+              onClick={() => setMode("welcome")}
+              className="mb-6 text-xs text-[#a39bad] hover:text-white"
+            >
+              ← Back
+            </button>
+            <div className="mb-7 flex h-11 w-11 items-center justify-center rounded-xl bg-[#9353ef2c] text-[#c395ff]">
+              <LogIn size={20} />
+            </div>
+            <h1 className="font-display text-3xl font-bold tracking-[-1.5px] text-white">
+              {mode === "login" ? "Welcome back." : "Make it yours."}
+            </h1>
+            <p className="mt-2 text-sm leading-relaxed text-[#a9a2b7]">
+              {mode === "login"
+                ? "Sign in to continue your learning path."
+                : "Your progress syncs securely across devices."}
+            </p>
+            <div className="mt-7 grid gap-4">
+              {mode === "register" && (
+                <label className="grid gap-1.5 text-xs font-semibold text-[#c5bdd2]">
+                  Name
+                  <input
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    autoComplete="name"
+                    placeholder="Ada Lovelace"
+                    className="onboarding-input rounded-lg px-3 py-3 text-sm outline-none"
+                  />
+                </label>
+              )}
+              <label className="grid gap-1.5 text-xs font-semibold text-[#c5bdd2]">
+                Email
+                <input
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  type="email"
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  className="onboarding-input rounded-lg px-3 py-3 text-sm outline-none"
+                />
+              </label>
+              <label className="grid gap-1.5 text-xs font-semibold text-[#c5bdd2]">
+                Password
+                <input
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  type="password"
+                  autoComplete={
+                    mode === "login" ? "current-password" : "new-password"
+                  }
+                  placeholder="At least 10 characters"
+                  className="onboarding-input rounded-lg px-3 py-3 text-sm outline-none"
+                />
+              </label>
+              {error && (
+                <p className="rounded-lg border border-[#ff659655] bg-[#ff4d8215] px-3 py-2 text-xs text-[#ffb3cc]">
+                  {error}
+                </p>
+              )}
+              <button
+                disabled={submitting}
+                onClick={authenticate}
+                className="onboarding-cta mt-2 rounded-lg px-4 py-3.5 text-sm font-bold text-white disabled:opacity-60"
+              >
+                {submitting
+                  ? "One moment…"
+                  : mode === "login"
+                    ? "Sign in"
+                    : "Create account"}
+              </button>
+            </div>
+            <button
+              onClick={() => setMode(mode === "login" ? "register" : "login")}
+              className="mt-5 w-full text-xs text-[#aaa3b6]"
+            >
+              {mode === "login" ? "New here? " : "Already have an account? "}
+              <span className="text-[#c193ff]">
+                {mode === "login" ? "Create one" : "Sign in"}
+              </span>
+            </button>
+          </div>
+        )}
+      </section>
+      <footer className="relative z-10 mt-8 flex justify-center gap-4 text-[11px] text-[#8b809a]">
+        <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+        <a href="/support.html">Support</a>
+      </footer>
+    </main>
+  );
 }
 
-function ProfileMenu({ account, onLogout }: { account: Account; onLogout: () => void }) {
-  const [open, setOpen] = useState(false)
-  const initial = account.displayName.trim().slice(0, 1).toUpperCase()
-  return <div className="relative hidden sm:block"><button onClick={() => setOpen(value => !value)} aria-expanded={open} aria-haspopup="menu" className="flex items-center gap-2 rounded-full border border-[#7652a6] bg-[#241839] px-2 py-1.5 text-xs font-semibold text-[#f0e7ff] hover:bg-[#32204d]"><span className="grid h-6 w-6 place-items-center rounded-full bg-[#a970ff] text-[10px] text-white">{initial}</span><span className="max-w-28 truncate">{account.displayName}</span><ChevronDown size={14}/></button>{open && <div role="menu" className="profile-menu absolute right-0 top-11 z-30 w-64 rounded-xl border p-2 shadow-2xl"><div className="border-b border-[#3d3155] px-3 py-2.5"><p className="m-0 text-sm font-semibold text-white">{account.displayName}</p><p className="mt-1 truncate text-xs text-[#bdb2cf]">{account.email || 'Signed-in learner'}</p></div><button role="menuitem" onClick={onLogout} className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-semibold text-[#ffd3e6] hover:bg-[#ff5f9718]"><LogOut size={15}/>Sign out</button></div>}</div>
+function ProfileMenu({
+  account,
+  onLogout,
+}: {
+  account: Account;
+  onLogout: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const initial = account.displayName.trim().slice(0, 1).toUpperCase();
+  return (
+    <div className="relative hidden sm:block">
+      <button
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        className="flex items-center gap-2 rounded-full border border-[#7652a6] bg-[#241839] px-2 py-1.5 text-xs font-semibold text-[#f0e7ff] hover:bg-[#32204d]"
+      >
+        <span className="grid h-6 w-6 place-items-center rounded-full bg-[#a970ff] text-[10px] text-white">
+          {initial}
+        </span>
+        <span className="max-w-28 truncate">{account.displayName}</span>
+        <ChevronDown size={14} />
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="profile-menu absolute right-0 top-11 z-30 w-64 rounded-xl border p-2 shadow-2xl"
+        >
+          <div className="border-b border-[#3d3155] px-3 py-2.5">
+            <p className="m-0 text-sm font-semibold text-white">
+              {account.displayName}
+            </p>
+            <p className="mt-1 truncate text-xs text-[#bdb2cf]">
+              {account.email || "Signed-in learner"}
+            </p>
+          </div>
+          <button
+            role="menuitem"
+            onClick={onLogout}
+            className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-semibold text-[#ffd3e6] hover:bg-[#ff5f9718]"
+          >
+            <LogOut size={15} />
+            Sign out
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function ThemePicker() {
-  const [accent, setAccent] = useState(() => localStorage.getItem('pathway-accent') ?? 'purple')
-  useEffect(() => { applyAccent(accent); localStorage.setItem('pathway-accent', accent) }, [accent])
-  return <div className="mt-4 border-t border-[#332846] pt-4"><p className="text-[9px] font-bold tracking-[1px] text-[#9688ae]">PRIMARY COLOR</p><div className="mt-2 flex flex-wrap gap-2">{accentOptions.map(option => <button key={option.id} onClick={() => setAccent(option.id)} aria-label={`${option.label} theme`} aria-pressed={accent === option.id} className={`grid h-5 w-5 place-items-center rounded-full border-2 ${accent === option.id ? 'border-white' : 'border-transparent'}`} style={{ background: option.value }}><span className="sr-only">{option.label}</span></button>)}</div></div>
+  const [accent, setAccent] = useState(
+    () => localStorage.getItem("pathway-accent") ?? "purple",
+  );
+  useEffect(() => {
+    applyAccent(accent);
+    localStorage.setItem("pathway-accent", accent);
+  }, [accent]);
+  return (
+    <div className="mt-4 border-t border-[#332846] pt-4">
+      <p className="text-[9px] font-bold tracking-[1px] text-[#9688ae]">
+        PRIMARY COLOR
+      </p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {accentOptions.map((option) => (
+          <button
+            key={option.id}
+            onClick={() => setAccent(option.id)}
+            aria-label={`${option.label} theme`}
+            aria-pressed={accent === option.id}
+            className={`grid h-5 w-5 place-items-center rounded-full border-2 ${accent === option.id ? "border-white" : "border-transparent"}`}
+            style={{ background: option.value }}
+          >
+            <span className="sr-only">{option.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
-function Sidebar({course,current,completed,available,workspace,onNavigate,onChangeCourse,onSelect,onLocked}:{course:Course;current:string;completed:string[];available:Set<string>;workspace:Workspace;onNavigate:(workspace:Workspace)=>void;onChangeCourse:(courseId:string)=>void;onSelect:(slug:string)=>void;onLocked:()=>void}) {
-  const [trackMenuOpen, setTrackMenuOpen] = useState(false)
-  const languageBadge = course.languageId === 'python' ? 'Py' : 'C#'
-  const nav = (id: Workspace, label: string, icon: ReactNode) => <button onClick={() => onNavigate(id)} aria-current={workspace === id ? 'page' : undefined} className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition ${workspace === id ? 'bg-[#6d36ce42] font-bold text-white' : 'text-[#bdb2cf] hover:bg-[#ffffff0b] hover:text-white'}`}>{icon}{label}</button>
-  return <aside className="sidebar-shell hidden min-h-screen w-[264px] shrink-0 flex-col border-r border-[#332846] bg-[#0f0d17] px-4 py-7 text-[#eee6fa] lg:flex">
-    <div className="flex items-center gap-2 px-3 font-display text-[27px] font-semibold tracking-[-1.4px] text-white"><span className="brand-orbit font-sans text-[33px] leading-5 text-[#b981ff]">⌁</span>pathway</div>
-    <nav className="mt-11 grid gap-1 text-sm font-medium">{nav('learn', 'Learn', <Code2 size={17}/>)}{nav('practice', 'Practice', <span className="text-lg leading-4">◌</span>)}{nav('dashboard', 'Progress', <span className="text-lg leading-4">◔</span>)}{nav('projects', 'Projects', <FolderKanban size={17}/>)}{nav('coach', 'Coach', <Sparkles size={17}/>)}{nav('community', 'Community', <UserRound size={17}/>)}</nav>
-    <p className="mb-2 mt-8 px-3 text-[10px] font-bold tracking-[1.15px] text-[#9688ae]">YOUR TRACK</p>
-    <div className="relative"><button onClick={() => setTrackMenuOpen(open => !open)} aria-expanded={trackMenuOpen} aria-haspopup="menu" className="flex w-full items-center gap-2 rounded-md px-3 pb-4 text-left text-sm font-semibold hover:bg-[#ffffff0b]"><span className="language-badge rounded bg-[#785aa8] px-1 py-0.5 text-[9px] text-white">{languageBadge}</span><span className="min-w-0 flex-1 truncate">{course.languageVersion} / {course.frameworkVersion}</span><ChevronDown className={trackMenuOpen ? 'shrink-0 rotate-180 transition' : 'shrink-0 transition'} size={15}/></button>{trackMenuOpen ? <TrackMenu courseId={course.id} close={() => setTrackMenuOpen(false)} onChangeCourse={onChangeCourse}/> : null}</div>
-    <div className="border-t border-[#332846] pt-2">{workspace === 'learn' && course.modules.map(module => <div key={module.title}><p className="px-2.5 pt-3 text-[9px] font-bold tracking-[1px] text-[#9688ae]">{module.title.toUpperCase()}</p>{module.lessons.map(item => { const active=item.slug===current, done=completed.includes(item.slug), unlocked=available.has(item.slug); return <button onClick={() => unlocked ? onSelect(item.slug) : onLocked()} key={item.slug} aria-label={unlocked ? item.title : `${item.title} locked`} className={`lesson-nav flex w-full items-center gap-2.5 rounded-md px-2.5 py-2.5 text-left text-[13px] ${active ? 'bg-[#ffffff12] font-bold text-white' : unlocked ? 'font-medium text-[#c2b8d2] hover:bg-[#ffffff0b]' : 'text-[#6d647a]'}`}><span className={`grid h-[19px] w-[19px] place-items-center rounded-full border text-[10px] ${done ? 'border-[#a970ff] bg-[#8d4be2] text-white' : active ? 'border-[5px] border-[#b981ff]' : unlocked ? 'border-[#786b8f]' : 'border-[#493f55]'}`}>{done ? <Check size={11}/> : !unlocked ? <LockKeyhole size={9}/> : null}</span>{item.title}</button>})}</div>)}</div>
-    <div className="mt-auto border-t border-[#332846] px-3 py-4"><div className="flex gap-3"><Flame className="text-[#ff9270]"/><div><strong className="block text-xs text-white">Learning path</strong><small className="block pt-1 text-[11px] text-[#a99dbd]">{completed.filter(slug => course.modules.some(module => module.lessons.some(lesson => lesson.slug === slug))).length} lessons completed</small></div></div><ThemePicker/>{donationUrl && <a href={donationUrl} target="_blank" rel="noreferrer" className="mt-4 block rounded-lg border border-[#7652a6] bg-[#8d4be21c] px-3 py-2 text-center text-xs font-bold text-[#e6d8ff] hover:bg-[#8d4be238]">Support Pathway →</a>}<div className="mt-4 flex gap-3 text-[10px] text-[#9589a6]"><a href="/privacy.html" className="hover:text-white">Privacy</a><a href="/terms.html" className="hover:text-white">Terms</a><a href="/support.html" className="hover:text-white">Support</a></div></div>
-  </aside>
+function Sidebar({
+  course,
+  current,
+  completed,
+  available,
+  workspace,
+  onNavigate,
+  onChangeCourse,
+  onSelect,
+  onLocked,
+}: {
+  course: Course;
+  current: string;
+  completed: string[];
+  available: Set<string>;
+  workspace: Workspace;
+  onNavigate: (workspace: Workspace) => void;
+  onChangeCourse: (courseId: string) => void;
+  onSelect: (slug: string) => void;
+  onLocked: () => void;
+}) {
+  const [trackMenuOpen, setTrackMenuOpen] = useState(false);
+  const languageBadge =
+    course.languageId === "python"
+      ? "Py"
+      : course.languageId === "rust"
+        ? "Rs"
+        : "C#";
+  const nav = (id: Workspace, label: string, icon: ReactNode) => (
+    <button
+      onClick={() => onNavigate(id)}
+      aria-current={workspace === id ? "page" : undefined}
+      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition ${workspace === id ? "bg-[#6d36ce42] font-bold text-white" : "text-[#bdb2cf] hover:bg-[#ffffff0b] hover:text-white"}`}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+  return (
+    <aside className="sidebar-shell hidden min-h-screen w-[264px] shrink-0 flex-col border-r border-[#332846] bg-[#0f0d17] px-4 py-7 text-[#eee6fa] lg:flex">
+      <div className="flex items-center gap-2 px-3 font-display text-[27px] font-semibold tracking-[-1.4px] text-white">
+        <span className="brand-orbit font-sans text-[33px] leading-5 text-[#b981ff]">
+          ⌁
+        </span>
+        pathway
+      </div>
+      <nav className="mt-11 grid gap-1 text-sm font-medium">
+        {nav("learn", "Learn", <Code2 size={17} />)}
+        {nav(
+          "practice",
+          "Practice",
+          <span className="text-lg leading-4">◌</span>,
+        )}
+        {nav(
+          "dashboard",
+          "Progress",
+          <span className="text-lg leading-4">◔</span>,
+        )}
+        {nav("projects", "Projects", <FolderKanban size={17} />)}
+        {nav("coach", "Coach", <Sparkles size={17} />)}
+        {nav("community", "Community", <UserRound size={17} />)}
+      </nav>
+      <p className="mb-2 mt-8 px-3 text-[10px] font-bold tracking-[1.15px] text-[#9688ae]">
+        YOUR TRACK
+      </p>
+      <div className="relative">
+        <button
+          onClick={() => setTrackMenuOpen((open) => !open)}
+          aria-expanded={trackMenuOpen}
+          aria-haspopup="menu"
+          className="flex w-full items-center gap-2 rounded-md px-3 pb-4 text-left text-sm font-semibold hover:bg-[#ffffff0b]"
+        >
+          <span className="language-badge rounded bg-[#785aa8] px-1 py-0.5 text-[9px] text-white">
+            {languageBadge}
+          </span>
+          <span className="min-w-0 flex-1 truncate">
+            {course.languageVersion} / {course.frameworkVersion}
+          </span>
+          <ChevronDown
+            className={
+              trackMenuOpen
+                ? "shrink-0 rotate-180 transition"
+                : "shrink-0 transition"
+            }
+            size={15}
+          />
+        </button>
+        {trackMenuOpen ? (
+          <TrackMenu
+            courseId={course.id}
+            close={() => setTrackMenuOpen(false)}
+            onChangeCourse={onChangeCourse}
+          />
+        ) : null}
+      </div>
+      <div className="border-t border-[#332846] pt-2">
+        {workspace === "learn" &&
+          course.modules.map((module) => (
+            <div key={module.title}>
+              <p className="px-2.5 pt-3 text-[9px] font-bold tracking-[1px] text-[#9688ae]">
+                {module.title.toUpperCase()}
+              </p>
+              {module.lessons.map((item) => {
+                const active = item.slug === current,
+                  done = completed.includes(item.slug),
+                  unlocked = available.has(item.slug);
+                return (
+                  <button
+                    onClick={() =>
+                      unlocked ? onSelect(item.slug) : onLocked()
+                    }
+                    key={item.slug}
+                    aria-label={unlocked ? item.title : `${item.title} locked`}
+                    className={`lesson-nav flex w-full items-center gap-2.5 rounded-md px-2.5 py-2.5 text-left text-[13px] ${active ? "bg-[#ffffff12] font-bold text-white" : unlocked ? "font-medium text-[#c2b8d2] hover:bg-[#ffffff0b]" : "text-[#6d647a]"}`}
+                  >
+                    <span
+                      className={`grid h-[19px] w-[19px] place-items-center rounded-full border text-[10px] ${done ? "border-[#a970ff] bg-[#8d4be2] text-white" : active ? "border-[5px] border-[#b981ff]" : unlocked ? "border-[#786b8f]" : "border-[#493f55]"}`}
+                    >
+                      {done ? (
+                        <Check size={11} />
+                      ) : !unlocked ? (
+                        <LockKeyhole size={9} />
+                      ) : null}
+                    </span>
+                    {item.title}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+      </div>
+      <div className="mt-auto border-t border-[#332846] px-3 py-4">
+        <div className="flex gap-3">
+          <Flame className="text-[#ff9270]" />
+          <div>
+            <strong className="block text-xs text-white">Learning path</strong>
+            <small className="block pt-1 text-[11px] text-[#a99dbd]">
+              {
+                completed.filter((slug) =>
+                  course.modules.some((module) =>
+                    module.lessons.some((lesson) => lesson.slug === slug),
+                  ),
+                ).length
+              }{" "}
+              lessons completed
+            </small>
+          </div>
+        </div>
+        <ThemePicker />
+        {donationUrl && (
+          <a
+            href={donationUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-4 block rounded-lg border border-[#7652a6] bg-[#8d4be21c] px-3 py-2 text-center text-xs font-bold text-[#e6d8ff] hover:bg-[#8d4be238]"
+          >
+            Support Pathway →
+          </a>
+        )}
+        <div className="mt-4 flex gap-3 text-[10px] text-[#9589a6]">
+          <a href="/privacy.html" className="hover:text-white">
+            Privacy
+          </a>
+          <a href="/terms.html" className="hover:text-white">
+            Terms
+          </a>
+          <a href="/support.html" className="hover:text-white">
+            Support
+          </a>
+        </div>
+      </div>
+    </aside>
+  );
 }
 
-function TrackMenu({ courseId, close, onChangeCourse }: { courseId: string; close: () => void; onChangeCourse: (courseId: string) => void }) {
-  const select = (id: string) => { close(); onChangeCourse(id) }
-  const itemClass = (id: string) => `flex w-full items-center gap-3 rounded px-3 py-2.5 text-left text-xs ${courseId === id ? 'bg-[#6d36ce42] font-bold text-white' : 'text-[#d5cae4] hover:bg-[#ffffff0b]'}`
-  return <div role="menu" className="absolute z-20 w-full rounded-md border border-[#4b3a67] bg-[#21182f] p-1 shadow-xl"><button role="menuitem" onClick={() => select('csharp-dotnet')} className={itemClass('csharp-dotnet')}><span className="rounded bg-[#785aa8] px-1 py-0.5 text-[9px] text-white">C#</span><span>C# / .NET</span>{courseId === 'csharp-dotnet' && <Check className="ml-auto" size={14}/>}</button><button role="menuitem" onClick={() => select('python-web')} className={itemClass('python-web')}><span className="rounded bg-[#3776ab] px-1 py-0.5 text-[9px] text-white">Py</span><span>Python Web</span>{courseId === 'python-web' && <Check className="ml-auto" size={14}/>}</button></div>
+function TrackMenu({
+  courseId,
+  close,
+  onChangeCourse,
+}: {
+  courseId: string;
+  close: () => void;
+  onChangeCourse: (courseId: string) => void;
+}) {
+  const select = (id: string) => {
+    close();
+    onChangeCourse(id);
+  };
+  const itemClass = (id: string) =>
+    `flex w-full items-center gap-3 rounded px-3 py-2.5 text-left text-xs ${courseId === id ? "bg-[#6d36ce42] font-bold text-white" : "text-[#d5cae4] hover:bg-[#ffffff0b]"}`;
+  return (
+    <div
+      role="menu"
+      className="absolute z-20 w-full rounded-md border border-[#4b3a67] bg-[#21182f] p-1 shadow-xl"
+    >
+      <button
+        role="menuitem"
+        onClick={() => select("csharp-dotnet")}
+        className={itemClass("csharp-dotnet")}
+      >
+        <span className="rounded bg-[#785aa8] px-1 py-0.5 text-[9px] text-white">
+          C#
+        </span>
+        <span>C# / .NET</span>
+        {courseId === "csharp-dotnet" && (
+          <Check className="ml-auto" size={14} />
+        )}
+      </button>
+      <button
+        role="menuitem"
+        onClick={() => select("python-web")}
+        className={itemClass("python-web")}
+      >
+        <span className="rounded bg-[#3776ab] px-1 py-0.5 text-[9px] text-white">
+          Py
+        </span>
+        <span>Python Web</span>
+        {courseId === "python-web" && <Check className="ml-auto" size={14} />}
+      </button>
+      <button
+        role="menuitem"
+        onClick={() => select("rust-systems")}
+        className={itemClass("rust-systems")}
+      >
+        <span className="rounded bg-[#dea584] px-1 py-0.5 text-[9px] text-[#2b1d16]">
+          Rs
+        </span>
+        <span>Rust Systems</span>
+        {courseId === "rust-systems" && <Check className="ml-auto" size={14} />}
+      </button>
+    </div>
+  );
 }
 
-function WorkspacePanel({workspace,course,completed,available,onLearn,onSelect,onLocked}:{workspace:Exclude<Workspace, 'learn'>;course:Course;completed:string[];available:Set<string>;onLearn:()=>void;onSelect:(slug:string)=>void;onLocked:()=>void}) {
-  const lessons = course.modules.flatMap(module => module.lessons).sort((a, b) => a.order - b.order)
-  if (workspace === 'practice') {
-    const reviewLessons = lessons.filter(item => completed.includes(item.slug))
-    const nextLesson = lessons.find(item => available.has(item.slug) && !completed.includes(item.slug))
-    return <section className="mx-auto w-full max-w-4xl px-7 py-12 sm:px-12"><p className="text-[10px] font-bold tracking-[1.4px] text-[#5d886f]">PRACTICE STUDIO</p><h1 className="mt-2 font-display text-5xl font-semibold tracking-[-2px] text-forest">Strengthen the signal.</h1><p className="mt-4 max-w-2xl text-sm leading-relaxed text-[#59635c]">Return to completed lessons for deliberate review, or continue with the next unlocked challenge in your current track.</p><div className="mt-9 grid gap-4 sm:grid-cols-2"><button onClick={() => nextLesson ? onSelect(nextLesson.slug) : onLearn()} className="rounded-xl bg-pine p-5 text-left text-white shadow-sm"><span className="text-[10px] font-bold tracking-[1.3px] text-[#bce9d8]">NEXT CHALLENGE</span><strong className="mt-2 block text-lg">{nextLesson?.title ?? 'Track complete — review your work'}</strong><span className="mt-4 inline-block text-xs text-[#d8efe5]">Open lesson →</span></button><div className="rounded-xl border border-[#dfddd4] bg-[#fffefa] p-5"><span className="text-[10px] font-bold tracking-[1.3px] text-[#6e786f]">PROGRESS</span><strong className="mt-2 block font-display text-3xl text-forest">{completed.filter(slug => lessons.some(lesson => lesson.slug === slug)).length} / {lessons.length}</strong><span className="mt-2 block text-xs text-[#70766f]">Lessons completed in this track</span></div></div><h2 className="mt-11 font-display text-2xl font-semibold text-forest">Review queue</h2><div className="mt-4 grid gap-2">{reviewLessons.length ? reviewLessons.map(item => <button key={item.slug} onClick={() => onSelect(item.slug)} className="flex items-center justify-between rounded-lg border border-[#dfddd4] bg-[#fffefa] px-4 py-3 text-left text-sm text-[#3b4940] hover:border-[#75a991]"><span><Check className="mr-2 inline text-[#278164]" size={15}/>{item.title}</span><span className="text-xs text-[#4d8a70]">Practice again →</span></button>) : <div className="rounded-lg border border-dashed border-[#d5d2c9] p-5 text-sm text-[#70766f]">Complete a lesson and it will appear here for review.</div>}</div></section>
+function WorkspacePanel({
+  workspace,
+  course,
+  completed,
+  available,
+  onLearn,
+  onSelect,
+  onLocked,
+}: {
+  workspace: Exclude<Workspace, "learn">;
+  course: Course;
+  completed: string[];
+  available: Set<string>;
+  onLearn: () => void;
+  onSelect: (slug: string) => void;
+  onLocked: () => void;
+}) {
+  const lessons = course.modules
+    .flatMap((module) => module.lessons)
+    .sort((a, b) => a.order - b.order);
+  if (workspace === "practice") {
+    const reviewLessons = lessons.filter((item) =>
+      completed.includes(item.slug),
+    );
+    const nextLesson = lessons.find(
+      (item) => available.has(item.slug) && !completed.includes(item.slug),
+    );
+    return (
+      <section className="mx-auto w-full max-w-4xl px-7 py-12 sm:px-12">
+        <p className="text-[10px] font-bold tracking-[1.4px] text-[#5d886f]">
+          PRACTICE STUDIO
+        </p>
+        <h1 className="mt-2 font-display text-5xl font-semibold tracking-[-2px] text-forest">
+          Strengthen the signal.
+        </h1>
+        <p className="mt-4 max-w-2xl text-sm leading-relaxed text-[#59635c]">
+          Return to completed lessons for deliberate review, or continue with
+          the next unlocked challenge in your current track.
+        </p>
+        <div className="mt-9 grid gap-4 sm:grid-cols-2">
+          <button
+            onClick={() => (nextLesson ? onSelect(nextLesson.slug) : onLearn())}
+            className="rounded-xl bg-pine p-5 text-left text-white shadow-sm"
+          >
+            <span className="text-[10px] font-bold tracking-[1.3px] text-[#bce9d8]">
+              NEXT CHALLENGE
+            </span>
+            <strong className="mt-2 block text-lg">
+              {nextLesson?.title ?? "Track complete — review your work"}
+            </strong>
+            <span className="mt-4 inline-block text-xs text-[#d8efe5]">
+              Open lesson →
+            </span>
+          </button>
+          <div className="rounded-xl border border-[#dfddd4] bg-[#fffefa] p-5">
+            <span className="text-[10px] font-bold tracking-[1.3px] text-[#6e786f]">
+              PROGRESS
+            </span>
+            <strong className="mt-2 block font-display text-3xl text-forest">
+              {
+                completed.filter((slug) =>
+                  lessons.some((lesson) => lesson.slug === slug),
+                ).length
+              }{" "}
+              / {lessons.length}
+            </strong>
+            <span className="mt-2 block text-xs text-[#70766f]">
+              Lessons completed in this track
+            </span>
+          </div>
+        </div>
+        <h2 className="mt-11 font-display text-2xl font-semibold text-forest">
+          Review queue
+        </h2>
+        <div className="mt-4 grid gap-2">
+          {reviewLessons.length ? (
+            reviewLessons.map((item) => (
+              <button
+                key={item.slug}
+                onClick={() => onSelect(item.slug)}
+                className="flex items-center justify-between rounded-lg border border-[#dfddd4] bg-[#fffefa] px-4 py-3 text-left text-sm text-[#3b4940] hover:border-[#75a991]"
+              >
+                <span>
+                  <Check className="mr-2 inline text-[#278164]" size={15} />
+                  {item.title}
+                </span>
+                <span className="text-xs text-[#4d8a70]">Practice again →</span>
+              </button>
+            ))
+          ) : (
+            <div className="rounded-lg border border-dashed border-[#d5d2c9] p-5 text-sm text-[#70766f]">
+              Complete a lesson and it will appear here for review.
+            </div>
+          )}
+        </div>
+      </section>
+    );
   }
-  const stages = course.languageId === 'python' ? [['Foundation API', 'Model lessons, publish a typed HTTP contract, and prove it with tests.'], ['Production service', 'Add persistence, authorization, background work, structured telemetry, and a safe release path.'], ['Staff capstone', 'Design the multi-tenant learning platform, write its ADR, and define ownership and SLOs.']] : [['Foundation API', 'Model a small API with modern C# types and contract tests.'], ['Production service', 'Add persistence, cancellation, telemetry, and a safe release path.'], ['Staff capstone', 'Write an evidence-backed architecture decision with ownership and operational measures.']]
-  return <section className="mx-auto w-full max-w-4xl px-7 py-12 sm:px-12"><p className="text-[10px] font-bold tracking-[1.4px] text-[#5d886f]">PROJECT STUDIO</p><h1 className="mt-2 font-display text-5xl font-semibold tracking-[-2px] text-forest">Build the real thing.</h1><p className="mt-4 max-w-2xl text-sm leading-relaxed text-[#59635c]">Projects turn isolated lessons into evidence of engineering judgment. Each stage is unlocked by the supporting learning path.</p><div className="mt-9 grid gap-4">{stages.map(([title, description], index) => { const unlocked = index === 0 || completed.length >= Math.ceil(lessons.length * index / stages.length); return <div key={title} className={`rounded-xl border p-5 ${unlocked ? 'border-[#c9ddd2] bg-[#fffefa]' : 'border-[#e0ded7] bg-[#f3f1ea] text-[#858a84]'}`}><div className="flex items-start gap-4"><span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-bold ${unlocked ? 'bg-[#dcefe5] text-[#176c53]' : 'bg-[#e3e2dc]'}`}>{index + 1}</span><div><h2 className="font-display text-2xl font-semibold text-forest">{title}</h2><p className="mt-2 text-sm leading-relaxed text-[#657068]">{description}</p><button onClick={() => unlocked ? onLearn() : onLocked()} className="mt-4 text-xs font-bold text-[#278164]">{unlocked ? 'Open supporting lessons →' : 'Complete more lessons to unlock'}</button></div></div></div>})}</div></section>
+  const stages =
+    course.languageId === "python"
+      ? [
+          [
+            "Foundation API",
+            "Model lessons, publish a typed HTTP contract, and prove it with tests.",
+          ],
+          [
+            "Production service",
+            "Add persistence, authorization, background work, structured telemetry, and a safe release path.",
+          ],
+          [
+            "Staff capstone",
+            "Design the multi-tenant learning platform, write its ADR, and define ownership and SLOs.",
+          ],
+        ]
+      : course.languageId === "rust"
+        ? [
+            [
+              "Foundation service",
+              "Build a typed Axum service with Cargo quality gates and contract tests.",
+            ],
+            [
+              "Production service",
+              "Add persistence, authorization, bounded Tokio concurrency, tracing, and safe delivery.",
+            ],
+            [
+              "Staff capstone",
+              "Design an evidence-backed Rust platform with explicit ownership, SLOs, and recovery.",
+            ],
+          ]
+        : [
+            [
+              "Foundation API",
+              "Model a small API with modern C# types and contract tests.",
+            ],
+            [
+              "Production service",
+              "Add persistence, cancellation, telemetry, and a safe release path.",
+            ],
+            [
+              "Staff capstone",
+              "Write an evidence-backed architecture decision with ownership and operational measures.",
+            ],
+          ];
+  return (
+    <section className="mx-auto w-full max-w-4xl px-7 py-12 sm:px-12">
+      <p className="text-[10px] font-bold tracking-[1.4px] text-[#5d886f]">
+        PROJECT STUDIO
+      </p>
+      <h1 className="mt-2 font-display text-5xl font-semibold tracking-[-2px] text-forest">
+        Build the real thing.
+      </h1>
+      <p className="mt-4 max-w-2xl text-sm leading-relaxed text-[#59635c]">
+        Projects turn isolated lessons into evidence of engineering judgment.
+        Each stage is unlocked by the supporting learning path.
+      </p>
+      <div className="mt-9 grid gap-4">
+        {stages.map(([title, description], index) => {
+          const unlocked =
+            index === 0 ||
+            completed.length >=
+              Math.ceil((lessons.length * index) / stages.length);
+          return (
+            <div
+              key={title}
+              className={`rounded-xl border p-5 ${unlocked ? "border-[#c9ddd2] bg-[#fffefa]" : "border-[#e0ded7] bg-[#f3f1ea] text-[#858a84]"}`}
+            >
+              <div className="flex items-start gap-4">
+                <span
+                  className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-bold ${unlocked ? "bg-[#dcefe5] text-[#176c53]" : "bg-[#e3e2dc]"}`}
+                >
+                  {index + 1}
+                </span>
+                <div>
+                  <h2 className="font-display text-2xl font-semibold text-forest">
+                    {title}
+                  </h2>
+                  <p className="mt-2 text-sm leading-relaxed text-[#657068]">
+                    {description}
+                  </p>
+                  <button
+                    onClick={() => (unlocked ? onLearn() : onLocked())}
+                    className="mt-4 text-xs font-bold text-[#278164]"
+                  >
+                    {unlocked
+                      ? "Open supporting lessons →"
+                      : "Complete more lessons to unlock"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
 }
 
-function LessonContent({lesson}:{lesson:Lesson}) { const language = lesson.version.language.startsWith('Python') ? 'Python' : 'C#'; return <article className="border-b border-[#e1dfd6] bg-[#fbf9f3] px-7 py-12 sm:px-[9vw] lg:border-b-0 lg:border-r lg:px-[clamp(38px,6vw,92px)] lg:py-16"><p className="text-[10px] font-bold tracking-[1.15px] text-[#6e786f]"><span className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-[#e5744d]"/>{lesson.module.toUpperCase()} <span className="mx-2 text-[#a6ada7]">/</span> LESSON {String(lesson.order).padStart(2,'0')}</p><div className="mb-5 mt-6 flex gap-4"><span className="pt-2 font-display text-[27px] text-[#b6bbb2]">{String(lesson.order).padStart(2,'0')}</span><h1 className="font-display text-[48px] font-semibold leading-[.95] tracking-[-2.5px] text-forest sm:text-[56px]">{lesson.title}</h1></div><p className="mb-7 max-w-[385px] font-display text-[18px] leading-relaxed text-[#48524b]">{lesson.subtitle}</p><div className="flex gap-3 rounded-r-md border-l-[3px] border-[#54a987] bg-[#e5f2eb] px-4 py-3.5 text-[13px] leading-relaxed text-[#2e453a]"><Sparkles className="mt-0.5 shrink-0 text-[#278164]" size={15}/><p className="m-0"><strong>Key idea:</strong> {lesson.concept}</p></div><p className="my-6 text-sm leading-relaxed text-[#454d47]">{lesson.body}</p><div className="overflow-hidden rounded-md bg-[#252b28] shadow-sm"><div className="bg-[#303735] px-4 py-2 font-mono text-[10px] text-[#bbc4bb]">{language}</div><pre className="m-0 overflow-auto p-4 font-mono text-xs leading-7 text-[#dce6de]">{lesson.example}</pre></div><p className="mt-5 text-[11px] leading-relaxed text-[#727b73]">Reviewed {lesson.version.lastReviewed} · {lesson.version.language} / {lesson.version.framework}</p></article> }
+function LessonContent({ lesson }: { lesson: Lesson }) {
+  const language = lesson.version.language.startsWith("Python")
+    ? "Python"
+    : lesson.version.language.startsWith("Rust")
+      ? "Rust"
+      : "C#";
+  return (
+    <article className="border-b border-[#e1dfd6] bg-[#fbf9f3] px-7 py-12 sm:px-[9vw] lg:border-b-0 lg:border-r lg:px-[clamp(38px,6vw,92px)] lg:py-16">
+      <p className="text-[10px] font-bold tracking-[1.15px] text-[#6e786f]">
+        <span className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-[#e5744d]" />
+        {lesson.module.toUpperCase()}{" "}
+        <span className="mx-2 text-[#a6ada7]">/</span> LESSON{" "}
+        {String(lesson.order).padStart(2, "0")}
+      </p>
+      <div className="mb-5 mt-6 flex gap-4">
+        <span className="pt-2 font-display text-[27px] text-[#b6bbb2]">
+          {String(lesson.order).padStart(2, "0")}
+        </span>
+        <h1 className="font-display text-[48px] font-semibold leading-[.95] tracking-[-2.5px] text-forest sm:text-[56px]">
+          {lesson.title}
+        </h1>
+      </div>
+      <p className="mb-7 max-w-[385px] font-display text-[18px] leading-relaxed text-[#48524b]">
+        {lesson.subtitle}
+      </p>
+      <div className="flex gap-3 rounded-r-md border-l-[3px] border-[#54a987] bg-[#e5f2eb] px-4 py-3.5 text-[13px] leading-relaxed text-[#2e453a]">
+        <Sparkles className="mt-0.5 shrink-0 text-[#278164]" size={15} />
+        <p className="m-0">
+          <strong>Key idea:</strong> {lesson.concept}
+        </p>
+      </div>
+      <p className="my-6 text-sm leading-relaxed text-[#454d47]">
+        {lesson.body}
+      </p>
+      <div className="overflow-hidden rounded-md bg-[#252b28] shadow-sm">
+        <div className="bg-[#303735] px-4 py-2 font-mono text-[10px] text-[#bbc4bb]">
+          {language}
+        </div>
+        <pre className="m-0 overflow-auto p-4 font-mono text-xs leading-7 text-[#dce6de]">
+          {lesson.example}
+        </pre>
+      </div>
+      <p className="mt-5 text-[11px] leading-relaxed text-[#727b73]">
+        Reviewed {lesson.version.lastReviewed} · {lesson.version.language} /{" "}
+        {lesson.version.framework}
+      </p>
+    </article>
+  );
+}
 
-function ExercisePanel({lesson,answer,setAnswer,code,setCode,result,passed,submit,onReset,onNext}:{lesson:Lesson;answer:string;setAnswer:(v:string)=>void;code:string;setCode:(v:string)=>void;result:Result|null;passed:boolean;submit:()=>void;onReset:()=>void;onNext:()=>void}) { const e=lesson.exercise; const language = lesson.version.language.startsWith('Python') ? 'Python' : 'C#'; return <section className="bg-panel px-7 py-10 sm:px-[9vw] lg:px-[clamp(27px,4vw,58px)] lg:py-[42px]"><p className="text-[10px] font-bold tracking-[1.2px] text-[#5d886f]">YOUR TURN</p><h2 className="mt-1 font-display text-[29px] font-semibold tracking-[-.8px]">{e.title}</h2><p className="mt-5 text-sm leading-relaxed text-[#59635c]">{e.prompt}</p><div className="mb-6 mt-4 space-y-2 text-xs text-[#4f5b53]">{e.requirements.map(r => <p key={r} className="m-0"><Check className="mr-1 inline text-[#25916d]" size={14}/>{r}</p>)}</div>{e.kind === 'MultipleChoice' ? <div className="grid gap-2">{e.choices.map(choice => <button onClick={()=>setAnswer(choice.id)} key={choice.id} className={`rounded-md border p-3 text-left text-sm transition ${answer===choice.id ? 'border-[#258160] bg-[#e5f2eb] text-[#164e3b]' : 'border-[#e1dfd6] bg-white hover:border-[#9ab9aa]'}`}><span className="mr-2 font-mono text-xs text-[#6d897b]">{choice.id.toUpperCase()}</span>{choice.text}</button>)}</div> : <CodeEditor code={code} setCode={setCode} onReset={onReset} language={language}/>}<div className="my-5 flex items-center gap-3"><button onClick={submit} className="rounded-md bg-[#ea7850] px-3 py-2.5 text-xs font-bold text-white hover:bg-[#d9653d]"><Play className="mr-1 inline fill-current" size={11}/>{e.kind==='Code' ? 'Run tests' : 'Check answer'} <kbd className="ml-2 rounded bg-[#f3a082]/50 px-1.5 py-0.5 font-normal">⌘ ↵</kbd></button></div>{result && <div className={`overflow-hidden rounded-md border ${passed ? 'border-[#dce7de] bg-[#f6fbf7]' : 'border-[#f2c7ba] bg-[#fff7f4]'}`}><div className="flex items-center gap-2 border-b border-inherit px-3.5 py-2.5 text-xs"><span className={`grid h-[17px] w-[17px] place-items-center rounded-full ${passed ? 'bg-[#daf1e2] text-[#16835d]' : 'bg-[#f9dfd7] text-[#ca5638]'}`}>{passed?'✓':'!'}</span><strong>{passed?'Passed':'Try again'}</strong><span className={`ml-auto text-[11px] ${passed ? 'text-[#21815f]' : 'text-[#c55a3d]'}`}>{result.passingTests} / {result.totalTests}</span></div><p className="px-3.5 py-3 text-xs leading-relaxed text-[#526157]">{result.feedback}</p></div>}{result?.codeReview && <details className="mt-4 rounded-md border border-[#d7cbec] bg-[#f6f1ff] p-3 text-xs text-[#514467]"><summary className="cursor-pointer font-bold text-[#5f37a1]">Code review suggestions</summary><p className="mb-2 mt-3 leading-relaxed">{result.codeReview.summary}</p>{result.codeReview.suggestions.length > 0 && <ul className="list-disc space-y-2 pl-4 leading-relaxed">{result.codeReview.suggestions.map(suggestion => <li key={suggestion}>{suggestion}</li>)}</ul>}</details>}{passed && <details className="mt-4 rounded-md border border-[#e6dfd2] bg-[#fbf7ef] p-3 text-xs text-[#5b615b]"><summary className="cursor-pointer font-bold text-[#47554d]">Review the worked example</summary><p className="mb-2 mt-3 leading-relaxed">This example demonstrates the same concept. Compare its intent with your solution rather than trying to match it character-for-character.</p><pre className="overflow-auto rounded bg-[#252b28] p-3 font-mono text-[11px] leading-relaxed text-[#dce6de]">{lesson.example}</pre></details>}{passed && lesson.nextSlug && <button onClick={onNext} className="mt-5 rounded-md bg-pine px-4 py-3 text-[13px] font-bold text-white">Next lesson <span className="pl-6 text-lg">→</span></button>}<div className="mt-5 flex gap-2 rounded-md bg-[#f7f0e8] p-3 text-[11px] leading-relaxed text-[#726656]"><Sparkles className="shrink-0 text-[#d68b4e]" size={14}/><p className="m-0"><strong>Hint</strong><br/>{e.hint}</p></div></section> }
+function ExercisePanel({
+  lesson,
+  answer,
+  setAnswer,
+  code,
+  setCode,
+  result,
+  passed,
+  submit,
+  onReset,
+  onNext,
+}: {
+  lesson: Lesson;
+  answer: string;
+  setAnswer: (v: string) => void;
+  code: string;
+  setCode: (v: string) => void;
+  result: Result | null;
+  passed: boolean;
+  submit: () => void;
+  onReset: () => void;
+  onNext: () => void;
+}) {
+  const e = lesson.exercise;
+  const language = lesson.version.language.startsWith("Python")
+    ? "Python"
+    : lesson.version.language.startsWith("Rust")
+      ? "Rust"
+      : "C#";
+  return (
+    <section className="bg-panel px-7 py-10 sm:px-[9vw] lg:px-[clamp(27px,4vw,58px)] lg:py-[42px]">
+      <p className="text-[10px] font-bold tracking-[1.2px] text-[#5d886f]">
+        YOUR TURN
+      </p>
+      <h2 className="mt-1 font-display text-[29px] font-semibold tracking-[-.8px]">
+        {e.title}
+      </h2>
+      <p className="mt-5 text-sm leading-relaxed text-[#59635c]">{e.prompt}</p>
+      <div className="mb-6 mt-4 space-y-2 text-xs text-[#4f5b53]">
+        {e.requirements.map((r) => (
+          <p key={r} className="m-0">
+            <Check className="mr-1 inline text-[#25916d]" size={14} />
+            {r}
+          </p>
+        ))}
+      </div>
+      {e.kind === "MultipleChoice" ? (
+        <div className="grid gap-2">
+          {e.choices.map((choice) => (
+            <button
+              onClick={() => setAnswer(choice.id)}
+              key={choice.id}
+              className={`rounded-md border p-3 text-left text-sm transition ${answer === choice.id ? "border-[#258160] bg-[#e5f2eb] text-[#164e3b]" : "border-[#e1dfd6] bg-white hover:border-[#9ab9aa]"}`}
+            >
+              <span className="mr-2 font-mono text-xs text-[#6d897b]">
+                {choice.id.toUpperCase()}
+              </span>
+              {choice.text}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <CodeEditor
+          code={code}
+          setCode={setCode}
+          onReset={onReset}
+          language={language}
+        />
+      )}
+      <div className="my-5 flex items-center gap-3">
+        <button
+          onClick={submit}
+          className="rounded-md bg-[#ea7850] px-3 py-2.5 text-xs font-bold text-white hover:bg-[#d9653d]"
+        >
+          <Play className="mr-1 inline fill-current" size={11} />
+          {e.kind === "Code" ? "Run tests" : "Check answer"}{" "}
+          <kbd className="ml-2 rounded bg-[#f3a082]/50 px-1.5 py-0.5 font-normal">
+            ⌘ ↵
+          </kbd>
+        </button>
+      </div>
+      {result && (
+        <div
+          className={`overflow-hidden rounded-md border ${passed ? "border-[#dce7de] bg-[#f6fbf7]" : "border-[#f2c7ba] bg-[#fff7f4]"}`}
+        >
+          <div className="flex items-center gap-2 border-b border-inherit px-3.5 py-2.5 text-xs">
+            <span
+              className={`grid h-[17px] w-[17px] place-items-center rounded-full ${passed ? "bg-[#daf1e2] text-[#16835d]" : "bg-[#f9dfd7] text-[#ca5638]"}`}
+            >
+              {passed ? "✓" : "!"}
+            </span>
+            <strong>{passed ? "Passed" : "Try again"}</strong>
+            <span
+              className={`ml-auto text-[11px] ${passed ? "text-[#21815f]" : "text-[#c55a3d]"}`}
+            >
+              {result.passingTests} / {result.totalTests}
+            </span>
+          </div>
+          <p className="px-3.5 py-3 text-xs leading-relaxed text-[#526157]">
+            {result.feedback}
+          </p>
+        </div>
+      )}
+      {result?.codeReview && (
+        <details className="mt-4 rounded-md border border-[#d7cbec] bg-[#f6f1ff] p-3 text-xs text-[#514467]">
+          <summary className="cursor-pointer font-bold text-[#5f37a1]">
+            Code review suggestions
+          </summary>
+          <p className="mb-2 mt-3 leading-relaxed">
+            {result.codeReview.summary}
+          </p>
+          {result.codeReview.suggestions.length > 0 && (
+            <ul className="list-disc space-y-2 pl-4 leading-relaxed">
+              {result.codeReview.suggestions.map((suggestion) => (
+                <li key={suggestion}>{suggestion}</li>
+              ))}
+            </ul>
+          )}
+        </details>
+      )}
+      {passed && (
+        <details className="mt-4 rounded-md border border-[#e6dfd2] bg-[#fbf7ef] p-3 text-xs text-[#5b615b]">
+          <summary className="cursor-pointer font-bold text-[#47554d]">
+            Review the worked example
+          </summary>
+          <p className="mb-2 mt-3 leading-relaxed">
+            This example demonstrates the same concept. Compare its intent with
+            your solution rather than trying to match it
+            character-for-character.
+          </p>
+          <pre className="overflow-auto rounded bg-[#252b28] p-3 font-mono text-[11px] leading-relaxed text-[#dce6de]">
+            {lesson.example}
+          </pre>
+        </details>
+      )}
+      {passed && lesson.nextSlug && (
+        <button
+          onClick={onNext}
+          className="mt-5 rounded-md bg-pine px-4 py-3 text-[13px] font-bold text-white"
+        >
+          Next lesson <span className="pl-6 text-lg">→</span>
+        </button>
+      )}
+      <div className="mt-5 flex gap-2 rounded-md bg-[#f7f0e8] p-3 text-[11px] leading-relaxed text-[#726656]">
+        <Sparkles className="shrink-0 text-[#d68b4e]" size={14} />
+        <p className="m-0">
+          <strong>Hint</strong>
+          <br />
+          {e.hint}
+        </p>
+      </div>
+    </section>
+  );
+}
 
-function CodeEditor({code,setCode,onReset,language}:{code:string;setCode:(v:string)=>void;onReset:()=>void;language:'C#'|'Python'}) { const isPython = language === 'Python'; return <div className="overflow-hidden rounded-md border border-[#303735] shadow-md shadow-[#19241f]/5"><div className="flex justify-between bg-[#2a302e] px-3 py-2.5 font-mono text-[11px] text-[#c3cac3]"><span><i className="mr-2 inline-block h-2 w-2 rounded-full bg-[#55b794]"/>{isPython ? 'main.py' : 'Program.cs'}</span><span><button onClick={onReset} className="mr-3 text-[#aeb8ae]" title="Reset"><RotateCcw size={15}/></button><button onClick={() => navigator.clipboard.writeText(code)} className="text-[#aeb8ae]" title="Copy"><Clipboard size={15}/></button></span></div><Editor height="245px" language={isPython ? 'python' : 'csharp'} theme="vs-dark" value={code} onChange={value => setCode(value ?? '')} options={{automaticLayout:true, minimap:{enabled:false}, fontFamily:"'DM Mono', monospace", fontSize:13, lineHeight:22, padding:{top:12,bottom:12}, scrollBeyondLastLine:false, tabSize:4, insertSpaces:true, renderLineHighlight:'all', ariaLabel:`${language} code editor`}} /></div> }
-export default App
+function CodeEditor({
+  code,
+  setCode,
+  onReset,
+  language,
+}: {
+  code: string;
+  setCode: (v: string) => void;
+  onReset: () => void;
+  language: "C#" | "Python" | "Rust";
+}) {
+  const isPython = language === "Python";
+  const isRust = language === "Rust";
+  return (
+    <div className="overflow-hidden rounded-md border border-[#303735] shadow-md shadow-[#19241f]/5">
+      <div className="flex justify-between bg-[#2a302e] px-3 py-2.5 font-mono text-[11px] text-[#c3cac3]">
+        <span>
+          <i className="mr-2 inline-block h-2 w-2 rounded-full bg-[#55b794]" />
+          {isPython ? "main.py" : isRust ? "main.rs" : "Program.cs"}
+        </span>
+        <span>
+          <button
+            onClick={onReset}
+            className="mr-3 text-[#aeb8ae]"
+            title="Reset"
+          >
+            <RotateCcw size={15} />
+          </button>
+          <button
+            onClick={() => navigator.clipboard.writeText(code)}
+            className="text-[#aeb8ae]"
+            title="Copy"
+          >
+            <Clipboard size={15} />
+          </button>
+        </span>
+      </div>
+      <Editor
+        height="245px"
+        language={isPython ? "python" : isRust ? "rust" : "csharp"}
+        theme="vs-dark"
+        value={code}
+        onChange={(value) => setCode(value ?? "")}
+        options={{
+          automaticLayout: true,
+          minimap: { enabled: false },
+          fontFamily: "'DM Mono', monospace",
+          fontSize: 13,
+          lineHeight: 22,
+          padding: { top: 12, bottom: 12 },
+          scrollBeyondLastLine: false,
+          tabSize: 4,
+          insertSpaces: true,
+          renderLineHighlight: "all",
+          ariaLabel: `${language} code editor`,
+        }}
+      />
+    </div>
+  );
+}
+export default App;

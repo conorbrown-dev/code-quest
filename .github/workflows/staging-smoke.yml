@@ -1,0 +1,40 @@
+name: Staging smoke checks
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [staging]
+
+permissions:
+  contents: read
+
+jobs:
+  staging-api:
+    name: Verify deployed staging API
+    runs-on: ubuntu-latest
+    env:
+      PLAYWRIGHT_API_BASE_URL: ${{ secrets.STAGING_API_URL }}
+      PLAYWRIGHT_BASE_URL: ${{ secrets.STAGING_API_URL }}
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Require staging API secret
+        run: test -n "$PLAYWRIGHT_API_BASE_URL"
+      - name: Wait for Railway deployment
+        run: |
+          for attempt in {1..60}; do
+            if curl --fail --silent "$PLAYWRIGHT_API_BASE_URL/health" > /dev/null; then exit 0; fi
+            sleep 5
+          done
+          echo "Staging API did not become healthy in time"
+          exit 1
+      - run: npx playwright test e2e/staging-api.spec.ts

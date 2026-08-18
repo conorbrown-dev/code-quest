@@ -40,7 +40,7 @@ The suite verifies API health/current curriculum metadata and that a guest learn
 
 ## Deploy on Railway
 
-See [Railway + GitHub setup](docs/railway-github-setup.md) for the one-time service configuration and push-to-deploy checklist.
+See [Railway + GitHub setup](docs/railway-github-setup.md) for the one-time production service configuration and push-to-deploy checklist. Use the [Railway staging setup](docs/railway-staging-setup.md) to create an isolated environment and run pre-production smoke checks.
 Use the [production launch runbook](docs/launch-runbook.md) before opening the service to public learners.
 
 Create the web, API, Keycloak, and private Modal broker services from this repository. The web, API, and broker use Railpack; only the Keycloak service uses a Dockerfile:

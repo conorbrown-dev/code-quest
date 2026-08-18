@@ -85,6 +85,17 @@ test('onboarding selects a track and enters the guest learning experience', asyn
   await expect.poll(() => page.evaluate(() => localStorage.getItem('pathway-course-id'))).toBe('python-web')
 })
 
+test('onboarding selects the Rust systems track', async ({ page }) => {
+  await page.goto('/')
+
+  await page.getByRole('button', { name: /Rust Systems: zero to staff/i }).click()
+  await expect(page.getByText('Selected: Rust Systems: zero to staff')).toBeVisible()
+  await page.getByRole('button', { name: 'Explore as a guest' }).click()
+  await expect(page).toHaveTitle('Pathway — Learn Rust')
+  await expect(page.getByRole('heading', { name: 'How a computer follows instructions' })).toBeVisible()
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('pathway-course-id'))).toBe('rust-systems')
+})
+
 test('checks an answer, persists progress, unlocks the next lesson, and supports review', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('pathway-onboarding-complete', 'true'))
   await page.goto('/')
@@ -142,6 +153,17 @@ test('loads the selected Python track for a guest learner', async ({ page }) => 
 
   await expect(page.getByRole('heading', { name: 'What a computer actually does' })).toBeVisible()
   await expect(page.getByText("Which component holds a running program's active working data?")).toBeVisible()
+})
+
+test('loads the selected Rust track for a guest learner', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('pathway-onboarding-complete', 'true')
+    localStorage.setItem('pathway-course-id', 'rust-systems')
+  })
+  await page.goto('/')
+
+  await expect(page).toHaveTitle('Pathway — Learn Rust')
+  await expect(page.getByRole('heading', { name: 'How a computer follows instructions' })).toBeVisible()
 })
 
 test('unlocks resilient HTTP clients after the preceding Python lesson passes', async ({ page }) => {

@@ -43,7 +43,10 @@ public static class CareerReadinessCatalog
         new("csharp-staff-platform", "csharp-dotnet", "Staff platform design", "Design the learning platform under scale, ownership, cost, and reliability constraints.", ["Architecture diagram", "ADR and rollout plan", "SLO and incident plan"], Rubric),
         new("python-foundation-api", "python-web", "Foundation API", "Build a typed Python web API with a focused domain boundary and an observable HTTP contract.", ["A deployed API", "Tests and API documentation", "A clear README"], Rubric),
         new("python-production-service", "python-web", "Production service", "Ship a Python service with persistence, authorization, background work, telemetry, and delivery discipline.", ["Health and readiness signals", "CI workflow", "Deployment/runbook evidence"], Rubric),
-        new("python-staff-platform", "python-web", "Staff platform design", "Design a multi-tenant learning platform and make its tradeoffs, ownership, and recovery plan legible.", ["Architecture diagram", "ADR and rollout plan", "SLO and incident plan"], Rubric)
+        new("python-staff-platform", "python-web", "Staff platform design", "Design a multi-tenant learning platform and make its tradeoffs, ownership, and recovery plan legible.", ["Architecture diagram", "ADR and rollout plan", "SLO and incident plan"], Rubric),
+        new("rust-foundation-service", "rust-systems", "Foundation Rust service", "Build a small Axum service with explicit domain types, a deliberate HTTP contract, and tests.", ["Deployed service", "Contract and integration tests", "Clear README"], Rubric),
+        new("rust-production-service", "rust-systems", "Production Rust service", "Ship a Rust service with persistence, authorization, bounded concurrency, tracing, and safe delivery.", ["Health and readiness signals", "CI workflow", "Deployment/runbook evidence"], Rubric),
+        new("rust-staff-platform", "rust-systems", "Staff systems platform", "Design a multi-tenant Rust platform with explicit unsafe boundaries, ownership, reliability, and recovery tradeoffs.", ["Architecture diagram", "ADR and rollout plan", "SLO and incident plan"], Rubric)
     ];
 
     public static readonly CareerScenario[] Scenarios =
@@ -61,7 +64,14 @@ public static class CareerReadinessCatalog
         new("ai-review-python", "python-web", "AI literacy", "Verify an AI-generated endpoint", "An AI suggests an endpoint that compiles but omits authorization, timeout policy, tests, and failure semantics. Treat it as an untrusted draft: review, verify, and improve it.", ["Verification plan", "Missing correctness or security concerns", "Tests to add", "Explanation of the final design"]),
         new("team-migration-python", "python-web", "Team simulation", "Negotiate a zero-downtime migration", "You are the staff engineer coordinating a schema change across two teams with a release deadline. Define the contract, sequencing, ownership, rollback, and ADR decision.", ["Stakeholder and ownership map", "Expand-contract rollout", "Rollback trigger", "ADR tradeoff"]),
         new("interview-python", "python-web", "Career", "Explain a project under interview pressure", "Present a capstone to an interviewer who asks why you chose the architecture, what failed, how you tested it, and what you would improve with more time.", ["Two-minute project narrative", "Tradeoff explanation", "Failure and learning", "Next improvement"]),
-        new("feedback-python", "python-web", "Career", "Handle a difficult review conversation", "A teammate rejects your proposed caching approach after an incident. Acknowledge the feedback, distinguish facts from assumptions, propose a next experiment, and preserve a constructive working relationship.", ["Response that acknowledges feedback", "Evidence and assumptions", "Next experiment", "Follow-up communication"])
+        new("feedback-python", "python-web", "Career", "Handle a difficult review conversation", "A teammate rejects your proposed caching approach after an incident. Acknowledge the feedback, distinguish facts from assumptions, propose a next experiment, and preserve a constructive working relationship.", ["Response that acknowledges feedback", "Evidence and assumptions", "Next experiment", "Follow-up communication"]),
+        new("incident-rust-task-leak", "rust-systems", "Incident", "Runaway Rust task fan-out", "Use traces, task counts, and queue-delay signals to mitigate a service that spawns unbounded async work after a dependency slowdown.", ["Hypothesis and evidence", "Mitigation", "Blameless postmortem", "Bounded-concurrency prevention"], ["Dashboard: request p95 rose from 180 ms to 9.1 s and active Tokio tasks rose from 240 to 42,000.", "Trace: each request spawns a downstream task with no semaphore or timeout.", "Log: dependency status 504; cancellation count remains zero.", "Failing test: 1,000 requests create 1,000 concurrent downstream calls."]),
+        new("pr-rust-boundary", "rust-systems", "Code review", "Review an unsafe parser boundary", "Review a Rust pull request that introduces unsafe parsing and a new HTTP handler. Identify soundness, authorization, test, and operational gaps.", ["Line-level findings", "Risk classification", "Approval criteria"], ["Diff note: unsafe pointer conversion has no SAFETY comment or safe wrapper.", "Authorization note: handler accepts an organization ID without checking the principal.", "Test note: no malformed-input, forbidden-user, or cancellation coverage exists."]),
+        new("ticket-slice-rust", "rust-systems", "Career", "Turn a vague ticket into a safe Rust slice", "A product manager asks for offline export. Identify ambiguity, choose a minimal safe slice, and explain what you defer.", ["Clarifying questions", "Smallest viable slice", "Estimate and assumptions", "Deferred risks"]),
+        new("ai-review-rust", "rust-systems", "AI literacy", "Verify an AI-generated Rust handler", "Treat an AI-generated handler as an untrusted draft that compiles but omits validation, cancellation, tests, and error semantics.", ["Verification plan", "Missing correctness or security concerns", "Tests to add", "Explanation of the final design"]),
+        new("team-migration-rust", "rust-systems", "Team simulation", "Negotiate a zero-downtime event migration", "Coordinate a schema and event-contract change across Rust services with ownership, sequencing, rollback, and an ADR.", ["Stakeholder and ownership map", "Expand-contract rollout", "Rollback trigger", "ADR tradeoff"]),
+        new("interview-rust", "rust-systems", "Career", "Explain a Rust project under interview pressure", "Present a capstone and explain architecture, ownership choices, testing, failures, and next improvements.", ["Two-minute project narrative", "Tradeoff explanation", "Failure and learning", "Next improvement"]),
+        new("feedback-rust", "rust-systems", "Career", "Handle a difficult review conversation", "A teammate challenges an unsafe optimization. Acknowledge concerns, distinguish evidence from assumptions, and propose a safe next experiment.", ["Response that acknowledges feedback", "Evidence and assumptions", "Next experiment", "Follow-up communication"])
     ];
 
     public static IEnumerable<CapstoneDefinition> CapstonesFor(string courseId) => Capstones.Where(item => item.CourseId == courseId);
@@ -70,18 +80,19 @@ public static class CareerReadinessCatalog
     public static string[] RecommendedLessons(string courseId, IEnumerable<string> gaps)
     {
         var isPython = courseId == "python-web";
+        var isRust = courseId == "rust-systems";
         var matches = new List<string>();
         foreach (var gap in gaps)
         {
             var lesson = gap.ToLowerInvariant() switch
             {
-                var value when value.Contains("auth") => isPython ? "python-auth-security" : "web-api-validation-auth",
-                var value when value.Contains("test") => isPython ? "python-testing-pytest" : "quality-tests",
-                var value when value.Contains("observ") || value.Contains("alert") || value.Contains("incident") => isPython ? "python-reliability-design" : "operations-observability",
-                var value when value.Contains("deploy") || value.Contains("rollback") || value.Contains("migration") => isPython ? "python-delivery-containers" : "operations-delivery",
-                var value when value.Contains("tradeoff") || value.Contains("adr") || value.Contains("approval") => isPython ? "python-system-design" : "staff-architecture-decisions",
-                var value when value.Contains("api") || value.Contains("contract") => isPython ? "python-api-contracts" : "web-api-contracts",
-                _ => isPython ? "python-project-foundations" : "foundations-methods"
+                var value when value.Contains("auth") => isRust ? "rust-auth-security" : isPython ? "python-auth-security" : "web-api-validation-auth",
+                var value when value.Contains("test") => isRust ? "rust-testing-integration" : isPython ? "python-testing-pytest" : "quality-tests",
+                var value when value.Contains("observ") || value.Contains("alert") || value.Contains("incident") => isRust ? "rust-observability" : isPython ? "python-reliability-design" : "operations-observability",
+                var value when value.Contains("deploy") || value.Contains("rollback") || value.Contains("migration") => isRust ? "rust-containers-delivery" : isPython ? "python-delivery-containers" : "operations-delivery",
+                var value when value.Contains("tradeoff") || value.Contains("adr") || value.Contains("approval") => isRust ? "rust-staff-architecture" : isPython ? "python-system-design" : "staff-architecture-decisions",
+                var value when value.Contains("api") || value.Contains("contract") => isRust ? "rust-api-contracts" : isPython ? "python-api-contracts" : "web-api-contracts",
+                _ => isRust ? "rust-toolchain-cargo" : isPython ? "python-project-foundations" : "foundations-methods"
             };
             matches.Add(lesson);
         }
