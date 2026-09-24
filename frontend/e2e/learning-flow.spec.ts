@@ -14,8 +14,8 @@ test('serves the current C#/.NET curriculum API', async ({ request }) => {
   expect(body.frameworkVersion).toBe('.NET 10')
   const lessons = body.modules.flatMap((module: { lessons: { slug: string; order: number }[] }) => module.lessons)
   expect(lessons).toHaveLength(33)
-  expect(lessons.map((lesson: { order: number }) => lesson.order)).toEqual([...Array(42)].map((_, index) => index + 1))
-  expect(lessons.map((lesson: { slug: string }) => lesson.slug)).toEqual(expect.arrayContaining(['internet-dns', 'internet-https', 'foundations-data-types', 'objects-purpose', 'modern-csharp-records', 'reliability-http-clients', 'staff-leadership-leverage']))
+  expect(lessons.map((lesson: { order: number }) => lesson.order)).toEqual([...Array(33)].map((_, index) => index + 1))
+  expect(lessons.map((lesson: { slug: string }) => lesson.slug)).toEqual(expect.arrayContaining(['foundations-data-types', 'objects-purpose', 'modern-csharp-records', 'reliability-http-clients', 'staff-leadership-leverage']))
   expect(lessons[0]).toMatchObject({ slug: 'foundations-how-code-works', order: 1 })
   expect(lessons.at(-1)).toMatchObject({ slug: 'staff-leadership-leverage', order: 33 })
 })
@@ -28,8 +28,8 @@ test('serves the Python Web curriculum and its framework-choice lesson', async (
   expect(body.frameworkVersion).toContain('FastAPI')
   const lessons = body.modules.flatMap((module: { lessons: { slug: string; order: number }[] }) => module.lessons)
   expect(lessons).toHaveLength(32)
-  expect(lessons.map((lesson: { slug: string }) => lesson.slug)).toEqual(expect.arrayContaining(['python-internet-dns', 'python-internet-https', 'python-framework-choice', 'python-project-foundations', 'python-system-design', 'python-staff-architecture']))
-  expect(lessons.map((lesson: { order: number }) => lesson.order)).toEqual([...Array(42)].map((_, index) => index + 1))
+  expect(lessons.map((lesson: { slug: string }) => lesson.slug)).toEqual(expect.arrayContaining(['python-framework-choice', 'python-project-foundations', 'python-system-design', 'python-staff-architecture']))
+  expect(lessons.map((lesson: { order: number }) => lesson.order)).toEqual([...Array(32)].map((_, index) => index + 1))
   expect(lessons.map((lesson: { slug: string }) => lesson.slug)).toEqual(expect.arrayContaining(['python-testing-pytest', 'python-http-clients']))
   expect(lessons.findIndex((lesson: { slug: string }) => lesson.slug === 'python-http-clients')).toBe(lessons.findIndex((lesson: { slug: string }) => lesson.slug === 'python-testing-pytest') + 1)
   expect(lessons[0]).toMatchObject({ slug: 'python-values', order: 1 })
@@ -117,8 +117,8 @@ test('loads the first lesson for a guest learner', async ({ page }) => {
   await page.goto('/')
   await expect(page).toHaveTitle('Pathway — Learn C#')
 
-  await expect(page.getByRole('heading', { name: 'What a computer actually does' })).toBeVisible()
-  await expect(page.getByText("Which component holds a program's active working data?")).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'How code works' })).toBeVisible()
+  await expect(page.getByText('What does this line do?')).toBeVisible()
   await page.getByRole('button', { name: /Memory \(RAM\)/i }).click()
   await expect(page.getByRole('button', { name: /Check answer/i })).toBeVisible()
 })
@@ -130,7 +130,7 @@ test('onboarding selects a track and enters the guest learning experience', asyn
   await page.getByRole('button', { name: /Python Web: zero to staff/i }).click()
   await expect(page.getByText('Selected: Python Web: zero to staff')).toBeVisible()
   await page.getByRole('button', { name: 'Explore as a guest' }).click()
-  await expect(page.getByRole('heading', { name: 'What a computer actually does' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Values and variables' })).toBeVisible()
   await expect.poll(() => page.evaluate(() => localStorage.getItem('pathway-course-id'))).toBe('python-web')
 })
 
@@ -141,7 +141,7 @@ test('onboarding selects the Rust systems track', async ({ page }) => {
   await expect(page.getByText('Selected: Rust Systems: zero to staff')).toBeVisible()
   await page.getByRole('button', { name: 'Explore as a guest' }).click()
   await expect(page).toHaveTitle('Pathway — Learn Rust')
-  await expect(page.getByRole('heading', { name: 'How a computer follows instructions', level: 1 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Install Rust and use Cargo', level: 1 })).toBeVisible()
   await expect.poll(() => page.evaluate(() => localStorage.getItem('pathway-course-id'))).toBe('rust-systems')
 })
 
@@ -149,17 +149,17 @@ test('checks an answer, persists progress, unlocks the next lesson, and supports
   await page.addInitScript(() => localStorage.setItem('pathway-onboarding-complete', 'true'))
   await page.goto('/')
 
-  await page.getByRole('button', { name: /Memory \(RAM\)/i }).click()
+  await page.getByRole('button', { name: /Prints a message to the console/i }).click()
   await page.getByRole('button', { name: /Check answer/i }).click()
   await expect(page.getByRole('main').getByText('That’s right. You’ve got the idea.')).toBeVisible()
   await expect(page.getByRole('button', { name: /Next lesson/i })).toBeVisible()
   await page.getByRole('button', { name: /Next lesson/i }).click()
-  await expect(page.getByRole('heading', { name: 'Bits, bytes, and text' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Values and variables' })).toBeVisible()
 
   await page.getByRole('button', { name: 'Practice' }).click()
-  await expect(page.getByText('What a computer actually does')).toBeVisible()
+  await expect(page.getByText('How code works')).toBeVisible()
   await page.getByRole('button', { name: /Practice again/i }).click()
-  await expect(page.getByRole('heading', { name: 'What a computer actually does' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'How code works' })).toBeVisible()
 })
 
 test('validates a code exercise and supports reset and worked-example review', async ({ page }) => {
@@ -200,8 +200,8 @@ test('loads the selected Python track for a guest learner', async ({ page }) => 
   })
   await page.goto('/')
 
-  await expect(page.getByRole('heading', { name: 'What a computer actually does' })).toBeVisible()
-  await expect(page.getByText("Which component holds a running program's active working data?")).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Values and variables' })).toBeVisible()
+  await expect(page.getByText('What is `completed_lessons` in this example?')).toBeVisible()
 })
 
 test('loads the Claude Hooks course as presentation-only content', async ({ page }) => {
@@ -283,9 +283,7 @@ test('loads the selected Rust track for a guest learner', async ({ page }) => {
 
 test('unlocks resilient HTTP clients after the preceding Python lesson passes', async ({ page }) => {
   const completed = [
-    'python-internet-devices', 'python-internet-bits', 'python-internet-processes', 'python-internet-networking', 'python-internet-dns',
-    'python-internet-http', 'python-internet-https', 'python-internet-web-apps', 'python-internet-reliability',
-    'python-values', 'python-functions', 'python-data-models', 'python-tests-errors', 'python-http', 'python-framework-choice',
+    'python-values', 'python-functions', 'python-data-models', 'python-tests-errors', 'python-framework-choice',
     'python-fastapi-endpoint', 'python-flask-composition', 'python-django-product', 'python-persistence', 'python-concurrency',
     'python-security-observability', 'python-project-foundations', 'python-environments-packaging', 'python-control-flow-collections',
     'python-modules-imports', 'python-objects-protocols', 'python-errors-resources'
@@ -313,7 +311,7 @@ test('does not show legacy browser progress after the owner logs out', async ({ 
   })
   await page.goto('/')
 
-  await expect(page.getByRole('button', { name: 'Bits, bytes, and text locked' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Values and variables locked' })).toBeVisible()
 })
 
 test('navigates workspaces and switches tracks from the sidebar', async ({ page }) => {
@@ -341,7 +339,7 @@ test('navigates workspaces and switches tracks from the sidebar', async ({ page 
   await page.getByRole('button', { name: /C# 14 \/ .NET 10/i }).click()
   await expect(page.getByRole('menu')).toBeVisible()
   await page.getByRole('menuitem', { name: /Python Web/i }).click()
-  await expect(page.getByRole('heading', { name: 'What a computer actually does' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Values and variables' })).toBeVisible()
   await expect(page).toHaveTitle('Pathway — Learn Python')
   await expect.poll(() => page.evaluate(() => localStorage.getItem('pathway-course-id'))).toBe('python-web')
 })
