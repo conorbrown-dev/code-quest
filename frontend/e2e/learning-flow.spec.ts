@@ -197,6 +197,50 @@ test('loads the Claude Hooks course as presentation-only content', async ({ page
   await expect(page.getByText('Course complete.')).toBeVisible()
 })
 
+test('runs the Claude PreToolUse Hook Playground against simulated Bash commands', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('pathway-onboarding-complete', 'true')
+    localStorage.setItem('pathway-course-id', 'claude-engineering')
+  })
+  await page.route('**/api/claude-hooks/evaluate', async route => {
+    const body = route.request().postDataJSON() as { command: string }
+    const blocked = body.command.includes('rm -rf')
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        matcherMatched: true,
+        executed: true,
+        exitCode: 0,
+        outcome: blocked ? 'denied' : 'no_decision',
+        summary: blocked
+          ? 'Claude Code would deny the Bash tool call and show Claude the hook reason.'
+          : 'The hook succeeded silently. Claude Code would continue through its normal permission flow.',
+        reason: blocked ? 'Destructive command blocked by hook' : null,
+        stdout: blocked ? '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Destructive command blocked by hook"}}' : '',
+        stderr: '',
+        inputJson: JSON.stringify({
+          hook_event_name: 'PreToolUse',
+          tool_name: 'Bash',
+          tool_input: { command: body.command },
+        }),
+      }),
+    })
+  })
+
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Guard actions before they run' }).click()
+  await expect(page.getByRole('heading', { name: 'Run a real PreToolUse hook' })).toBeVisible()
+  await page.getByRole('button', { name: 'Run hook' }).click()
+  await expect(page.getByText('BLOCKED')).toBeVisible()
+  await expect(page.getByText('Destructive command blocked by hook')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Run tests' }).click()
+  await page.getByRole('button', { name: 'Run hook' }).click()
+  await expect(page.getByText('NO DECISION')).toBeVisible()
+  await expect(page.getByText(/normal permission flow/i)).toBeVisible()
+})
+
 test('loads the selected Rust track for a guest learner', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem('pathway-onboarding-complete', 'true')
