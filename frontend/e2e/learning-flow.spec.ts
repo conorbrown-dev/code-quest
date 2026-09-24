@@ -184,12 +184,12 @@ test('loads the Claude Hooks course as presentation-only content', async ({ page
 
   await expect(page).toHaveTitle('Pathway — Claude Engineering')
   await expect(page.getByRole('heading', { name: 'Hooks are lifecycle middleware' })).toBeVisible()
-  await expect(page.getByText('PRESENTER NOTES')).toBeVisible()
+  await expect(page.getByText('LESSON NOTES')).toBeVisible()
   await expect(page.getByRole('button', { name: /Check answer|Run tests/i })).toHaveCount(0)
-  await page.getByRole('button', { name: /Next slide/i }).click()
+  await page.getByRole('button', { name: /Continue/i }).click()
   await expect(page.getByRole('heading', { name: 'Map the agent lifecycle' })).toBeVisible()
   await page.getByRole('button', { name: 'Treat hooks as executable infrastructure' }).click()
-  await expect(page.getByText('Presentation complete.')).toBeVisible()
+  await expect(page.getByText('Course complete.')).toBeVisible()
 })
 
 test('loads the selected Rust track for a guest learner', async ({ page }) => {
