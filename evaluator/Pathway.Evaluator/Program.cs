@@ -59,9 +59,9 @@ app.MapPost("/evaluate-hook", async (HookEvaluationRequest request, Cancellation
     {
         matcherMatched = HookMatcher.Matches(request.Matcher, "Bash");
     }
-    catch (ArgumentException)
+    catch (Exception error) when (error is ArgumentException or RegexMatchTimeoutException)
     {
-        return Results.BadRequest(new { message = "Matcher is not a valid regular expression." });
+        return Results.BadRequest(new { message = "Matcher is not a valid or safely evaluable regular expression." });
     }
 
     var hookInput = JsonSerializer.Serialize(new Dictionary<string, object?>
