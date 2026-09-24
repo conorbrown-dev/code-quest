@@ -200,8 +200,8 @@ static class HookInterpreter
             if (value is not ("allow" or "deny" or "ask" or "defer"))
                 return new HookDecision(null, null, "permissionDecision must be allow, deny, ask, or defer.");
 
-            var reason = output.TryGetProperty("permissionDecisionReason", out var reasonNode) ? reasonNode.GetString() : null;
-            return new HookDecision(value, reason, null);
+            var decisionReason = output.TryGetProperty("permissionDecisionReason", out var reasonNode) ? reasonNode.GetString() : null;
+            return new HookDecision(value, decisionReason, null);
         }
         catch (JsonException error)
         {
