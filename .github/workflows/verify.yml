@@ -94,13 +94,20 @@ jobs:
         working-directory: frontend
       - run: npx playwright install --with-deps chromium
         working-directory: frontend
-      - run: ASPNETCORE_URLS=http://127.0.0.1:5100 dotnet run --no-launch-profile &
+      - run: dotnet build --configuration Release
         working-directory: backend/Pathway.Api
       - run: |
-          for attempt in {1..30}; do
-            curl --fail --silent http://127.0.0.1:5100/health && exit 0
+          ASPNETCORE_URLS=http://127.0.0.1:5100 dotnet run --configuration Release --no-build --no-launch-profile > /tmp/pathway-api.log 2>&1 &
+          echo $! > /tmp/pathway-api.pid
+        working-directory: backend/Pathway.Api
+      - run: |
+          for attempt in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:5100/health; then
+              exit 0
+            fi
             sleep 1
           done
+          cat /tmp/pathway-api.log || true
           exit 1
       - run: PLAYWRIGHT_VITE_API_BASE_URL=http://127.0.0.1:5100 npm run test:e2e
         working-directory: frontend
