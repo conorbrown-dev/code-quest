@@ -192,7 +192,7 @@ function App() {
   );
   useEffect(() => {
     if (course)
-      document.title = `Pathway — ${course.languageId === "claude" ? "Claude Engineering" : `Learn ${course.languageId === "python" ? "Python" : course.languageId === "rust" ? "Rust" : "C#"}`}`;
+      document.title = `Pathway — ${course.languageId === "claude" ? "Claude Engineering" : course.languageId === "computing" ? "Computing Foundations" : `Learn ${course.languageId === "python" ? "Python" : course.languageId === "rust" ? "Rust" : "C#"}`}`;
   }, [course]);
   const notify = (message: string) => {
     setToast(message);
@@ -615,6 +615,7 @@ function Onboarding({
       setSubmitting(false);
     }
   };
+  const computingSelected = selectedCourseId === "computing-foundations";
   const pythonSelected = selectedCourseId === "python-web";
   const rustSelected = selectedCourseId === "rust-systems";
   const csharpSelected = selectedCourseId === "csharp-dotnet";
@@ -652,8 +653,27 @@ function Onboarding({
                 CHOOSE YOUR FIRST TRACK
               </p>
               <button
+                onClick={() => onSelectCourse("computing-foundations")}
+                className={`track-option mt-5 flex w-full items-center gap-4 rounded-xl p-4 text-left ${computingSelected ? "ring-1 ring-[#bd87ff]" : ""}`}
+              >
+                <span className="grid h-11 w-11 place-items-center rounded-lg bg-[#4f7b69] font-mono text-sm font-bold text-white">
+                  01
+                </span>
+                <span>
+                  <strong className="block text-sm text-white">
+                    Computing Foundations
+                  </strong>
+                  <small className="mt-1 block text-xs text-[#aaa3b6]">
+                    Machine · data · processes · operating systems
+                  </small>
+                </span>
+                {computingSelected && (
+                  <Check className="ml-auto text-[#c198ff]" size={19} />
+                )}
+              </button>
+              <button
                 onClick={() => onSelectCourse("csharp-dotnet")}
-                className={`track-option mt-5 flex w-full items-center gap-4 rounded-xl p-4 text-left ${csharpSelected ? "ring-1 ring-[#bd87ff]" : ""}`}
+                className={`track-option mt-3 flex w-full items-center gap-4 rounded-xl p-4 text-left ${csharpSelected ? "ring-1 ring-[#bd87ff]" : ""}`}
               >
                 <span className="grid h-11 w-11 place-items-center rounded-lg bg-[#a567ff] font-mono text-sm font-bold text-white shadow-lg shadow-[#8d4cff55]">
                   C#
@@ -727,6 +747,30 @@ function Onboarding({
                   <Check className="ml-auto text-[#c198ff]" size={19} />
                 )}
               </button>
+              <div className="mt-5 border-t border-[#ffffff12] pt-4">
+                <p className="text-[10px] font-bold tracking-[1.4px] text-[#7f768c]">
+                  COMING SOON
+                </p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {[
+                    ["Networking Fundamentals", "Packets · IP · routing · ports"],
+                    ["DNS", "Names · records · resolvers · caching"],
+                    ["HTTP & APIs", "Methods · status · headers · contracts"],
+                    ["HTTPS & TLS", "Certificates · encryption · trust"],
+                    ["Distributed Systems", "Latency · failure · retries · idempotency"],
+                  ].map(([title, subtitle]) => (
+                    <div
+                      key={title}
+                      className="rounded-lg border border-[#ffffff0d] bg-[#ffffff05] px-3 py-2.5 opacity-70"
+                    >
+                      <strong className="block text-xs text-[#d4ccd9]">{title}</strong>
+                      <small className="mt-1 block text-[10px] leading-relaxed text-[#8f8799]">
+                        {subtitle}
+                      </small>
+                    </div>
+                  ))}
+                </div>
+              </div>
               <p className="mt-4 text-xs text-[#aaa3b6]">
                 Selected: {course.title}
               </p>
@@ -963,7 +1007,9 @@ function Sidebar({
         ? "Rs"
         : course.languageId === "claude"
           ? "AI"
-          : "C#";
+          : course.languageId === "computing"
+            ? "01"
+            : "C#";
   const nav = (id: Workspace, label: string, icon: ReactNode) => (
     <button
       onClick={() => onNavigate(id)}
@@ -1149,6 +1195,19 @@ function TrackMenu({
     >
       <button
         role="menuitem"
+        onClick={() => select("computing-foundations")}
+        className={itemClass("computing-foundations")}
+      >
+        <span className="rounded bg-[#4f7b69] px-1 py-0.5 text-[9px] text-white">
+          01
+        </span>
+        <span>Computing Foundations</span>
+        {courseId === "computing-foundations" && (
+          <Check className="ml-auto" size={14} />
+        )}
+      </button>
+      <button
+        role="menuitem"
         onClick={() => select("csharp-dotnet")}
         className={itemClass("csharp-dotnet")}
       >
@@ -1195,6 +1254,16 @@ function TrackMenu({
           <Check className="ml-auto" size={14} />
         )}
       </button>
+      <div className="my-1 border-t border-[#ffffff10]" />
+      {["Networking", "DNS", "HTTP & APIs", "HTTPS & TLS", "Distributed Systems"].map((title) => (
+        <div
+          key={title}
+          className="flex items-center justify-between rounded px-3 py-2 text-[11px] text-[#786f86]"
+        >
+          <span>{title}</span>
+          <span className="text-[9px] font-bold uppercase tracking-[.8px]">Soon</span>
+        </div>
+      ))}
     </div>
   );
 }
