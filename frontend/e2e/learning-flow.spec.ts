@@ -171,7 +171,7 @@ test('validates a code exercise and supports reset and worked-example review', a
   await page.addInitScript(() => {
     localStorage.setItem('pathway-onboarding-complete', 'true')
     localStorage.setItem('pathway-learner-id', 'code-exercise-guest')
-    localStorage.setItem('pathway-completed-lessons:guest:code-exercise-guest', JSON.stringify(['internet-devices', 'internet-bits-bytes', 'internet-processes', 'internet-network-addresses', 'internet-dns', 'internet-http', 'internet-https', 'internet-web-apps', 'internet-latency-reliability', 'foundations-how-code-works', 'foundations-values', 'foundations-data-types', 'foundations-operators']))
+    localStorage.setItem('pathway-completed-lessons:guest:code-exercise-guest', JSON.stringify(['foundations-how-code-works', 'foundations-values', 'foundations-data-types', 'foundations-operators']))
   })
   await page.goto('/')
 
@@ -278,7 +278,7 @@ test('loads the selected Rust track for a guest learner', async ({ page }) => {
   await page.goto('/')
 
   await expect(page).toHaveTitle('Pathway — Learn Rust')
-  await expect(page.getByRole('heading', { name: 'How a computer follows instructions', level: 1 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Install Rust and use Cargo', level: 1 })).toBeVisible()
 })
 
 test('unlocks resilient HTTP clients after the preceding Python lesson passes', async ({ page }) => {
@@ -334,7 +334,7 @@ test('navigates workspaces and switches tracks from the sidebar', async ({ page 
   await page.getByRole('button', { name: 'Projects' }).click()
   await expect(page.getByRole('heading', { name: 'Build work worth showing.' })).toBeVisible()
   await page.getByRole('button', { name: 'Learn', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'What a computer actually does' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'How code works' })).toBeVisible()
 
   await page.getByRole('button', { name: /C# 14 \/ .NET 10/i }).click()
   await expect(page.getByRole('menu')).toBeVisible()
