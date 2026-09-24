@@ -22,11 +22,12 @@ builder.Services.AddRateLimiter(options =>
         context.HttpContext.Response.Headers.RetryAfter = "60";
         return ValueTask.CompletedTask;
     };
-    options.AddPolicy("public-read", context => FixedWindow(context, permitLimit: 180));
-    options.AddPolicy("learner", context => LearnerWindow(context, permitLimit: 90));
-    options.AddPolicy("submission", context => LearnerWindow(context, permitLimit: 10));
-    options.AddPolicy("coach", context => FixedWindow(context, permitLimit: 20));
-    options.AddPolicy("community-write", context => FixedWindow(context, permitLimit: 15));
+    var developmentLimit = builder.Environment.IsDevelopment() ? 5_000 : (int?)null;
+    options.AddPolicy("public-read", context => FixedWindow(context, permitLimit: developmentLimit ?? 180));
+    options.AddPolicy("learner", context => LearnerWindow(context, permitLimit: developmentLimit ?? 90));
+    options.AddPolicy("submission", context => LearnerWindow(context, permitLimit: developmentLimit ?? 10));
+    options.AddPolicy("coach", context => FixedWindow(context, permitLimit: developmentLimit ?? 20));
+    options.AddPolicy("community-write", context => FixedWindow(context, permitLimit: developmentLimit ?? 15));
 });
 var databaseUrl = builder.Configuration["DATABASE_URL"] ?? builder.Configuration.GetConnectionString("Pathway");
 if (!string.IsNullOrWhiteSpace(databaseUrl))
@@ -156,6 +157,60 @@ var submissionEndpoint = app.MapPost("/api/submissions/validate", async (Submiss
     return Results.Ok(validation);
 });
 submissionEndpoint.RequireRateLimiting("submission");
+
+var hookPlaygroundEndpoint = app.MapPost("/api/claude-hooks/evaluate", async (
+    HookPlaygroundRequest request,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IHostEnvironment environment,
+    CancellationToken cancellationToken) =>
+{
+    if (!string.Equals(request.Event, "PreToolUse", StringComparison.Ordinal))
+        return Results.BadRequest(new { message = "The Hook Playground currently supports PreToolUse only." });
+    if (string.IsNullOrWhiteSpace(request.Matcher) || request.Matcher.Length > 120)
+        return Results.BadRequest(new { message = "Matcher must be between 1 and 120 characters." });
+    if (string.IsNullOrWhiteSpace(request.Script) || Encoding.UTF8.GetByteCount(request.Script) > 20_000)
+        return Results.BadRequest(new { message = "Hook script must be between 1 and 20 KB." });
+    if (string.IsNullOrWhiteSpace(request.Command) || request.Command.Length > 1_000)
+        return Results.BadRequest(new { message = "Simulated command must be between 1 and 1,000 characters." });
+
+    var evaluatorUrl = configuration["EVALUATOR_URL"]?.TrimEnd('/');
+    if (string.IsNullOrWhiteSpace(evaluatorUrl))
+        return Results.Problem("The Hook Playground evaluator is not configured.", statusCode: StatusCodes.Status503ServiceUnavailable);
+
+    var evaluatorSharedSecret = configuration["EVALUATOR_SHARED_SECRET"];
+    if (environment.IsProduction() && string.IsNullOrWhiteSpace(evaluatorSharedSecret))
+        return Results.Problem("The Hook Playground evaluator is not securely configured.", statusCode: StatusCodes.Status503ServiceUnavailable);
+
+    var client = httpClientFactory.CreateClient("evaluator");
+    try
+    {
+        using var evaluatorRequest = new HttpRequestMessage(HttpMethod.Post, $"{evaluatorUrl}/evaluate-hook")
+        {
+            Content = JsonContent.Create(new HookEvaluatorRequest(request.Event, request.Matcher, request.Script, request.Command))
+        };
+        if (!string.IsNullOrWhiteSpace(evaluatorSharedSecret))
+            evaluatorRequest.Headers.TryAddWithoutValidation("X-Pathway-Runner-Key", evaluatorSharedSecret);
+
+        using var evaluatorResponse = await client.SendAsync(evaluatorRequest, cancellationToken);
+        var payload = await evaluatorResponse.Content.ReadFromJsonAsync<HookPlaygroundResult>(cancellationToken: cancellationToken);
+        if (evaluatorResponse.IsSuccessStatusCode && payload is not null)
+            return Results.Ok(payload);
+
+        var error = await evaluatorResponse.Content.ReadAsStringAsync(cancellationToken);
+        return Results.Problem(
+            string.IsNullOrWhiteSpace(error) ? "The Hook Playground evaluator rejected the request." : error[..Math.Min(error.Length, 1_000)],
+            statusCode: evaluatorResponse.StatusCode == System.Net.HttpStatusCode.BadRequest
+                ? StatusCodes.Status400BadRequest
+                : StatusCodes.Status503ServiceUnavailable);
+    }
+    catch (HttpRequestException)
+    {
+        return Results.Problem("The Hook Playground evaluator is temporarily unavailable.", statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+});
+hookPlaygroundEndpoint.RequireRateLimiting("submission");
+
 var experienceEndpoints = app.MapLearningExperienceEndpoints();
 if (!string.IsNullOrWhiteSpace(keycloakAuthority) && !string.IsNullOrWhiteSpace(keycloakAudience)) { progressEndpoint.RequireAuthorization(); submissionEndpoint.RequireAuthorization(); experienceEndpoints.RequireAuthorization(); }
 app.Run();
@@ -344,6 +399,9 @@ record Choice(string Id, string Text);
 record Submission(string LessonSlug, string? Answer, string? Code);
 record LearnerProgressResponse(string LearnerId, string[] CompletedLessonSlugs);
 record EvaluatorRequest(string LessonSlug, string Code);
+record HookPlaygroundRequest(string Event, string Matcher, string Script, string Command);
+record HookEvaluatorRequest(string Event, string Matcher, string Script, string Command);
+record HookPlaygroundResult(bool MatcherMatched, bool Executed, int? ExitCode, string Outcome, string Summary, string? Reason, string Stdout, string Stderr, string InputJson);
 record CodeReview(string Summary, string[] Suggestions);
 record ValidationResult(bool Passed, int PassingTests, int TotalTests, string Feedback, string? NextLessonSlug, CodeReview? CodeReview = null);
 enum ExerciseKind { MultipleChoice, Code, Presentation }
@@ -509,7 +567,7 @@ static class Curriculum
             "Guard actions before they run",
             "PreToolUse is your interception point for risky or policy-sensitive actions.",
             "PreToolUse fires before a tool call executes and can block the call.",
-            "This is the hook that makes guardrails tangible. Claude proposes an action, Claude Code passes structured JSON to your handler, and the handler decides whether normal execution should continue. The hook can inspect tool_name and tool_input, then return a permission decision. Use deterministic code for deterministic policy: branch protection, forbidden commands, protected paths, or required approval boundaries.",
+            "This is the hook that makes guardrails tangible. Claude proposes an action, Claude Code passes structured JSON to your handler, and the handler decides whether normal execution should continue. The hook can inspect tool_name and tool_input, then return a permission decision. Use deterministic code for deterministic policy: branch protection, forbidden commands, protected paths, or required approval boundaries. The Hook Playground in this lesson lets you execute that contract against simulated Bash tool calls in a sandbox.",
             "Claude → Bash: git push --force origin main\n          ↓\n      PreToolUse\n          ↓\n  policy script checks command\n          ↓\n       DENY\n          ↓\nClaude receives the reason and adapts",
             new Exercise(ExerciseKind.Presentation, "Hard guardrails", "Do not spend model tokens deciding facts your code already knows.", ["Block destructive shell operations", "Protect production configuration or sensitive paths", "Keep policy deterministic and reviewable"], null, null, [], "No quiz in this course yet.", []),
             "claude-hooks-posttooluse",
