@@ -1344,7 +1344,7 @@ function LessonContent({ lesson }: { lesson: Lesson }) {
         <span className="pt-2 font-display text-[27px] text-[#b6bbb2]">
           {String(lesson.order).padStart(2, "0")}
         </span>
-        <h1 className="font-display text-[48px] font-semibold leading-[.95] tracking-[-2.5px] text-forest sm:text-[56px]">
+        <h1 className="font-display text-[48px] font-semibold leading-[1.02] tracking-[-2.5px] text-forest sm:text-[56px]">
           {lesson.title}
         </h1>
       </div>
@@ -1396,7 +1396,7 @@ function PresentationPanel({
       </p>
       <div className="mt-6 grid gap-3">
         {lesson.exercise.requirements.map((point) => (
-          <div key={point} className="flex gap-3 text-sm leading-relaxed text-[#465149]">
+          <div key={point} className="flex gap-3 text-sm leading-relaxed text-[#5d886f]">
             <span className="mt-1 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[#e5f2eb] text-[11px] font-bold text-[#278164]">
               ✓
             </span>
