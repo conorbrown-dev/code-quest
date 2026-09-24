@@ -1557,15 +1557,35 @@ function HookPlayground() {
             ))}
           </div>
 
-          <label className="mt-5 block text-xs text-[#aaa4b7]">
-            Hook script
-            <textarea
-              value={script}
-              onChange={(event) => setScript(event.target.value)}
-              spellCheck={false}
-              className="mt-2 min-h-[280px] w-full resize-y rounded-md border border-[#3b3052] bg-[#101018] p-4 font-mono text-[12px] leading-6 text-[#e4dcf5] outline-none focus:border-[#7652a6]"
-            />
-          </label>
+          <div className="mt-5">
+            <div className="mb-2 flex items-center justify-between text-xs text-[#aaa4b7]">
+              <span>Hook script</span>
+              <span className="font-mono text-[10px] text-[#81768f]">hook.sh · Bash</span>
+            </div>
+            <div className="overflow-hidden rounded-md border border-[#3b3052] bg-[#101018] focus-within:border-[#7652a6]">
+              <Editor
+                height="320px"
+                language="shell"
+                theme="vs-dark"
+                value={script}
+                onChange={(value) => setScript(value ?? "")}
+                options={{
+                  automaticLayout: true,
+                  minimap: { enabled: false },
+                  fontFamily: "'DM Mono', monospace",
+                  fontSize: 12,
+                  lineHeight: 22,
+                  padding: { top: 14, bottom: 14 },
+                  scrollBeyondLastLine: false,
+                  tabSize: 2,
+                  insertSpaces: true,
+                  renderLineHighlight: "all",
+                  wordWrap: "off",
+                  ariaLabel: "Hook script",
+                }}
+              />
+            </div>
+          </div>
 
           <div className="mt-4 flex items-center gap-3">
             <button
