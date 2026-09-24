@@ -70,7 +70,7 @@ test.describe('public API contract', () => {
       return await response.json() as Lesson
     }))
 
-    const questions = lessons.filter(lesson => lesson.exercise.kind === 'multiple-choice')
+    const questions = lessons.filter(lesson => lesson.exercise.kind === 'MultipleChoice')
     expect(questions).toHaveLength(40)
     for (const lesson of questions) {
       expect(lesson.exercise.prompt).toMatch(/\?$/)
