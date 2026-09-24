@@ -119,7 +119,7 @@ test('loads the first lesson for a guest learner', async ({ page }) => {
 
   await expect(page.getByRole('heading', { name: 'How code works' })).toBeVisible()
   await expect(page.getByText('What does this line do?')).toBeVisible()
-  await page.getByRole('button', { name: /Memory \(RAM\)/i }).click()
+  await page.getByRole('button', { name: /Prints a message to the console/i }).click()
   await expect(page.getByRole('button', { name: /Check answer/i })).toBeVisible()
 })
 
