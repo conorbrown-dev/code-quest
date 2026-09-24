@@ -51,3 +51,13 @@ export async function trackActivity(event: ActivityEvent) {
     // Analytics must never interfere with the learning experience.
   }
 }
+
+
+const trackedOnce = new Set<string>();
+
+export function trackActivityOnce(key: string, event: ActivityEvent) {
+  const composite = `${sessionId}:${key}`;
+  if (trackedOnce.has(composite)) return;
+  trackedOnce.add(composite);
+  void trackActivity(event);
+}
