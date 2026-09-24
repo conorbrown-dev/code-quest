@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { boundedOutput, evaluationResult, fixtureFor, validateRequest } from '../src/evaluator.mjs'
+import { boundedOutput, evaluationResult, fixtureFor, hookInputFor, hookMatcherMatches, interpretHookResult, validateHookRequest, validateRequest } from '../src/evaluator.mjs'
 
 test('accepts bounded valid code submissions', () => assert.equal(validateRequest({ lessonSlug: 'python-functions', code: 'def greet(name): return name' }), null))
 
@@ -12,3 +12,32 @@ test('has isolated fixtures for every shipped code exercise', () => {
     assert.ok(fixtureFor(lessonSlug, 'pass'))
 })
 test('bounds sandbox output', () => assert.match(boundedOutput('a'.repeat(4_001)), /output truncated/))
+
+
+test('validates and matches Claude PreToolUse hook requests', () => {
+  const payload = { event: 'PreToolUse', matcher: 'Bash', script: 'exit 0', command: 'npm test' }
+  assert.equal(validateHookRequest(payload), null)
+  assert.equal(hookMatcherMatches('Bash', 'Bash'), true)
+  assert.equal(hookMatcherMatches('Edit|Write', 'Bash'), false)
+})
+
+test('interprets a structured deny decision from a Claude hook', () => {
+  const inputJson = JSON.stringify(hookInputFor('rm -rf /tmp/build'))
+  const stdout = JSON.stringify({
+    hookSpecificOutput: {
+      hookEventName: 'PreToolUse',
+      permissionDecision: 'deny',
+      permissionDecisionReason: 'Destructive command blocked by hook',
+    },
+  })
+  const result = interpretHookResult(inputJson, true, 0, stdout, '')
+  assert.equal(result.outcome, 'denied')
+  assert.equal(result.reason, 'Destructive command blocked by hook')
+  assert.equal(result.executed, true)
+})
+
+test('interprets silent exit zero as no hook decision', () => {
+  const inputJson = JSON.stringify(hookInputFor('npm test'))
+  const result = interpretHookResult(inputJson, true, 0, '', '')
+  assert.equal(result.outcome, 'no_decision')
+})
