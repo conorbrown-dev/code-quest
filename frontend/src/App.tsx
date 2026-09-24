@@ -1409,12 +1409,6 @@ function PresentationPanel({
           ))}
         </div>
       </div>
-      <div className="mt-6 rounded-lg border border-[#d7cbec] bg-[#f6f1ff] p-4 text-xs leading-relaxed text-[#514467]">
-        <strong className="block text-[#5f37a1]">Course scope</strong>
-        <span className="mt-1 block">
-          This course presents the material only. The course-completion quiz is intentionally deferred to a separate work item.
-        </span>
-      </div>
       <a
         href={lesson.version.sourceUrl}
         target="_blank"
