@@ -81,6 +81,17 @@ type Result = {
   nextLessonSlug?: string;
   codeReview?: CodeReview;
 };
+type HookPlaygroundResult = {
+  matcherMatched: boolean;
+  executed: boolean;
+  exitCode?: number | null;
+  outcome: string;
+  summary: string;
+  reason?: string | null;
+  stdout: string;
+  stderr: string;
+  inputJson: string;
+};
 type Account = {
   token: string;
   displayName: string;
@@ -1410,6 +1421,252 @@ function LessonContent({ lesson }: { lesson: Lesson }) {
   );
 }
 
+const hookStarterScript = `#!/bin/bash
+COMMAND=$(jq -r '.tool_input.command')
+
+if echo "$COMMAND" | grep -q 'rm -rf'; then
+  jq -n '{
+    hookSpecificOutput: {
+      hookEventName: "PreToolUse",
+      permissionDecision: "deny",
+      permissionDecisionReason: "Destructive command blocked by hook"
+    }
+  }'
+else
+  exit 0
+fi
+`;
+
+const hookCommandPresets = [
+  { label: "Destructive rm", command: "rm -rf /tmp/build" },
+  { label: "Run tests", command: "npm test" },
+  { label: "Force push", command: "git push --force origin main" },
+];
+
+function HookPlayground() {
+  const [matcher, setMatcher] = useState("Bash");
+  const [script, setScript] = useState(hookStarterScript);
+  const [command, setCommand] = useState(hookCommandPresets[0].command);
+  const [result, setResult] = useState<HookPlaygroundResult | null>(null);
+  const [running, setRunning] = useState(false);
+  const runHook = async () => {
+    setRunning(true);
+    setResult(null);
+    try {
+      const response = await fetch(`${api}/api/claude-hooks/evaluate`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "X-Learner-Id": learnerId,
+        },
+        body: JSON.stringify({
+          event: "PreToolUse",
+          matcher,
+          script,
+          command,
+        }),
+      });
+      if (!response.ok) {
+        let message = "The Hook Playground is unavailable.";
+        try {
+          const payload = await response.json();
+          message = payload.detail ?? payload.message ?? message;
+        } catch {
+          // Keep the friendly fallback when the API returns non-JSON diagnostics.
+        }
+        throw new Error(message);
+      }
+      setResult(await response.json());
+    } catch (error) {
+      setResult({
+        matcherMatched: false,
+        executed: false,
+        exitCode: null,
+        outcome: "error",
+        summary:
+          error instanceof Error ? error.message : "The Hook Playground is unavailable.",
+        reason: null,
+        stdout: "",
+        stderr: "",
+        inputJson: "",
+      });
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const outcomeLabel =
+    result?.outcome === "denied" || result?.outcome === "blocked"
+      ? "BLOCKED"
+      : result?.outcome === "allowed"
+        ? "ALLOWED"
+        : result?.outcome === "ask"
+          ? "ASK"
+          : result?.outcome === "deferred"
+            ? "DEFERRED"
+            : result?.outcome === "skipped"
+              ? "SKIPPED"
+              : result?.outcome === "no_decision"
+                ? "NO DECISION"
+                : "ERROR";
+
+  return (
+    <div className="mt-9 overflow-hidden rounded-xl border border-[#3b3052] bg-[#0d0b13] shadow-[0_18px_55px_#00000033]">
+      <div className="border-b border-[#30283f] px-5 py-4">
+        <p className="text-[10px] font-bold tracking-[1.3px] text-[#5d886f]">
+          HOOK PLAYGROUND
+        </p>
+        <h3 className="mt-1 font-display text-xl font-semibold text-white">
+          Run a real PreToolUse hook
+        </h3>
+        <p className="mt-2 text-xs leading-relaxed text-[#aaa4b7]">
+          Pathway sends a simulated Bash tool call to your script as JSON on stdin and runs the hook in an isolated sandbox.
+        </p>
+      </div>
+
+      <div className="grid gap-0 xl:grid-cols-[1.15fr_.85fr]">
+        <div className="border-b border-[#30283f] p-5 xl:border-b-0 xl:border-r">
+          <div className="grid gap-4 sm:grid-cols-[140px_1fr]">
+            <label className="text-xs text-[#aaa4b7]">
+              Matcher
+              <input
+                value={matcher}
+                onChange={(event) => setMatcher(event.target.value)}
+                className="mt-2 w-full rounded-md border border-[#3b3052] bg-[#171321] px-3 py-2 font-mono text-xs text-white outline-none focus:border-[#7652a6]"
+              />
+            </label>
+            <label className="text-xs text-[#aaa4b7]">
+              Simulated Bash command
+              <input
+                value={command}
+                onChange={(event) => setCommand(event.target.value)}
+                className="mt-2 w-full rounded-md border border-[#3b3052] bg-[#171321] px-3 py-2 font-mono text-xs text-white outline-none focus:border-[#7652a6]"
+              />
+            </label>
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {hookCommandPresets.map((preset) => (
+              <button
+                key={preset.label}
+                onClick={() => setCommand(preset.command)}
+                className="rounded-full border border-[#3b3052] px-3 py-1.5 text-[10px] font-bold text-[#aaa4b7] hover:border-[#7652a6] hover:text-white"
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+
+          <label className="mt-5 block text-xs text-[#aaa4b7]">
+            Hook script
+            <textarea
+              value={script}
+              onChange={(event) => setScript(event.target.value)}
+              spellCheck={false}
+              className="mt-2 min-h-[280px] w-full resize-y rounded-md border border-[#3b3052] bg-[#101018] p-4 font-mono text-[12px] leading-6 text-[#e4dcf5] outline-none focus:border-[#7652a6]"
+            />
+          </label>
+
+          <div className="mt-4 flex items-center gap-3">
+            <button
+              onClick={() => void runHook()}
+              disabled={running}
+              className="rounded-md bg-[#ea7850] px-4 py-3 text-xs font-bold text-white hover:bg-[#d9653d] disabled:cursor-wait disabled:opacity-60"
+            >
+              <Play className="mr-1.5 inline fill-current" size={11} />
+              {running ? "Running hook…" : "Run hook"}
+            </button>
+            <button
+              onClick={() => {
+                setScript(hookStarterScript);
+                setMatcher("Bash");
+                setCommand(hookCommandPresets[0].command);
+                setResult(null);
+              }}
+              className="rounded-md border border-[#3b3052] px-3 py-3 text-xs font-bold text-[#aaa4b7] hover:border-[#7652a6] hover:text-white"
+            >
+              Reset
+            </button>
+          </div>
+        </div>
+
+        <div className="p-5">
+          <p className="text-[10px] font-bold tracking-[1.3px] text-[#5d886f]">
+            CLAUDE CODE RESULT
+          </p>
+          {result ? (
+            <div className="mt-4 space-y-4">
+              <div className="rounded-lg border border-[#3b3052] bg-[#171321] p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <strong className="text-sm text-white">{outcomeLabel}</strong>
+                  <span className="font-mono text-[10px] text-[#81768f]">
+                    exit {result.exitCode ?? "—"}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs leading-relaxed text-[#b9b3c8]">
+                  {result.summary}
+                </p>
+                {result.reason && (
+                  <p className="mt-3 rounded-md bg-[#ffffff08] px-3 py-2 text-xs leading-relaxed text-[#d7cbe8]">
+                    {result.reason}
+                  </p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-[10px]">
+                <div className="rounded-md border border-[#30283f] p-3">
+                  <span className="text-[#81768f]">Matcher</span>
+                  <strong className="mt-1 block text-white">
+                    {result.matcherMatched ? "matched" : "did not match"}
+                  </strong>
+                </div>
+                <div className="rounded-md border border-[#30283f] p-3">
+                  <span className="text-[#81768f]">Handler</span>
+                  <strong className="mt-1 block text-white">
+                    {result.executed ? "executed" : "skipped"}
+                  </strong>
+                </div>
+              </div>
+
+              {result.inputJson && (
+                <details className="rounded-md border border-[#30283f] bg-[#101018] p-3">
+                  <summary className="cursor-pointer text-xs font-bold text-[#d7cbe8]">
+                    Simulated stdin JSON
+                  </summary>
+                  <pre className="mt-3 max-h-[220px] overflow-auto whitespace-pre-wrap font-mono text-[10px] leading-5 text-[#aaa4b7]">
+                    {JSON.stringify(JSON.parse(result.inputJson), null, 2)}
+                  </pre>
+                </details>
+              )}
+              {(result.stdout || result.stderr) && (
+                <details className="rounded-md border border-[#30283f] bg-[#101018] p-3">
+                  <summary className="cursor-pointer text-xs font-bold text-[#d7cbe8]">
+                    Raw hook output
+                  </summary>
+                  {result.stdout && (
+                    <pre className="mt-3 max-h-[180px] overflow-auto whitespace-pre-wrap font-mono text-[10px] leading-5 text-[#aaa4b7]">
+                      {result.stdout}
+                    </pre>
+                  )}
+                  {result.stderr && (
+                    <pre className="mt-3 max-h-[180px] overflow-auto whitespace-pre-wrap font-mono text-[10px] leading-5 text-[#d49393]">
+                      {result.stderr}
+                    </pre>
+                  )}
+                </details>
+              )}
+            </div>
+          ) : (
+            <div className="mt-4 rounded-lg border border-dashed border-[#3b3052] p-5 text-xs leading-relaxed text-[#81768f]">
+              Run the starter hook against <code>rm -rf /tmp/build</code>. Then switch to <code>npm test</code> and observe how a silent exit 0 leaves normal permission handling in place.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PresentationPanel({
   lesson,
   canGoBack,
@@ -1442,6 +1699,7 @@ function PresentationPanel({
           </div>
         ))}
       </div>
+      {lesson.slug === "claude-hooks-pretooluse" && <HookPlayground />}
       <a
         href={lesson.version.sourceUrl}
         target="_blank"
