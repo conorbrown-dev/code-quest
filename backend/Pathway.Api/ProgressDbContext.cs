@@ -13,6 +13,7 @@ public sealed class ProgressDbContext(DbContextOptions<ProgressDbContext> option
     public DbSet<CommunityReply> CommunityReplies => Set<CommunityReply>();
     public DbSet<CareerOutcomeCheckIn> CareerOutcomeCheckIns => Set<CareerOutcomeCheckIn>();
     public DbSet<PeerReviewProfile> PeerReviewProfiles => Set<PeerReviewProfile>();
+    public DbSet<ActivityEvent> ActivityEvents => Set<ActivityEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -93,6 +94,21 @@ public sealed class ProgressDbContext(DbContextOptions<ProgressDbContext> option
             entity.Property(item => item.LearnerId).HasMaxLength(100);
             entity.Property(item => item.CourseId).HasMaxLength(100);
             entity.Property(item => item.Focus).HasMaxLength(500);
+        });
+        modelBuilder.Entity<ActivityEvent>(entity =>
+        {
+            entity.ToTable("activity_events");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => item.CreatedAt);
+            entity.HasIndex(item => new { item.LearnerId, item.CreatedAt });
+            entity.HasIndex(item => new { item.SessionId, item.CreatedAt });
+            entity.Property(item => item.LearnerId).HasMaxLength(100);
+            entity.Property(item => item.SessionId).HasMaxLength(100);
+            entity.Property(item => item.EventType).HasMaxLength(50);
+            entity.Property(item => item.CourseId).HasMaxLength(100);
+            entity.Property(item => item.LessonSlug).HasMaxLength(200);
+            entity.Property(item => item.Workspace).HasMaxLength(50);
+            entity.Property(item => item.Detail).HasMaxLength(100);
         });
     }
 }
@@ -188,4 +204,18 @@ public sealed class PeerReviewProfile
     public bool AvailableForPeerReview { get; set; }
     public bool WantsMentorOfficeHours { get; set; }
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
+}
+
+
+public sealed class ActivityEvent
+{
+    public Guid Id { get; init; } = Guid.NewGuid();
+    public required string LearnerId { get; init; }
+    public required string SessionId { get; init; }
+    public required string EventType { get; init; }
+    public string? CourseId { get; init; }
+    public string? LessonSlug { get; init; }
+    public string? Workspace { get; init; }
+    public string? Detail { get; init; }
+    public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
 }

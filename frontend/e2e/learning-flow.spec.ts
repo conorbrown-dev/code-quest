@@ -63,6 +63,24 @@ test('serves the Claude Hooks presentation course without a quiz exercise', asyn
   })
 })
 
+test('accepts anonymous activity events and protects aggregate analytics', async ({ request }) => {
+  const activity = await request.post(`${apiBaseUrl}/api/activity`, {
+    headers: { 'X-Learner-Id': 'test-analytics-guest' },
+    data: {
+      eventType: 'lesson_view',
+      sessionId: 'test-session',
+      courseId: 'claude-engineering',
+      lessonSlug: 'claude-hooks-pretooluse',
+      workspace: 'learn',
+      detail: null,
+    },
+  })
+  expect([204, 503]).toContain(activity.status())
+
+  const summary = await request.get(`${apiBaseUrl}/api/admin/analytics`)
+  expect(summary.status()).toBe(401)
+})
+
 test('serves learning-experience templates, checkpoints, and guarded coaching', async ({ request }) => {
   test.skip(Boolean(process.env.PLAYWRIGHT_BASE_URL), 'Experience endpoints require a production Keycloak test identity.')
   const templates = await request.get(`${apiBaseUrl}/api/experience/projects/templates`)

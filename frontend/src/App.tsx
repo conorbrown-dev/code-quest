@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import Editor from "@monaco-editor/react";
 import "./onboarding.css";
 import { ExperienceHub } from "./ExperienceHub";
+import { getAnonymousLearnerId, trackActivity, trackActivityOnce } from "./analytics";
 import {
   initializeKeycloak,
   keycloak,
@@ -122,13 +123,7 @@ const applyAccent = (accent: string) => {
     ?.setAttribute("href", favicon);
 };
 const defaultCourseId = "csharp-dotnet";
-const learnerId = (() => {
-  const current = localStorage.getItem("pathway-learner-id");
-  if (current) return current;
-  const next = crypto.randomUUID();
-  localStorage.setItem("pathway-learner-id", next);
-  return next;
-})();
+const learnerId = getAnonymousLearnerId();
 const progressStorageKey = (owner: string) =>
   `pathway-completed-lessons:${owner}`;
 const readProgress = (owner: string) => {
@@ -166,6 +161,31 @@ function App() {
     () => !localStorage.getItem("pathway-onboarding-complete"),
   );
   const [workspace, setWorkspace] = useState<Workspace>("learn");
+  useEffect(() => {
+    trackActivityOnce("session_start", { eventType: "session_start" });
+  }, []);
+  useEffect(() => {
+    trackActivityOnce(`course:${courseId}`, {
+      eventType: "course_view",
+      courseId,
+    });
+  }, [courseId]);
+  useEffect(() => {
+    if (!lesson) return;
+    trackActivityOnce(`lesson:${lesson.slug}`, {
+      eventType: "lesson_view",
+      courseId,
+      lessonSlug: lesson.slug,
+    });
+  }, [courseId, lesson?.slug]);
+  useEffect(() => {
+    trackActivityOnce(`workspace:${workspace}`, {
+      eventType: "workspace_view",
+      courseId,
+      lessonSlug: lesson?.slug,
+      workspace,
+    });
+  }, [courseId, lesson?.slug, workspace]);
   useEffect(
     () => applyAccent(localStorage.getItem("pathway-accent") ?? "purple"),
     [],
@@ -267,6 +287,13 @@ function App() {
       if (!response.ok) throw Error();
       const next: Result = await response.json();
       setResult(next);
+      void trackActivity({
+        eventType: "exercise_submit",
+        courseId,
+        lessonSlug: lesson.slug,
+        workspace,
+        detail: next.passed ? "passed" : "failed",
+      });
       if (next.passed) {
         setCompleted((current) => {
           const updated = [...new Set([...current, lesson.slug])];
@@ -1476,7 +1503,15 @@ function HookPlayground() {
         }
         throw new Error(message);
       }
-      setResult(await response.json());
+      const next: HookPlaygroundResult = await response.json();
+      setResult(next);
+      void trackActivity({
+        eventType: "hook_run",
+        courseId: "claude-engineering",
+        lessonSlug: "claude-hooks-pretooluse",
+        workspace: "learn",
+        detail: next.outcome,
+      });
     } catch (error) {
       setResult({
         matcherMatched: false,
