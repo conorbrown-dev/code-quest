@@ -5,6 +5,21 @@ using System.Text.RegularExpressions;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase);
 var app = builder.Build();
+var evaluatorSharedSecret = builder.Configuration["EVALUATOR_SHARED_SECRET"];
+app.Use(async (context, next) =>
+{
+    if (!string.IsNullOrWhiteSpace(evaluatorSharedSecret)
+        && HttpMethods.IsPost(context.Request.Method)
+        && (context.Request.Path == "/evaluate" || context.Request.Path == "/evaluate-hook")
+        && !string.Equals(context.Request.Headers["X-Pathway-Runner-Key"].FirstOrDefault(), evaluatorSharedSecret, StringComparison.Ordinal))
+    {
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        await context.Response.WriteAsJsonAsync(new { message = "Evaluator authentication failed." });
+        return;
+    }
+
+    await next();
+});
 var executions = new SemaphoreSlim(2, 2);
 var sandboxReady = await Sandbox.Probe();
 app.Logger.LogInformation("Bubblewrap namespace probe completed: {SandboxReady}", sandboxReady);
