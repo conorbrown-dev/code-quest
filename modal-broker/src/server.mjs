@@ -1,7 +1,7 @@
 import http from 'node:http'
 import crypto from 'node:crypto'
 import { ModalClient } from 'modal'
-import { boundedOutput, evaluationResult, fixtureFor, validateRequest } from './evaluator.mjs'
+import { boundedOutput, evaluationResult, fixtureFor, hookInputFor, hookMatcherMatches, interpretHookResult, validateHookRequest, validateRequest } from './evaluator.mjs'
 
 const port = Number(process.env.PORT ?? 8080)
 const sharedSecret = process.env.RUNNER_SHARED_SECRET
@@ -36,15 +36,80 @@ async function evaluate(payload) {
     return evaluationResult(fixture, exitCode, boundedOutput(stdout, stderr))
   } finally { await sandbox.terminate().catch(() => undefined); sandbox.detach() }
 }
+
+async function evaluateHook(payload) {
+  const input = hookInputFor(payload.command)
+  const inputJson = JSON.stringify(input)
+  const matcherMatched = hookMatcherMatches(payload.matcher, 'Bash')
+  if (!matcherMatched) return interpretHookResult(inputJson, false, null, '', '')
+
+  const app = await client.apps.fromName('code-quest-hook-evaluator', { createIfMissing: true })
+  const image = client.images
+    .fromRegistry('debian:bookworm-slim')
+    .dockerfileCommands([
+      'RUN apt-get update && apt-get install -y --no-install-recommends bash jq coreutils grep && rm -rf /var/lib/apt/lists/*',
+    ])
+  const sandbox = await client.sandboxes.create(app, image, {
+    command: ['sleep', 'infinity'],
+    workdir: '/workspace',
+    cpu: 0.25,
+    cpuLimit: 0.5,
+    memoryMiB: 128,
+    memoryLimitMiB: 256,
+    timeoutMs: 10_000,
+    idleTimeoutMs: 10_000,
+    blockNetwork: true,
+  })
+  try {
+    await sandbox.filesystem.writeText(payload.script, '/workspace/hook.sh')
+    const process = await sandbox.exec(['/bin/bash', '/workspace/hook.sh'], {
+      timeoutMs: 5_000,
+      stdin: inputJson,
+    })
+    const [stdout, stderr, exitCode] = await Promise.all([
+      process.stdout.readText(),
+      process.stderr.readText(),
+      process.wait(),
+    ])
+    return interpretHookResult(
+      inputJson,
+      true,
+      exitCode,
+      stdout.length > 8_000 ? stdout.slice(0, 8_000) : stdout,
+      stderr.length > 8_000 ? stderr.slice(0, 8_000) : stderr,
+    )
+  } finally {
+    await sandbox.terminate().catch(() => undefined)
+    sandbox.detach()
+  }
+}
 function modalImage(modal, runtime) {
   if (runtime === 'rust') return modal.images.fromRegistry('rust:1.97-slim')
   return modal.images.fromRegistry('mcr.microsoft.com/dotnet/sdk:10.0').dockerfileCommands(['RUN apt-get update && apt-get install -y --no-install-recommends python3 coreutils && rm -rf /var/lib/apt/lists/*'])
 }
 
 http.createServer(async (request, response) => {
-  if (request.method === 'GET' && request.url === '/health') return reply(response, configured ? 200 : 503, { status: configured ? 'ok' : 'misconfigured', provider: 'modal' })
-  if (request.method !== 'POST' || request.url !== '/evaluate') return reply(response, 404, { message: 'Not found.' })
+  if (request.method === 'GET' && request.url === '/health')
+    return reply(response, configured ? 200 : 503, { status: configured ? 'ok' : 'misconfigured', provider: 'modal' })
+
+  if (request.method !== 'POST' || !['/evaluate', '/evaluate-hook'].includes(request.url))
+    return reply(response, 404, { message: 'Not found.' })
+
   if (!isAuthorized(request)) return reply(response, 401, { message: 'Unauthorized.' })
-  try { const payload = await readBody(request); const issue = validateRequest(payload); if (issue) return reply(response, 400, { message: issue }); return reply(response, 200, await evaluate(payload)) }
-  catch (error) { console.error('Modal sandbox evaluation failed.', error); return reply(response, 503, { message: 'The isolated evaluator is temporarily unavailable.' }) }
+
+  try {
+    const payload = await readBody(request)
+    if (request.url === '/evaluate-hook') {
+      const issue = validateHookRequest(payload)
+      if (issue) return reply(response, 400, { message: issue })
+      return reply(response, 200, await evaluateHook(payload))
+    }
+
+    const issue = validateRequest(payload)
+    if (issue) return reply(response, 400, { message: issue })
+    return reply(response, 200, await evaluate(payload))
+  } catch (error) {
+    console.error('Modal sandbox evaluation failed.', error)
+    return reply(response, 503, { message: 'The isolated evaluator is temporarily unavailable.' })
+  }
 }).listen(port, '0.0.0.0', () => console.log(`Modal evaluator broker listening on ${port}`))
