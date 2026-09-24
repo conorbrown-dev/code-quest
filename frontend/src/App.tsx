@@ -621,7 +621,7 @@ function Onboarding({
   const csharpSelected = selectedCourseId === "csharp-dotnet";
   const claudeSelected = selectedCourseId === "claude-engineering";
   return (
-    <main className="onboarding app-dark grid min-h-screen place-items-center overflow-hidden px-5 py-10">
+    <main className="onboarding app-dark grid min-h-screen place-items-center overflow-x-hidden px-5 py-10">
       <div className="onboarding-grid" />
       <section className="relative z-10 w-full max-w-[960px]">
         <div className="mb-12 flex items-center justify-between">
@@ -775,23 +775,26 @@ function Onboarding({
                 Selected: {course.title}
               </p>
               <button
-                onClick={() => setMode("register")}
+                onClick={() => onComplete(null)}
                 className="onboarding-cta mt-6 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3.5 text-sm font-bold text-white"
               >
-                Start this path <ArrowRight size={17} />
+                Continue as guest <ArrowRight size={17} />
+              </button>
+              <p className="mt-2 text-center text-[10px] leading-relaxed text-[#857d91]">
+                No account required. Progress stays on this browser.
+              </p>
+              <button
+                onClick={() => setMode("register")}
+                className="mt-4 w-full rounded-lg border border-[#7652a6] px-4 py-3 text-xs font-bold text-[#d8c5f3] hover:bg-[#ffffff08] hover:text-white"
+              >
+                Create free account
               </button>
               <button
                 onClick={() => setMode("login")}
-                className="mt-4 w-full text-xs text-[#bcb5c9] hover:text-white"
+                className="mt-3 w-full text-xs text-[#bcb5c9] hover:text-white"
               >
-                Already learning with Pathway?{" "}
+                Already have an account?{" "}
                 <span className="text-[#bc88ff]">Sign in</span>
-              </button>
-              <button
-                onClick={() => onComplete(null)}
-                className="mt-5 w-full text-[11px] text-[#7d758b] hover:text-[#aaa3b6]"
-              >
-                Explore as a guest
               </button>
             </div>
           </div>
@@ -877,6 +880,17 @@ function Onboarding({
                 {mode === "login" ? "Create one" : "Sign in"}
               </span>
             </button>
+            <div className="mt-5 border-t border-[#ffffff12] pt-5">
+              <button
+                onClick={() => onComplete(null)}
+                className="w-full rounded-lg border border-[#ffffff18] px-4 py-3 text-xs font-bold text-[#c7bfce] hover:bg-[#ffffff08] hover:text-white"
+              >
+                Continue as guest instead
+              </button>
+              <p className="mt-2 text-center text-[10px] text-[#777080]">
+                No account required. Guest progress stays on this browser.
+              </p>
+            </div>
           </div>
         )}
       </section>
