@@ -423,6 +423,59 @@ static class Curriculum
     private static readonly VersionStamp ObjectDesign = new("C# 14", ".NET 10", "2026-08-14", "https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/types/classes");
     private static readonly VersionStamp AspNetCore = new("C# 14", "ASP.NET Core 10", "2026-08-14", "https://learn.microsoft.com/en-us/aspnet/core/fundamentals/http-requests?view=aspnetcore-10.0");
     private static readonly VersionStamp ClaudeHooksDocs = new("Claude Code", "Hooks", "2026-09-24", "https://code.claude.com/docs/en/hooks");
+    private static readonly VersionStamp ComputingFoundationsDocs = new("Computing", "Foundations", "2026-09-24", "https://en.wikipedia.org/wiki/Computer");
+    public static readonly Lesson[] ComputingLessons =
+    [
+        new(
+            "computing-machine-model",
+            "Computing foundations",
+            1,
+            "What a computer actually does",
+            "Understand the machine before learning a programming language.",
+            "A computer accepts input, executes instructions, stores working state, and produces output.",
+            "Programs are instructions represented as data. The CPU executes instructions, memory holds active working data, storage preserves data after power is removed, and the operating system coordinates access to hardware.",
+            "input → instructions → CPU + memory → output",
+            new Exercise(ExerciseKind.MultipleChoice, "Name the role", "Which component holds a running program's active working data?", ["Choose one answer"], null, "memory", [new("memory", "Memory (RAM)"), new("storage", "Long-term storage"), new("display", "The display")], "Running programs need fast temporary working space.", ["Explains the basic machine model"]),
+            "computing-bits-bytes",
+            ComputingFoundationsDocs),
+        new(
+            "computing-bits-bytes",
+            "Computing foundations",
+            2,
+            "Bits, bytes, and data",
+            "Every file, program, image, and message becomes data the machine can represent.",
+            "Bits have two states; bytes group bits; encodings give those values meaning.",
+            "A byte is eight bits. Text encodings such as UTF-8 map numeric byte sequences to characters. Images, audio, executable code, and network messages all reduce to structured bytes at some layer.",
+            "bit → byte → encoded value → meaning",
+            new Exercise(ExerciseKind.MultipleChoice, "Read the unit", "How many bits are in one byte?", ["Choose one answer"], null, "eight", [new("four", "4"), new("eight", "8"), new("sixteen", "16")], "A byte is eight bits.", ["Connects bits, bytes, and encoded data"]),
+            "computing-processes-files",
+            ComputingFoundationsDocs),
+        new(
+            "computing-processes-files",
+            "Computing foundations",
+            3,
+            "Programs, processes, memory, and files",
+            "A program on disk becomes a process when the operating system runs it.",
+            "Processes hold active state in memory; files provide durable bytes that outlive a process.",
+            "Your editor, browser, terminal, and application are separate processes. A process can read and write files, allocate memory, start other processes, and exit with a status that tells its caller whether it succeeded.",
+            "program file + operating system → process → exit status",
+            new Exercise(ExerciseKind.MultipleChoice, "Choose the term", "What is a running instance of a program called?", ["Choose one answer"], null, "process", [new("process", "A process"), new("file", "A file"), new("folder", "A folder")], "The operating system schedules running program instances.", ["Distinguishes programs, processes, memory, and files"]),
+            "computing-os-shell",
+            ComputingFoundationsDocs),
+        new(
+            "computing-os-shell",
+            "Computing foundations",
+            4,
+            "Operating systems, shells, and paths",
+            "The operating system owns the machine; shells give people and tools a way to ask it to run programs.",
+            "A shell launches processes, passes arguments and environment values, connects input and output, and lets you navigate files by path.",
+            "Absolute paths identify a location from a filesystem root; relative paths start from the current working directory. Commands run as processes, produce output, and return exit codes. Those ideas are shared across Windows, macOS, and Linux even when the syntax differs.",
+            "shell → command + arguments → process → stdout / stderr / exit code",
+            new Exercise(ExerciseKind.MultipleChoice, "Read the result", "What does a process exit code communicate to the shell?", ["Choose one answer"], null, "status", [new("status", "Whether the process succeeded or failed"), new("memory", "How much RAM exists"), new("path", "The current folder name")], "Exit codes are a simple process-to-caller status contract.", ["Explains shell/process boundaries"]),
+            null,
+            ComputingFoundationsDocs)
+    ];
+
     public static readonly Lesson[] Lessons =
     [
         new("internet-devices", "Computing & internet foundations", 1, "What a computer actually does", "Understand the machine before asking it to run code.", "A computer accepts input, processes instructions, stores state, and produces output.", "Programs are instructions represented as data. The CPU executes instructions, memory holds active data, and storage preserves data after power is off. An operating system coordinates hardware and lets many programs share it safely.", "input → program instructions → CPU and memory → output", new(ExerciseKind.MultipleChoice, "Name the role", "Which component holds a program's active working data?", ["Choose one answer"], null, "memory", [new("memory", "Memory (RAM)"), new("storage", "Long-term storage only"), new("screen", "The display")], "Running programs need fast temporary working space.", ["Explains computer roles"]), "internet-bits-bytes", WebFoundations),
@@ -644,24 +697,56 @@ static class Curriculum
 
     private static readonly VersionStamp RustDocs = new("Rust 1.97", "Edition 2024 · Cargo · Tokio · Axum", "2026-08-18", "https://doc.rust-lang.org/stable/book/");
     public static readonly Lesson[] RustLessons = BuildRustLessons();
-    public static readonly Dictionary<string, Lesson> BySlug = Lessons.Concat(PythonAllLessons).Concat(RustLessons).Concat(ClaudeLessons).ToDictionary(lesson => lesson.Slug, StringComparer.Ordinal);
-    public static readonly Course Course = BuildCourse("csharp-dotnet", "C# / .NET: zero to staff", "csharp", "C# 14", ".NET 10", "2026-08-14", Lessons);
-    public static readonly Course PythonCourse = BuildCourse("python-web", "Python Web: zero to staff", "python", "Python 3.14", "FastAPI · Flask · Django", "2026-08-14", PythonAllLessons);
-    public static readonly Course RustCourse = BuildCourse("rust-systems", "Rust Systems: zero to staff", "rust", "Rust 1.97", "Edition 2024 · Tokio · Axum", "2026-08-18", RustLessons);
+
+    // The language courses intentionally start at language/tooling concepts. Generic machine and
+    // operating-system concepts now live in Computing Foundations instead of being repeated per language.
+    public static readonly Lesson[] CSharpCourseLessons = Lessons
+        .Skip(9)
+        .Select((lesson, index) => lesson with { Order = index + 1 })
+        .ToArray();
+    public static readonly Lesson[] PythonCourseLessons = PythonAllLessons
+        .Skip(9)
+        .Select((lesson, index) => lesson with { Order = index + 1 })
+        .ToArray();
+    public static readonly Lesson[] RustCourseLessons = RustLessons
+        .Skip(5)
+        .Select((lesson, index) => lesson with { Order = index + 1 })
+        .ToArray();
+
+    public static readonly Dictionary<string, Lesson> BySlug = ComputingLessons
+        .Concat(CSharpCourseLessons)
+        .Concat(PythonCourseLessons)
+        .Concat(RustCourseLessons)
+        .Concat(ClaudeLessons)
+        .ToDictionary(lesson => lesson.Slug, StringComparer.Ordinal);
+
+    public static readonly Course ComputingCourse = BuildCourse("computing-foundations", "Computing Foundations", "computing", "Core computing", "Machine · data · processes · OS", "2026-09-24", ComputingLessons);
+    public static readonly Course Course = BuildCourse("csharp-dotnet", "C# / .NET: zero to staff", "csharp", "C# 14", ".NET 10", "2026-09-24", CSharpCourseLessons);
+    public static readonly Course PythonCourse = BuildCourse("python-web", "Python Web: zero to staff", "python", "Python 3.14", "FastAPI · Flask · Django", "2026-09-24", PythonCourseLessons);
+    public static readonly Course RustCourse = BuildCourse("rust-systems", "Rust Systems: zero to staff", "rust", "Rust 1.97", "Edition 2024 · Tokio · Axum", "2026-09-24", RustCourseLessons);
     public static readonly Course ClaudeCourse = BuildCourse("claude-engineering", "Claude Engineering: Hooks", "claude", "Claude Code", "Hooks · Agent workflow automation", "2026-09-24", ClaudeLessons);
+
     public static readonly IReadOnlyDictionary<string, Course> Courses = new Dictionary<string, Course>(StringComparer.Ordinal)
     {
+        [ComputingCourse.Id] = ComputingCourse,
         [Course.Id] = Course,
         [PythonCourse.Id] = PythonCourse,
         [RustCourse.Id] = RustCourse,
         [ClaudeCourse.Id] = ClaudeCourse
     };
+
     public static readonly IReadOnlyList<CourseCatalogItem> Catalog =
     [
+        new(ComputingCourse.Id, ComputingCourse.Title, ComputingCourse.LanguageId, ComputingCourse.LanguageVersion, ComputingCourse.FrameworkVersion, true),
         new(Course.Id, Course.Title, Course.LanguageId, Course.LanguageVersion, Course.FrameworkVersion, true),
         new(PythonCourse.Id, PythonCourse.Title, PythonCourse.LanguageId, PythonCourse.LanguageVersion, PythonCourse.FrameworkVersion, true),
         new(RustCourse.Id, RustCourse.Title, RustCourse.LanguageId, RustCourse.LanguageVersion, RustCourse.FrameworkVersion, true),
-        new(ClaudeCourse.Id, ClaudeCourse.Title, ClaudeCourse.LanguageId, ClaudeCourse.LanguageVersion, ClaudeCourse.FrameworkVersion, true)
+        new(ClaudeCourse.Id, ClaudeCourse.Title, ClaudeCourse.LanguageId, ClaudeCourse.LanguageVersion, ClaudeCourse.FrameworkVersion, true),
+        new("networking-fundamentals", "Networking Fundamentals", "networking", "Coming Soon", "Packets · IP · routing · ports", false),
+        new("dns", "DNS", "dns", "Coming Soon", "Names · records · resolvers · caching", false),
+        new("http-apis", "HTTP & APIs", "http", "Coming Soon", "Methods · status · headers · contracts", false),
+        new("https-tls", "HTTPS & TLS", "security", "Coming Soon", "Certificates · encryption · trust", false),
+        new("distributed-systems", "Distributed Systems", "distributed", "Coming Soon", "Latency · failure · retries · idempotency", false)
     ];
 
     private static Lesson[] BuildRustLessons()
