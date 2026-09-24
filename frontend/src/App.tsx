@@ -10,10 +10,13 @@ import {
   logoutFromKeycloak,
 } from "./keycloak";
 import {
+  ArrowLeft,
   ArrowRight,
   Bell,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Clipboard,
   Code2,
   Flame,
@@ -320,6 +323,11 @@ function App() {
           )
           .map((item) => item.slug),
   );
+  const currentLessonIndex = orderedLessons.findIndex(
+    (item) => item.slug === lesson.slug,
+  );
+  const previousLessonSlug =
+    currentLessonIndex > 0 ? orderedLessons[currentLessonIndex - 1].slug : null;
   const logout = () => {
     setCompleted(readProgress(`guest:${learnerId}`));
     setAccount(null);
@@ -490,6 +498,8 @@ function App() {
             {lesson.exercise.kind === "Presentation" ? (
               <PresentationPanel
                 lesson={lesson}
+                canGoBack={previousLessonSlug !== null}
+                onBack={() => previousLessonSlug && loadLesson(previousLessonSlug)}
                 onNext={() => lesson.nextSlug && loadLesson(lesson.nextSlug)}
               />
             ) : (
@@ -900,6 +910,14 @@ function Sidebar({
   onLocked: () => void;
 }) {
   const [trackMenuOpen, setTrackMenuOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(
+    () => localStorage.getItem("pathway-sidebar-collapsed") === "true",
+  );
+  const setSidebarCollapsed = (next: boolean) => {
+    setCollapsed(next);
+    setTrackMenuOpen(false);
+    localStorage.setItem("pathway-sidebar-collapsed", String(next));
+  };
   const languageBadge =
     course.languageId === "python"
       ? "Py"
@@ -912,21 +930,33 @@ function Sidebar({
     <button
       onClick={() => onNavigate(id)}
       aria-current={workspace === id ? "page" : undefined}
-      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition ${workspace === id ? "bg-[#6d36ce42] font-bold text-white" : "text-[#bdb2cf] hover:bg-[#ffffff0b] hover:text-white"}`}
+      aria-label={collapsed ? label : undefined}
+      title={collapsed ? label : undefined}
+      className={`flex items-center rounded-lg py-2.5 text-left transition ${collapsed ? "justify-center px-2" : "gap-3 px-3"} ${workspace === id ? "bg-[#6d36ce42] font-bold text-white" : "text-[#bdb2cf] hover:bg-[#ffffff0b] hover:text-white"}`}
     >
       {icon}
-      {label}
+      {!collapsed && label}
     </button>
   );
   return (
-    <aside className="sidebar-shell hidden min-h-screen w-[264px] shrink-0 flex-col border-r border-[#332846] bg-[#0f0d17] px-4 py-7 text-[#eee6fa] lg:flex">
-      <div className="flex items-center gap-2 px-3 font-display text-[27px] font-semibold tracking-[-1.4px] text-white">
-        <span className="brand-orbit font-sans text-[33px] leading-5 text-[#b981ff]">
-          ⌁
-        </span>
-        pathway
+    <aside className={`sidebar-shell hidden min-h-screen shrink-0 flex-col border-r border-[#332846] bg-[#0f0d17] py-7 text-[#eee6fa] transition-[width,padding] duration-200 lg:flex ${collapsed ? "w-[76px] px-3" : "w-[264px] px-4"}`}>
+      <div className={`flex items-center ${collapsed ? "justify-center" : "justify-between px-3"}`}>
+        <div className={`flex items-center font-display font-semibold text-white ${collapsed ? "" : "gap-2 text-[27px] tracking-[-1.4px]"}`}>
+          <span className="brand-orbit font-sans text-[33px] leading-5 text-[#b981ff]">
+            ⌁
+          </span>
+          {!collapsed && <span>pathway</span>}
+        </div>
+        <button
+          onClick={() => setSidebarCollapsed(!collapsed)}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className={`grid h-8 w-8 shrink-0 place-items-center rounded-md text-[#9688ae] hover:bg-[#ffffff0b] hover:text-white ${collapsed ? "absolute left-[62px] top-7 border border-[#332846] bg-[#0f0d17]" : ""}`}
+        >
+          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+        </button>
       </div>
-      <nav className="mt-11 grid gap-1 text-sm font-medium">
+      <nav className={`grid gap-1 text-sm font-medium ${collapsed ? "mt-10" : "mt-11"}`}>
         {nav("learn", "Learn", <Code2 size={17} />)}
         {nav(
           "practice",
@@ -942,6 +972,8 @@ function Sidebar({
         {nav("coach", "Coach", <Sparkles size={17} />)}
         {nav("community", "Community", <UserRound size={17} />)}
       </nav>
+      {!collapsed && (
+        <>
       <p className="mb-2 mt-8 px-3 text-[10px] font-bold tracking-[1.15px] text-[#9688ae]">
         YOUR TRACK
       </p>
@@ -1051,6 +1083,8 @@ function Sidebar({
           </a>
         </div>
       </div>
+        </>
+      )}
     </aside>
   );
 }
@@ -1378,9 +1412,13 @@ function LessonContent({ lesson }: { lesson: Lesson }) {
 
 function PresentationPanel({
   lesson,
+  canGoBack,
+  onBack,
   onNext,
 }: {
   lesson: Lesson;
+  canGoBack: boolean;
+  onBack: () => void;
   onNext: () => void;
 }) {
   return (
@@ -1413,18 +1451,36 @@ function PresentationPanel({
         Open the Claude Code hooks reference ↗
       </a>
       {lesson.nextSlug ? (
-        <button
-          onClick={onNext}
-          className="mt-8 flex items-center gap-2 rounded-md bg-[#ea7850] px-4 py-3 text-xs font-bold text-white hover:bg-[#d9653d]"
-        >
-          Continue <ArrowRight size={14} />
-        </button>
+        <div className="mt-8 flex items-center gap-3">
+          <button
+            onClick={onBack}
+            disabled={!canGoBack}
+            className="flex items-center gap-2 rounded-md border border-[#3b3052] bg-[#171321] px-4 py-3 text-xs font-bold text-[#d7cbe8] transition hover:border-[#7652a6] hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
+          >
+            <ArrowLeft size={14} /> Back
+          </button>
+          <button
+            onClick={onNext}
+            className="flex items-center gap-2 rounded-md bg-[#ea7850] px-4 py-3 text-xs font-bold text-white hover:bg-[#d9653d]"
+          >
+            Continue <ArrowRight size={14} />
+          </button>
+        </div>
       ) : (
-        <div className="mt-8 rounded-lg border border-[#dce7de] bg-[#f6fbf7] p-4 text-sm text-[#365748]">
-          <strong className="block">Course complete.</strong>
-          <span className="mt-1 block text-xs">
-            You’ve completed the Claude Hooks course. Revisit any lesson from the sidebar whenever you need a refresher.
-          </span>
+        <div className="mt-8">
+          <button
+            onClick={onBack}
+            disabled={!canGoBack}
+            className="mb-4 flex items-center gap-2 rounded-md border border-[#3b3052] bg-[#171321] px-4 py-3 text-xs font-bold text-[#d7cbe8] transition hover:border-[#7652a6] hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
+          >
+            <ArrowLeft size={14} /> Back
+          </button>
+          <div className="rounded-lg border border-[#dce7de] bg-[#f6fbf7] p-4 text-sm text-[#365748]">
+            <strong className="block">Course complete.</strong>
+            <span className="mt-1 block text-xs">
+              You’ve completed the Claude Hooks course. Revisit any lesson from the sidebar whenever you need a refresher.
+            </span>
+          </div>
         </div>
       )}
     </section>
