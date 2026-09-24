@@ -346,7 +346,7 @@ record LearnerProgressResponse(string LearnerId, string[] CompletedLessonSlugs);
 record EvaluatorRequest(string LessonSlug, string Code);
 record CodeReview(string Summary, string[] Suggestions);
 record ValidationResult(bool Passed, int PassingTests, int TotalTests, string Feedback, string? NextLessonSlug, CodeReview? CodeReview = null);
-enum ExerciseKind { MultipleChoice, Code }
+enum ExerciseKind { MultipleChoice, Code, Presentation }
 
 static class Curriculum
 {
@@ -356,6 +356,7 @@ static class Curriculum
     private static readonly VersionStamp TypeSystem = new("C# 14", ".NET 10", "2026-08-14", "https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/types/");
     private static readonly VersionStamp ObjectDesign = new("C# 14", ".NET 10", "2026-08-14", "https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/types/classes");
     private static readonly VersionStamp AspNetCore = new("C# 14", "ASP.NET Core 10", "2026-08-14", "https://learn.microsoft.com/en-us/aspnet/core/fundamentals/http-requests?view=aspnetcore-10.0");
+    private static readonly VersionStamp ClaudeHooksDocs = new("Claude Code", "Hooks", "2026-09-24", "https://code.claude.com/docs/en/hooks");
     public static readonly Lesson[] Lessons =
     [
         new("internet-devices", "Computing & internet foundations", 1, "What a computer actually does", "Understand the machine before asking it to run code.", "A computer accepts input, processes instructions, stores state, and produces output.", "Programs are instructions represented as data. The CPU executes instructions, memory holds active data, and storage preserves data after power is off. An operating system coordinates hardware and lets many programs share it safely.", "input → program instructions → CPU and memory → output", new(ExerciseKind.MultipleChoice, "Name the role", "Which component holds a program's active working data?", ["Choose one answer"], null, "memory", [new("memory", "Memory (RAM)"), new("storage", "Long-term storage only"), new("screen", "The display")], "Running programs need fast temporary working space.", ["Explains computer roles"]), "internet-bits-bytes", WebFoundations),
@@ -462,23 +463,139 @@ static class Curriculum
         .Concat(PythonLessons.Select(lesson => lesson with { Order = lesson.Order + 9 }))
         .Concat(PythonProfessionalLessons.Select(lesson => lesson with { Order = lesson.Order + 9 }))
         .ToArray();
+
+    public static readonly Lesson[] ClaudeLessons =
+    [
+        new(
+            "claude-hooks-mental-model",
+            "Claude Hooks · Foundations",
+            1,
+            "Hooks are lifecycle middleware",
+            "Move from asking the model to enforcing the workflow.",
+            "Claude hooks are event-driven middleware around the Claude Code agent loop.",
+            "Claude can decide what it wants to do; hooks let your team deterministically react to those decisions. A hook can inspect an action, block it, add context, validate a result, trigger automation, or keep Claude working. For experienced developers, the closest mental model is ASP.NET middleware plus event handlers plus CI quality gates—but wrapped around agent behavior instead of an HTTP request.",
+            "Prompt: “Please remember to run tests.”\n\nHook: Stop → run verification → block completion when verification fails.",
+            new Exercise(ExerciseKind.Presentation, "Engineering lens", "The useful boundary is between model intent and deterministic workflow.", ["Prompts express intent; hooks enforce workflow", "Hooks react to lifecycle events, not just text", "Use hooks where repeatability matters"], null, null, [], "No quiz in this course yet.", []),
+            "claude-hooks-lifecycle",
+            ClaudeHooksDocs),
+        new(
+            "claude-hooks-lifecycle",
+            "Claude Hooks · Foundations",
+            2,
+            "Map the agent lifecycle",
+            "Choose the lifecycle point that matches the behavior you need.",
+            "Hook events fire at session, turn, tool-call, and other lifecycle boundaries.",
+            "The core loop is simple: a user submits a prompt, Claude reasons, Claude proposes tool calls, tools run, Claude observes the results, and Claude eventually tries to stop. Hooks can attach before, during, and after those moments. Start with the small set your team will use most: SessionStart, UserPromptSubmit, PreToolUse, PermissionRequest, PostToolUse, PostToolUseFailure, SubagentStart/Stop, Stop, and SessionEnd.",
+            "UserPromptSubmit\n  ↓\nClaude reasons\n  ↓\nPreToolUse → PermissionRequest → Tool\n                           ↓\n                      PostToolUse\n                           ↓\n                        Claude\n                           ↓\n                          Stop",
+            new Exercise(ExerciseKind.Presentation, "Three cadences", "Think in cadences before memorizing event names.", ["Per session: SessionStart / SessionEnd", "Per turn: UserPromptSubmit / Stop / StopFailure", "Inside the agent loop: PreToolUse / PostToolUse"], null, null, [], "No quiz in this course yet.", []),
+            "claude-hooks-anatomy",
+            ClaudeHooksDocs),
+        new(
+            "claude-hooks-anatomy",
+            "Claude Hooks · Foundations",
+            3,
+            "Event → matcher → handler",
+            "A hook definition is three nested decisions.",
+            "Claude Code resolves hooks by lifecycle event, optional matcher, then handler.",
+            "The event answers when. The matcher narrows which occurrences matter. The handler answers what runs. Project hooks usually live in .claude/settings.json, while ~/.claude/settings.json is user-wide and .claude/settings.local.json is project-local and normally unshared. Matchers can target exact tool names such as Bash or Edit|Write, or regular expressions such as mcp__security__.*.",
+            "{\n  \"hooks\": {\n    \"PreToolUse\": [{\n      \"matcher\": \"Bash\",\n      \"hooks\": [{\n        \"type\": \"command\",\n        \"command\": \"\${CLAUDE_PROJECT_DIR}/.claude/hooks/check-command.sh\"\n      }]\n    }]\n  }\n}",
+            new Exercise(ExerciseKind.Presentation, "Configuration model", "Teach this shape before teaching every possible event.", ["Event = when", "Matcher = which occurrences", "Handler = what executes"], null, null, [], "No quiz in this course yet.", []),
+            "claude-hooks-pretooluse",
+            ClaudeHooksDocs),
+        new(
+            "claude-hooks-pretooluse",
+            "Claude Hooks · Control",
+            4,
+            "Guard actions before they run",
+            "PreToolUse is your interception point for risky or policy-sensitive actions.",
+            "PreToolUse fires before a tool call executes and can block the call.",
+            "This is the hook that makes guardrails tangible. Claude proposes an action, Claude Code passes structured JSON to your handler, and the handler decides whether normal execution should continue. The hook can inspect tool_name and tool_input, then return a permission decision. Use deterministic code for deterministic policy: branch protection, forbidden commands, protected paths, or required approval boundaries.",
+            "Claude → Bash: git push --force origin main\n          ↓\n      PreToolUse\n          ↓\n  policy script checks command\n          ↓\n       DENY\n          ↓\nClaude receives the reason and adapts",
+            new Exercise(ExerciseKind.Presentation, "Hard guardrails", "Do not spend model tokens deciding facts your code already knows.", ["Block destructive shell operations", "Protect production configuration or sensitive paths", "Keep policy deterministic and reviewable"], null, null, [], "No quiz in this course yet.", []),
+            "claude-hooks-posttooluse",
+            ClaudeHooksDocs),
+        new(
+            "claude-hooks-posttooluse",
+            "Claude Hooks · Control",
+            5,
+            "Automate after successful actions",
+            "PostToolUse turns successful tool calls into repeatable engineering automation.",
+            "PostToolUse fires after a tool call succeeds; PostToolUseFailure handles failed calls.",
+            "Post-tool hooks are a natural fit for formatting, lightweight static analysis, audit logging, or focused verification that should happen whenever Claude changes something. Keep synchronous hooks fast because they pause the agent loop. For long-running work, async hooks can run in the background—but async hooks cannot block or control behavior because the original action has already completed.",
+            "Edit *.cs\n   ↓\nPostToolUse\n   ├─ dotnet format\n   ├─ analyzer / policy check\n   └─ audit event\n\nTool failure? → PostToolUseFailure",
+            new Exercise(ExerciseKind.Presentation, "Automation boundary", "Use the hook as glue around existing engineering tools.", ["Run deterministic tooling after edits", "Separate success and failure handling", "Use async only when you do not need to block Claude"], null, null, [], "No quiz in this course yet.", []),
+            "claude-hooks-stop",
+            ClaudeHooksDocs),
+        new(
+            "claude-hooks-stop",
+            "Claude Hooks · Control",
+            6,
+            "Turn Stop into a quality gate",
+            "Claude saying “done” can become the start of verification instead of the end of work.",
+            "A Stop hook can prevent Claude from ending the turn and tell it why work must continue.",
+            "A Stop handler can run tests or evaluate completion criteria, then return decision: block with a reason. Claude receives that reason as the next instruction and continues. Build loop safety in from day one: Stop input exposes stop_hook_active so your hook can tell when it is already continuing because of a previous Stop decision. Current Claude Code also caps consecutive Stop continuations.",
+            "{\n  \"decision\": \"block\",\n  \"reason\": \"Unit tests are failing. Fix them before finishing.\"\n}\n\nif (input.stop_hook_active) {\n  // Avoid a condition that can never resolve.\n}",
+            new Exercise(ExerciseKind.Presentation, "Definition of done", "This is where team conventions become executable acceptance criteria.", ["Run tests before accepting completion", "Return a concrete reason Claude can act on", "Check stop_hook_active to avoid loops"], null, null, [], "No quiz in this course yet.", []),
+            "claude-hooks-handler-types",
+            ClaudeHooksDocs),
+        new(
+            "claude-hooks-handler-types",
+            "Claude Hooks · Architecture",
+            7,
+            "Choose the right handler",
+            "Not every hook should be a shell script—and not every hook should use AI.",
+            "Claude Code supports command, HTTP, MCP tool, prompt, and agent hook handlers, with event-specific support.",
+            "Command hooks are the default for deterministic local logic. HTTP hooks centralize organization policy behind a service. MCP tool hooks reuse already-connected capabilities. Prompt hooks use a model for a single-turn judgment. Agent hooks spawn an agentic verifier that can inspect files with tools such as Read, Grep, and Glob; Anthropic currently marks agent hooks experimental and recommends command hooks for production workflows where possible.",
+            "Deterministic rule? → command / HTTP / MCP\nJudgment from event context? → prompt hook\nRepository investigation needed? → agent hook (experimental)",
+            new Exercise(ExerciseKind.Presentation, "Decision rule", "Use the least intelligent mechanism that can make the decision correctly.", ["Command: deterministic local checks", "HTTP/MCP: centralized or connected capabilities", "Prompt/agent: judgment only when code is not enough"], null, null, [], "No quiz in this course yet.", []),
+            "claude-hooks-ecosystem",
+            ClaudeHooksDocs),
+        new(
+            "claude-hooks-ecosystem",
+            "Claude Hooks · Architecture",
+            8,
+            "Hooks are one layer of the Claude stack",
+            "Keep instructions, capabilities, delegation, and enforcement conceptually separate.",
+            "CLAUDE.md, Skills, MCP, subagents, and hooks solve different problems.",
+            "CLAUDE.md tells Claude what it should know and how it should behave. Skills package reusable instructions and workflows. MCP provides external tools and data. Subagents delegate work to specialized AI workers. Hooks react to lifecycle events and automate or govern what happens around the agent loop. Mixing these responsibilities makes systems harder to reason about; separating them makes failures diagnosable.",
+            "CLAUDE.md → instructions / team context\nSkills    → reusable workflows\nMCP       → external capabilities and data\nSubagents → delegated AI workers\nHooks     → lifecycle automation and governance",
+            new Exercise(ExerciseKind.Presentation, "Architecture boundary", "A good Claude setup is compositional, not one giant prompt.", ["Instructions are not enforcement", "Capabilities are not policy", "Hooks connect lifecycle events to deterministic or AI-assisted controls"], null, null, [], "No quiz in this course yet.", []),
+            "claude-hooks-security",
+            ClaudeHooksDocs),
+        new(
+            "claude-hooks-security",
+            "Claude Hooks · Architecture",
+            9,
+            "Treat hooks as executable infrastructure",
+            "A repository hook can run code automatically on a developer machine.",
+            "Hook configuration deserves the same review discipline as build scripts and CI automation.",
+            "Project hooks can be committed and shared, which is powerful precisely because they execute automatically at lifecycle boundaries. Review hook scripts before trusting a repository, keep handlers small, avoid leaking secrets through JSON or logs, prefer explicit allowlists, and use managed policy when organization-wide enforcement is required. Start with one high-value guardrail and one quality gate before building a large hook framework.",
+            "Recommended rollout\n1. PreToolUse: block one clearly dangerous operation\n2. PostToolUse: run one fast deterministic check\n3. Stop: enforce one definition-of-done rule\n4. Observe friction before adding more",
+            new Exercise(ExerciseKind.Presentation, "Team rollout", "Hooks are production code for your development workflow.", ["Review hooks like executable code", "Start small and measure developer friction", "Prefer deterministic controls before AI evaluators"], null, null, [], "Course-completion quiz is intentionally deferred to a separate work item.", []),
+            null,
+            ClaudeHooksDocs)
+    ];
+
     private static readonly VersionStamp RustDocs = new("Rust 1.97", "Edition 2024 · Cargo · Tokio · Axum", "2026-08-18", "https://doc.rust-lang.org/stable/book/");
     public static readonly Lesson[] RustLessons = BuildRustLessons();
-    public static readonly Dictionary<string, Lesson> BySlug = Lessons.Concat(PythonAllLessons).Concat(RustLessons).ToDictionary(lesson => lesson.Slug, StringComparer.Ordinal);
+    public static readonly Dictionary<string, Lesson> BySlug = Lessons.Concat(PythonAllLessons).Concat(RustLessons).Concat(ClaudeLessons).ToDictionary(lesson => lesson.Slug, StringComparer.Ordinal);
     public static readonly Course Course = BuildCourse("csharp-dotnet", "C# / .NET: zero to staff", "csharp", "C# 14", ".NET 10", "2026-08-14", Lessons);
     public static readonly Course PythonCourse = BuildCourse("python-web", "Python Web: zero to staff", "python", "Python 3.14", "FastAPI · Flask · Django", "2026-08-14", PythonAllLessons);
     public static readonly Course RustCourse = BuildCourse("rust-systems", "Rust Systems: zero to staff", "rust", "Rust 1.97", "Edition 2024 · Tokio · Axum", "2026-08-18", RustLessons);
+    public static readonly Course ClaudeCourse = BuildCourse("claude-engineering", "Claude Engineering: Hooks", "claude", "Claude Code", "Hooks · Agent workflow automation", "2026-09-24", ClaudeLessons);
     public static readonly IReadOnlyDictionary<string, Course> Courses = new Dictionary<string, Course>(StringComparer.Ordinal)
     {
         [Course.Id] = Course,
         [PythonCourse.Id] = PythonCourse,
-        [RustCourse.Id] = RustCourse
+        [RustCourse.Id] = RustCourse,
+        [ClaudeCourse.Id] = ClaudeCourse
     };
     public static readonly IReadOnlyList<CourseCatalogItem> Catalog =
     [
         new(Course.Id, Course.Title, Course.LanguageId, Course.LanguageVersion, Course.FrameworkVersion, true),
         new(PythonCourse.Id, PythonCourse.Title, PythonCourse.LanguageId, PythonCourse.LanguageVersion, PythonCourse.FrameworkVersion, true),
-        new(RustCourse.Id, RustCourse.Title, RustCourse.LanguageId, RustCourse.LanguageVersion, RustCourse.FrameworkVersion, true)
+        new(RustCourse.Id, RustCourse.Title, RustCourse.LanguageId, RustCourse.LanguageVersion, RustCourse.FrameworkVersion, true),
+        new(ClaudeCourse.Id, ClaudeCourse.Title, ClaudeCourse.LanguageId, ClaudeCourse.LanguageVersion, ClaudeCourse.FrameworkVersion, true)
     ];
 
     private static Lesson[] BuildRustLessons()
