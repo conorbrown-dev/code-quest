@@ -233,7 +233,7 @@ test('runs the Claude PreToolUse Hook Playground against simulated Bash commands
   await expect(page.getByRole('heading', { name: 'Run a real PreToolUse hook' })).toBeVisible()
   await page.getByRole('button', { name: 'Run hook' }).click()
   await expect(page.getByText('BLOCKED', { exact: true }).last()).toBeVisible()
-  await expect(page.getByText('Destructive command blocked by hook')).toBeVisible()
+  await expect(page.getByText('Destructive command blocked by hook', { exact: true }).last()).toBeVisible()
 
   await page.getByRole('button', { name: 'Run tests' }).click()
   await page.getByRole('button', { name: 'Run hook' }).click()
