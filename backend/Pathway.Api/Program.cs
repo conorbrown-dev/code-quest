@@ -156,6 +156,60 @@ var submissionEndpoint = app.MapPost("/api/submissions/validate", async (Submiss
     return Results.Ok(validation);
 });
 submissionEndpoint.RequireRateLimiting("submission");
+
+var hookPlaygroundEndpoint = app.MapPost("/api/claude-hooks/evaluate", async (
+    HookPlaygroundRequest request,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IHostEnvironment environment,
+    CancellationToken cancellationToken) =>
+{
+    if (!string.Equals(request.Event, "PreToolUse", StringComparison.Ordinal))
+        return Results.BadRequest(new { message = "The Hook Playground currently supports PreToolUse only." });
+    if (string.IsNullOrWhiteSpace(request.Matcher) || request.Matcher.Length > 120)
+        return Results.BadRequest(new { message = "Matcher must be between 1 and 120 characters." });
+    if (string.IsNullOrWhiteSpace(request.Script) || Encoding.UTF8.GetByteCount(request.Script) > 20_000)
+        return Results.BadRequest(new { message = "Hook script must be between 1 and 20 KB." });
+    if (string.IsNullOrWhiteSpace(request.Command) || request.Command.Length > 1_000)
+        return Results.BadRequest(new { message = "Simulated command must be between 1 and 1,000 characters." });
+
+    var evaluatorUrl = configuration["EVALUATOR_URL"]?.TrimEnd('/');
+    if (string.IsNullOrWhiteSpace(evaluatorUrl))
+        return Results.Problem("The Hook Playground evaluator is not configured.", statusCode: StatusCodes.Status503ServiceUnavailable);
+
+    var evaluatorSharedSecret = configuration["EVALUATOR_SHARED_SECRET"];
+    if (environment.IsProduction() && string.IsNullOrWhiteSpace(evaluatorSharedSecret))
+        return Results.Problem("The Hook Playground evaluator is not securely configured.", statusCode: StatusCodes.Status503ServiceUnavailable);
+
+    var client = httpClientFactory.CreateClient("evaluator");
+    try
+    {
+        using var evaluatorRequest = new HttpRequestMessage(HttpMethod.Post, $"{evaluatorUrl}/evaluate-hook")
+        {
+            Content = JsonContent.Create(new HookEvaluatorRequest(request.Event, request.Matcher, request.Script, request.Command))
+        };
+        if (!string.IsNullOrWhiteSpace(evaluatorSharedSecret))
+            evaluatorRequest.Headers.TryAddWithoutValidation("X-Pathway-Runner-Key", evaluatorSharedSecret);
+
+        using var evaluatorResponse = await client.SendAsync(evaluatorRequest, cancellationToken);
+        var payload = await evaluatorResponse.Content.ReadFromJsonAsync<HookPlaygroundResult>(cancellationToken: cancellationToken);
+        if (evaluatorResponse.IsSuccessStatusCode && payload is not null)
+            return Results.Ok(payload);
+
+        var error = await evaluatorResponse.Content.ReadAsStringAsync(cancellationToken);
+        return Results.Problem(
+            string.IsNullOrWhiteSpace(error) ? "The Hook Playground evaluator rejected the request." : error[..Math.Min(error.Length, 1_000)],
+            statusCode: evaluatorResponse.StatusCode == System.Net.HttpStatusCode.BadRequest
+                ? StatusCodes.Status400BadRequest
+                : StatusCodes.Status503ServiceUnavailable);
+    }
+    catch (HttpRequestException)
+    {
+        return Results.Problem("The Hook Playground evaluator is temporarily unavailable.", statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+});
+hookPlaygroundEndpoint.RequireRateLimiting("submission");
+
 var experienceEndpoints = app.MapLearningExperienceEndpoints();
 if (!string.IsNullOrWhiteSpace(keycloakAuthority) && !string.IsNullOrWhiteSpace(keycloakAudience)) { progressEndpoint.RequireAuthorization(); submissionEndpoint.RequireAuthorization(); experienceEndpoints.RequireAuthorization(); }
 app.Run();
@@ -344,6 +398,9 @@ record Choice(string Id, string Text);
 record Submission(string LessonSlug, string? Answer, string? Code);
 record LearnerProgressResponse(string LearnerId, string[] CompletedLessonSlugs);
 record EvaluatorRequest(string LessonSlug, string Code);
+record HookPlaygroundRequest(string Event, string Matcher, string Script, string Command);
+record HookEvaluatorRequest(string Event, string Matcher, string Script, string Command);
+record HookPlaygroundResult(bool MatcherMatched, bool Executed, int? ExitCode, string Outcome, string Summary, string? Reason, string Stdout, string Stderr, string InputJson);
 record CodeReview(string Summary, string[] Suggestions);
 record ValidationResult(bool Passed, int PassingTests, int TotalTests, string Feedback, string? NextLessonSlug, CodeReview? CodeReview = null);
 enum ExerciseKind { MultipleChoice, Code, Presentation }
