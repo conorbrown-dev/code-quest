@@ -186,9 +186,14 @@ test('loads the Claude Hooks course as presentation-only content', async ({ page
   await expect(page.getByRole('heading', { name: 'Hooks are lifecycle middleware' })).toBeVisible()
   await expect(page.getByText('LESSON NOTES')).toBeVisible()
   await expect(page.getByRole('button', { name: /Check answer|Run tests/i })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Back' })).toBeDisabled()
   await page.getByRole('button', { name: /Continue/i }).click()
   await expect(page.getByRole('heading', { name: 'Map the agent lifecycle' })).toBeVisible()
+  await page.getByRole('button', { name: 'Back' }).click()
+  await expect(page.getByRole('heading', { name: 'Hooks are lifecycle middleware' })).toBeVisible()
+  await page.getByRole('button', { name: /Continue/i }).click()
   await page.getByRole('button', { name: 'Treat hooks as executable infrastructure' }).click()
+  await expect(page.getByRole('button', { name: 'Back' })).toBeEnabled()
   await expect(page.getByText('Course complete.')).toBeVisible()
 })
 
@@ -244,6 +249,12 @@ test('navigates workspaces and switches tracks from the sidebar', async ({ page 
   await expect(page).toHaveTitle('Pathway — Learn C#')
 
   await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible()
+  await page.getByRole('button', { name: 'Collapse sidebar' }).click()
+  await expect(page.getByRole('button', { name: 'Expand sidebar' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Practice' })).toBeVisible()
+  await expect(page.getByText('YOUR TRACK')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Expand sidebar' }).click()
+  await expect(page.getByText('YOUR TRACK')).toBeVisible()
   await page.getByRole('button', { name: 'Notifications' }).click()
   await expect(page.getByText('No new notifications.')).toBeVisible()
 
