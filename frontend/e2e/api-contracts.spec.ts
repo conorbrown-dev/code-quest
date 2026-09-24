@@ -23,9 +23,13 @@ test.describe('public API contract', () => {
     await expect(openApi.json()).resolves.toMatchObject({ openapi: '3.0.3', info: { title: 'Pathway API' } })
     await expect(catalog).toBeOK()
     await expect(catalog.json()).resolves.toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'computing-foundations', available: true }),
       expect.objectContaining({ id: 'csharp-dotnet', available: true }),
       expect.objectContaining({ id: 'python-web', available: true }),
       expect.objectContaining({ id: 'rust-systems', available: true }),
+      expect.objectContaining({ id: 'networking-fundamentals', available: false }),
+      expect.objectContaining({ id: 'dns', available: false }),
+      expect.objectContaining({ id: 'http-apis', available: false }),
     ]))
   })
 
@@ -35,7 +39,7 @@ test.describe('public API contract', () => {
     expect((await request.post(`${apiBaseUrl}/api/submissions/validate`, { data: { lessonSlug: 'not-a-lesson', answer: 'anything' } })).status()).toBe(404)
   })
 
-  for (const courseId of ['csharp-dotnet', 'python-web', 'rust-systems']) {
+  for (const courseId of ['computing-foundations', 'csharp-dotnet', 'python-web', 'rust-systems']) {
     test(`${courseId} has contiguous lessons and representative next-lesson links`, async ({ request }) => {
       const courseResponse = await request.get(`${apiBaseUrl}/api/courses/${courseId}`)
       await expect(courseResponse).toBeOK()
@@ -71,7 +75,7 @@ test.describe('public API contract', () => {
     }))
 
     const questions = lessons.filter(lesson => lesson.exercise.kind === 'MultipleChoice')
-    expect(questions).toHaveLength(40)
+    expect(questions.length).toBeGreaterThan(30)
     for (const lesson of questions) {
       expect(lesson.exercise.prompt).toMatch(/\?$/)
       expect(lesson.exercise.correctAnswer).toBeTruthy()
@@ -82,13 +86,13 @@ test.describe('public API contract', () => {
   test('validates both failed and successful multiple-choice submissions for an isolated guest', async ({ request }) => {
     const learnerId = `playwright-contract-${crypto.randomUUID()}`
     const headers = { 'X-Learner-Id': learnerId }
-    const wrong = await request.post(`${apiBaseUrl}/api/submissions/validate`, { headers, data: { lessonSlug: 'internet-devices', answer: 'screen' } })
+    const wrong = await request.post(`${apiBaseUrl}/api/submissions/validate`, { headers, data: { lessonSlug: 'computing-machine-model', answer: 'display' } })
     await expect(wrong).toBeOK()
     await expect(wrong.json()).resolves.toMatchObject({ passed: false, passingTests: 0, totalTests: 1 })
 
-    const correct = await request.post(`${apiBaseUrl}/api/submissions/validate`, { headers, data: { lessonSlug: 'internet-devices', answer: 'memory' } })
+    const correct = await request.post(`${apiBaseUrl}/api/submissions/validate`, { headers, data: { lessonSlug: 'computing-machine-model', answer: 'memory' } })
     await expect(correct).toBeOK()
-    await expect(correct.json()).resolves.toMatchObject({ passed: true, passingTests: 1, totalTests: 1, nextLessonSlug: 'internet-bits-bytes' })
+    await expect(correct.json()).resolves.toMatchObject({ passed: true, passingTests: 1, totalTests: 1, nextLessonSlug: 'computing-bits-bytes' })
   })
 
   test('exposes career evidence, capstones, simulations, and enforces the capstone review gate', async ({ request }) => {

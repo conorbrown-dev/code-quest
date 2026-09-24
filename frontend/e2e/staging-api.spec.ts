@@ -20,6 +20,6 @@ test.describe('staging deployment smoke checks', () => {
       expect.objectContaining({ id: 'rust-systems', available: true }),
     ]))
     const course = await rust.json() as { modules: { lessons: unknown[] }[] }
-    expect(course.modules.flatMap(module => module.lessons)).toHaveLength(42)
+    expect(course.modules.flatMap(module => module.lessons)).toHaveLength(33)
   })
 })

@@ -15,23 +15,23 @@ test.describe('guest learning journeys', () => {
     await page.getByRole('button', { name: 'Check answer' }).click()
     await expect(page.getByText('Choose an answer first.')).toBeVisible()
 
-    await page.getByRole('button', { name: /Long-term storage only/i }).click()
+    await page.getByRole('button', { name: /Stores a message for later/i }).click()
     await page.getByRole('button', { name: 'Check answer' }).click()
     await expect(page.getByRole('main').getByText('Try again', { exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: /Next lesson/i })).toHaveCount(0)
-    await expect(page.getByRole('button', { name: 'Bits, bytes, and text locked' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Values and variables locked' })).toBeVisible()
   })
 
   test('supports keyboard submission and persists a completed guest lesson through reload', async ({ page }) => {
     const learnerId = `keyboard-${crypto.randomUUID()}`
     await completeOnboarding(page, learnerId)
     await page.goto('/')
-    await page.getByRole('button', { name: /Memory \(RAM\)/i }).click()
+    await page.getByRole('button', { name: /Prints a message to the console/i }).click()
     await page.keyboard.press('Control+Enter')
     await expect(page.getByRole('main').getByText('That’s right. You’ve got the idea.')).toBeVisible()
     await page.reload()
-    await expect(page.getByRole('button', { name: 'What a computer actually does' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Bits, bytes, and text' })).toBeEnabled()
+    await expect(page.getByRole('button', { name: 'How code works' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Values and variables' })).toBeEnabled()
   })
 
   test('blocks direct access to a locked lesson and explains how to unlock it', async ({ page }) => {
@@ -39,20 +39,20 @@ test.describe('guest learning journeys', () => {
     await page.goto('/')
     await page.getByRole('button', { name: 'Data types carry meaning locked' }).click()
     await expect(page.getByText('Complete the previous lesson to unlock this one.')).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'What a computer actually does' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'How code works' })).toBeVisible()
   })
 
   test('changes tracks without leaking C# guest progress into Python', async ({ page }) => {
     await completeOnboarding(page)
     await page.goto('/')
-    await page.getByRole('button', { name: /Memory \(RAM\)/i }).click()
+    await page.getByRole('button', { name: /Prints a message to the console/i }).click()
     await page.getByRole('button', { name: 'Check answer' }).click()
-    await expect(page.getByRole('button', { name: 'Bits, bytes, and text' })).toBeEnabled()
+    await expect(page.getByRole('button', { name: 'Values and variables' })).toBeEnabled()
 
     await page.getByRole('button', { name: /C# 14 \/ .NET 10/i }).click()
     await page.getByRole('menuitem', { name: /Python Web/i }).click()
-    await expect(page.getByRole('heading', { name: 'What a computer actually does' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Bits, bytes, and text locked' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Values and variables' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Functions with clear contracts locked' })).toBeVisible()
   })
 
   test('shows capstone evidence gates, competencies, and real-work simulations', async ({ page }) => {
