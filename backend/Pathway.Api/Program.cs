@@ -22,11 +22,12 @@ builder.Services.AddRateLimiter(options =>
         context.HttpContext.Response.Headers.RetryAfter = "60";
         return ValueTask.CompletedTask;
     };
-    options.AddPolicy("public-read", context => FixedWindow(context, permitLimit: 180));
-    options.AddPolicy("learner", context => LearnerWindow(context, permitLimit: 90));
-    options.AddPolicy("submission", context => LearnerWindow(context, permitLimit: 10));
-    options.AddPolicy("coach", context => FixedWindow(context, permitLimit: 20));
-    options.AddPolicy("community-write", context => FixedWindow(context, permitLimit: 15));
+    var developmentLimit = builder.Environment.IsDevelopment() ? 5_000 : (int?)null;
+    options.AddPolicy("public-read", context => FixedWindow(context, permitLimit: developmentLimit ?? 180));
+    options.AddPolicy("learner", context => LearnerWindow(context, permitLimit: developmentLimit ?? 90));
+    options.AddPolicy("submission", context => LearnerWindow(context, permitLimit: developmentLimit ?? 10));
+    options.AddPolicy("coach", context => FixedWindow(context, permitLimit: developmentLimit ?? 20));
+    options.AddPolicy("community-write", context => FixedWindow(context, permitLimit: developmentLimit ?? 15));
 });
 var databaseUrl = builder.Configuration["DATABASE_URL"] ?? builder.Configuration.GetConnectionString("Pathway");
 if (!string.IsNullOrWhiteSpace(databaseUrl))
