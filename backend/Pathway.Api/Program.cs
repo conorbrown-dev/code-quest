@@ -499,7 +499,7 @@ static class Curriculum
             "Claude Code resolves hooks by lifecycle event, optional matcher, then handler.",
             "The event answers when. The matcher narrows which occurrences matter. The handler answers what runs. Project hooks usually live in .claude/settings.json, while ~/.claude/settings.json is user-wide and .claude/settings.local.json is project-local and normally unshared. Matchers can target exact tool names such as Bash or Edit|Write, or regular expressions such as mcp__security__.*.",
             "{\n  \"hooks\": {\n    \"PreToolUse\": [{\n      \"matcher\": \"Bash\",\n      \"hooks\": [{\n        \"type\": \"command\",\n        \"command\": \"${CLAUDE_PROJECT_DIR}/.claude/hooks/check-command.sh\"\n      }]\n    }]\n  }\n}",
-            new Exercise(ExerciseKind.Presentation, "Configuration model", "Teach this shape before teaching every possible event.", ["Event = when", "Matcher = which occurrences", "Handler = what executes"], null, null, [], "No quiz in this course yet.", []),
+            new Exercise(ExerciseKind.Presentation, "Configuration model", "Use this three-part model to reason about any hook configuration.", ["Event = when", "Matcher = which occurrences", "Handler = what executes"], null, null, [], "No quiz in this course yet.", []),
             "claude-hooks-pretooluse",
             ClaudeHooksDocs),
         new(

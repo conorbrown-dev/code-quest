@@ -485,7 +485,7 @@ function App() {
           </div>
         </header>
         {workspace === "learn" ? (
-          <section className="mx-auto grid min-h-[calc(100vh-70px)] max-w-[1400px] grid-cols-1 lg:grid-cols-[48%_52%]">
+          <section className="mx-auto grid min-h-[calc(100vh-70px)] max-w-[1600px] grid-cols-1 lg:grid-cols-[48%_52%]">
             <LessonContent lesson={lesson} />
             {lesson.exercise.kind === "Presentation" ? (
               <PresentationPanel
@@ -1333,7 +1333,7 @@ function LessonContent({ lesson }: { lesson: Lesson }) {
         ? "Claude Code"
         : "C#";
   return (
-    <article className="border-b border-[#e1dfd6] bg-[#fbf9f3] px-7 py-12 sm:px-[9vw] lg:border-b-0 lg:border-r lg:px-[clamp(38px,6vw,92px)] lg:py-16">
+    <article className="border-b border-[#e1dfd6] bg-[#fbf9f3] px-6 py-12 sm:px-8 lg:border-b-0 lg:border-r lg:px-[clamp(28px,3.5vw,56px)] lg:py-16">
       <p className="text-[10px] font-bold tracking-[1.15px] text-[#6e786f]">
         <span className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-[#e5744d]" />
         {lesson.module.toUpperCase()}{" "}
@@ -1384,9 +1384,9 @@ function PresentationPanel({
   onNext: () => void;
 }) {
   return (
-    <section className="bg-panel px-7 py-10 sm:px-[9vw] lg:px-[clamp(27px,4vw,58px)] lg:py-[42px]">
+    <section className="bg-panel px-6 py-10 sm:px-8 lg:px-[clamp(24px,3vw,48px)] lg:py-[42px]">
       <p className="text-[10px] font-bold tracking-[1.2px] text-[#5d886f]">
-        PRESENTER NOTES
+        LESSON NOTES
       </p>
       <h2 className="mt-1 font-display text-[29px] font-semibold tracking-[-.8px]">
         {lesson.exercise.title}
@@ -1394,20 +1394,15 @@ function PresentationPanel({
       <p className="mt-5 text-sm leading-relaxed text-[#59635c]">
         {lesson.exercise.prompt}
       </p>
-      <div className="mt-6 rounded-xl border border-[#dfddd4] bg-[#fffefa] p-5">
-        <p className="text-[10px] font-bold tracking-[1.2px] text-[#6e786f]">
-          TALKING POINTS
-        </p>
-        <div className="mt-4 grid gap-3">
-          {lesson.exercise.requirements.map((point) => (
-            <div key={point} className="flex gap-3 text-sm leading-relaxed text-[#465149]">
-              <span className="mt-1 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[#e5f2eb] text-[11px] font-bold text-[#278164]">
-                ✓
-              </span>
-              <span>{point}</span>
-            </div>
-          ))}
-        </div>
+      <div className="mt-6 grid gap-3">
+        {lesson.exercise.requirements.map((point) => (
+          <div key={point} className="flex gap-3 text-sm leading-relaxed text-[#465149]">
+            <span className="mt-1 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[#e5f2eb] text-[11px] font-bold text-[#278164]">
+              ✓
+            </span>
+            <span>{point}</span>
+          </div>
+        ))}
       </div>
       <a
         href={lesson.version.sourceUrl}
@@ -1422,13 +1417,13 @@ function PresentationPanel({
           onClick={onNext}
           className="mt-8 flex items-center gap-2 rounded-md bg-[#ea7850] px-4 py-3 text-xs font-bold text-white hover:bg-[#d9653d]"
         >
-          Next slide <ArrowRight size={14} />
+          Continue <ArrowRight size={14} />
         </button>
       ) : (
         <div className="mt-8 rounded-lg border border-[#dce7de] bg-[#f6fbf7] p-4 text-sm text-[#365748]">
-          <strong className="block">Presentation complete.</strong>
+          <strong className="block">Course complete.</strong>
           <span className="mt-1 block text-xs">
-            Assessment and course-completion behavior belong in the follow-up quiz work item.
+            You’ve completed the Claude Hooks course. Revisit any lesson from the sidebar whenever you need a refresher.
           </span>
         </div>
       )}
