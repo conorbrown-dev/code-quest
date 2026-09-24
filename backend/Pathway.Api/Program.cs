@@ -82,6 +82,7 @@ if (!string.IsNullOrWhiteSpace(databaseUrl))
     await context.Database.EnsureCreatedAsync();
     await EnsureLearningExperienceSchema(context);
 }
+app.MapAnalyticsEndpoints();
 app.MapGet("/health", () => Results.Ok(new { status = "ok", courseVersion = Curriculum.Version })).RequireRateLimiting("public-read");
 app.MapGet("/ready", async (IServiceProvider services, CancellationToken cancellationToken) =>
 {
@@ -310,6 +311,13 @@ static async Task EnsureLearningExperienceSchema(ProgressDbContext database) => 
         "Id" uuid PRIMARY KEY, "LearnerId" character varying(100) NOT NULL, "CourseId" character varying(100) NOT NULL,
         "Focus" character varying(500) NOT NULL, "AvailableForPeerReview" boolean NOT NULL, "WantsMentorOfficeHours" boolean NOT NULL, "UpdatedAt" timestamp with time zone NOT NULL);
     CREATE UNIQUE INDEX IF NOT EXISTS "IX_peer_review_profiles_LearnerId_CourseId" ON peer_review_profiles ("LearnerId", "CourseId");
+    CREATE TABLE IF NOT EXISTS activity_events (
+        "Id" uuid PRIMARY KEY, "LearnerId" character varying(100) NOT NULL, "SessionId" character varying(100) NOT NULL,
+        "EventType" character varying(50) NOT NULL, "CourseId" character varying(100) NULL, "LessonSlug" character varying(200) NULL,
+        "Workspace" character varying(50) NULL, "Detail" character varying(100) NULL, "CreatedAt" timestamp with time zone NOT NULL);
+    CREATE INDEX IF NOT EXISTS "IX_activity_events_CreatedAt" ON activity_events ("CreatedAt");
+    CREATE INDEX IF NOT EXISTS "IX_activity_events_LearnerId_CreatedAt" ON activity_events ("LearnerId", "CreatedAt");
+    CREATE INDEX IF NOT EXISTS "IX_activity_events_SessionId_CreatedAt" ON activity_events ("SessionId", "CreatedAt");
     """);
 
 static ValidationResult ValidateChoice(Lesson lesson, string? answer)
