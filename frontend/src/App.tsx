@@ -29,7 +29,7 @@ import {
 
 type Choice = { id: string; text: string };
 type Exercise = {
-  kind: "MultipleChoice" | "Code";
+  kind: "MultipleChoice" | "Code" | "Presentation";
   title: string;
   prompt: string;
   requirements: string[];
@@ -158,7 +158,7 @@ function App() {
   );
   useEffect(() => {
     if (course)
-      document.title = `Pathway — Learn ${course.languageId === "python" ? "Python" : course.languageId === "rust" ? "Rust" : "C#"}`;
+      document.title = `Pathway — ${course.languageId === "claude" ? "Claude Engineering" : `Learn ${course.languageId === "python" ? "Python" : course.languageId === "rust" ? "Rust" : "C#"}`}`;
   }, [course]);
   const notify = (message: string) => {
     setToast(message);
@@ -311,12 +311,14 @@ function App() {
     .flatMap((module) => module.lessons)
     .sort((a, b) => a.order - b.order);
   const available = new Set(
-    orderedLessons
-      .filter(
-        (item, index) =>
-          index === 0 || completed.includes(orderedLessons[index - 1].slug),
-      )
-      .map((item) => item.slug),
+    course.languageId === "claude"
+      ? orderedLessons.map((item) => item.slug)
+      : orderedLessons
+          .filter(
+            (item, index) =>
+              index === 0 || completed.includes(orderedLessons[index - 1].slug),
+          )
+          .map((item) => item.slug),
   );
   const logout = () => {
     setCompleted(readProgress(`guest:${learnerId}`));
@@ -485,18 +487,25 @@ function App() {
         {workspace === "learn" ? (
           <section className="mx-auto grid min-h-[calc(100vh-70px)] max-w-[1400px] grid-cols-1 lg:grid-cols-[48%_52%]">
             <LessonContent lesson={lesson} />
-            <ExercisePanel
-              lesson={lesson}
-              answer={answer}
-              setAnswer={setAnswer}
-              code={code}
-              setCode={setCode}
-              result={result}
-              passed={hasPassed}
-              submit={submit}
-              onReset={() => setCode(lesson.exercise.starterCode ?? "")}
-              onNext={() => lesson.nextSlug && loadLesson(lesson.nextSlug)}
-            />
+            {lesson.exercise.kind === "Presentation" ? (
+              <PresentationPanel
+                lesson={lesson}
+                onNext={() => lesson.nextSlug && loadLesson(lesson.nextSlug)}
+              />
+            ) : (
+              <ExercisePanel
+                lesson={lesson}
+                answer={answer}
+                setAnswer={setAnswer}
+                code={code}
+                setCode={setCode}
+                result={result}
+                passed={hasPassed}
+                submit={submit}
+                onReset={() => setCode(lesson.exercise.starterCode ?? "")}
+                onNext={() => lesson.nextSlug && loadLesson(lesson.nextSlug)}
+              />
+            )}
           </section>
         ) : (
           <WorkspacePanel
@@ -561,6 +570,7 @@ function Onboarding({
   const pythonSelected = selectedCourseId === "python-web";
   const rustSelected = selectedCourseId === "rust-systems";
   const csharpSelected = selectedCourseId === "csharp-dotnet";
+  const claudeSelected = selectedCourseId === "claude-engineering";
   return (
     <main className="onboarding app-dark grid min-h-screen place-items-center overflow-hidden px-5 py-10">
       <div className="onboarding-grid" />
@@ -647,6 +657,25 @@ function Onboarding({
                   </small>
                 </span>
                 {rustSelected && (
+                  <Check className="ml-auto text-[#c198ff]" size={19} />
+                )}
+              </button>
+              <button
+                onClick={() => onSelectCourse("claude-engineering")}
+                className={`track-option mt-3 flex w-full items-center gap-4 rounded-xl p-4 text-left ${claudeSelected ? "ring-1 ring-[#bd87ff]" : ""}`}
+              >
+                <span className="grid h-11 w-11 place-items-center rounded-lg bg-[#d97757] font-mono text-sm font-bold text-white">
+                  AI
+                </span>
+                <span>
+                  <strong className="block text-sm text-white">
+                    Claude Engineering: Hooks
+                  </strong>
+                  <small className="mt-1 block text-xs text-[#aaa3b6]">
+                    Claude Code · lifecycle automation
+                  </small>
+                </span>
+                {claudeSelected && (
                   <Check className="ml-auto text-[#c198ff]" size={19} />
                 )}
               </button>
@@ -876,7 +905,9 @@ function Sidebar({
       ? "Py"
       : course.languageId === "rust"
         ? "Rs"
-        : "C#";
+        : course.languageId === "claude"
+          ? "AI"
+          : "C#";
   const nav = (id: Workspace, label: string, icon: ReactNode) => (
     <button
       onClick={() => onNavigate(id)}
@@ -1078,6 +1109,19 @@ function TrackMenu({
         </span>
         <span>Rust Systems</span>
         {courseId === "rust-systems" && <Check className="ml-auto" size={14} />}
+      </button>
+      <button
+        role="menuitem"
+        onClick={() => select("claude-engineering")}
+        className={itemClass("claude-engineering")}
+      >
+        <span className="rounded bg-[#d97757] px-1 py-0.5 text-[9px] text-white">
+          AI
+        </span>
+        <span>Claude Engineering</span>
+        {courseId === "claude-engineering" && (
+          <Check className="ml-auto" size={14} />
+        )}
       </button>
     </div>
   );
@@ -1285,7 +1329,9 @@ function LessonContent({ lesson }: { lesson: Lesson }) {
     ? "Python"
     : lesson.version.language.startsWith("Rust")
       ? "Rust"
-      : "C#";
+      : lesson.version.language.startsWith("Claude")
+        ? "Claude Code"
+        : "C#";
   return (
     <article className="border-b border-[#e1dfd6] bg-[#fbf9f3] px-7 py-12 sm:px-[9vw] lg:border-b-0 lg:border-r lg:px-[clamp(38px,6vw,92px)] lg:py-16">
       <p className="text-[10px] font-bold tracking-[1.15px] text-[#6e786f]">
@@ -1327,6 +1373,72 @@ function LessonContent({ lesson }: { lesson: Lesson }) {
         {lesson.version.framework}
       </p>
     </article>
+  );
+}
+
+function PresentationPanel({
+  lesson,
+  onNext,
+}: {
+  lesson: Lesson;
+  onNext: () => void;
+}) {
+  return (
+    <section className="bg-panel px-7 py-10 sm:px-[9vw] lg:px-[clamp(27px,4vw,58px)] lg:py-[42px]">
+      <p className="text-[10px] font-bold tracking-[1.2px] text-[#5d886f]">
+        PRESENTER NOTES
+      </p>
+      <h2 className="mt-1 font-display text-[29px] font-semibold tracking-[-.8px]">
+        {lesson.exercise.title}
+      </h2>
+      <p className="mt-5 text-sm leading-relaxed text-[#59635c]">
+        {lesson.exercise.prompt}
+      </p>
+      <div className="mt-6 rounded-xl border border-[#dfddd4] bg-[#fffefa] p-5">
+        <p className="text-[10px] font-bold tracking-[1.2px] text-[#6e786f]">
+          TALKING POINTS
+        </p>
+        <div className="mt-4 grid gap-3">
+          {lesson.exercise.requirements.map((point) => (
+            <div key={point} className="flex gap-3 text-sm leading-relaxed text-[#465149]">
+              <span className="mt-1 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[#e5f2eb] text-[11px] font-bold text-[#278164]">
+                ✓
+              </span>
+              <span>{point}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="mt-6 rounded-lg border border-[#d7cbec] bg-[#f6f1ff] p-4 text-xs leading-relaxed text-[#514467]">
+        <strong className="block text-[#5f37a1]">Course scope</strong>
+        <span className="mt-1 block">
+          This course presents the material only. The course-completion quiz is intentionally deferred to a separate work item.
+        </span>
+      </div>
+      <a
+        href={lesson.version.sourceUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="mt-5 inline-flex text-xs font-bold text-[#5f37a1] hover:underline"
+      >
+        Open the Claude Code hooks reference ↗
+      </a>
+      {lesson.nextSlug ? (
+        <button
+          onClick={onNext}
+          className="mt-8 flex items-center gap-2 rounded-md bg-[#ea7850] px-4 py-3 text-xs font-bold text-white hover:bg-[#d9653d]"
+        >
+          Next slide <ArrowRight size={14} />
+        </button>
+      ) : (
+        <div className="mt-8 rounded-lg border border-[#dce7de] bg-[#f6fbf7] p-4 text-sm text-[#365748]">
+          <strong className="block">Presentation complete.</strong>
+          <span className="mt-1 block text-xs">
+            Assessment and course-completion behavior belong in the follow-up quiz work item.
+          </span>
+        </div>
+      )}
+    </section>
   );
 }
 

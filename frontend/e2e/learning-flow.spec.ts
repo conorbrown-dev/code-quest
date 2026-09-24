@@ -43,6 +43,26 @@ test('serves the Python Web curriculum and its framework-choice lesson', async (
   })
 })
 
+test('serves the Claude Hooks presentation course without a quiz exercise', async ({ request }) => {
+  const course = await request.get(`${apiBaseUrl}/api/courses/claude-engineering`)
+  await expect(course).toBeOK()
+  const body = await course.json()
+  expect(body.languageId).toBe('claude')
+  expect(body.languageVersion).toBe('Claude Code')
+  const lessons = body.modules.flatMap((module: { lessons: { slug: string; order: number }[] }) => module.lessons)
+  expect(lessons).toHaveLength(9)
+  expect(lessons[0]).toMatchObject({ slug: 'claude-hooks-mental-model', order: 1 })
+  expect(lessons.at(-1)).toMatchObject({ slug: 'claude-hooks-security', order: 9 })
+
+  const firstLesson = await request.get(`${apiBaseUrl}/api/lessons/claude-hooks-mental-model`)
+  await expect(firstLesson).toBeOK()
+  await expect(firstLesson.json()).resolves.toMatchObject({
+    title: 'Hooks are lifecycle middleware',
+    exercise: { kind: 'Presentation' },
+    version: { language: 'Claude Code', framework: 'Hooks' },
+  })
+})
+
 test('serves learning-experience templates, checkpoints, and guarded coaching', async ({ request }) => {
   test.skip(Boolean(process.env.PLAYWRIGHT_BASE_URL), 'Experience endpoints require a production Keycloak test identity.')
   const templates = await request.get(`${apiBaseUrl}/api/experience/projects/templates`)
@@ -153,6 +173,23 @@ test('loads the selected Python track for a guest learner', async ({ page }) => 
 
   await expect(page.getByRole('heading', { name: 'What a computer actually does' })).toBeVisible()
   await expect(page.getByText("Which component holds a running program's active working data?")).toBeVisible()
+})
+
+test('loads the Claude Hooks course as presentation-only content', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('pathway-onboarding-complete', 'true')
+    localStorage.setItem('pathway-course-id', 'claude-engineering')
+  })
+  await page.goto('/')
+
+  await expect(page).toHaveTitle('Pathway — Claude Engineering')
+  await expect(page.getByRole('heading', { name: 'Hooks are lifecycle middleware' })).toBeVisible()
+  await expect(page.getByText('PRESENTER NOTES')).toBeVisible()
+  await expect(page.getByRole('button', { name: /Check answer|Run tests/i })).toHaveCount(0)
+  await page.getByRole('button', { name: /Next slide/i }).click()
+  await expect(page.getByRole('heading', { name: 'Map the agent lifecycle' })).toBeVisible()
+  await page.getByRole('button', { name: 'Treat hooks as executable infrastructure' }).click()
+  await expect(page.getByText('Presentation complete.')).toBeVisible()
 })
 
 test('loads the selected Rust track for a guest learner', async ({ page }) => {
