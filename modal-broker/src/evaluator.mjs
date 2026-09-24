@@ -79,3 +79,141 @@ export function evaluationResult(fixture, exitCode, output) {
   const passed = exitCode === 0 && output.includes('PATHWAY_TEST_PASS') && (!fixture.requiredOutput || output.includes(fixture.requiredOutput))
   return { passed, passingTests: passed ? fixture.tests : 0, totalTests: fixture.tests, feedback: passed ? 'All isolated Modal sandbox tests passed.' : (output || 'The sandboxed test did not produce a passing result.'), nextLessonSlug: null }
 }
+
+
+const MAX_HOOK_SCRIPT_BYTES = 20_000
+const MAX_HOOK_COMMAND_BYTES = 1_000
+
+export function validateHookRequest(value) {
+  if (!value || value.event !== 'PreToolUse') return 'Only PreToolUse hooks are supported.'
+  if (typeof value.matcher !== 'string' || value.matcher.length === 0 || value.matcher.length > 120) return 'Matcher must be between 1 and 120 characters.'
+  if (typeof value.script !== 'string' || value.script.length === 0 || Buffer.byteLength(value.script, 'utf8') > MAX_HOOK_SCRIPT_BYTES) return 'Hook script must be between 1 and 20,000 bytes.'
+  if (typeof value.command !== 'string' || value.command.length === 0 || Buffer.byteLength(value.command, 'utf8') > MAX_HOOK_COMMAND_BYTES) return 'Simulated command must be between 1 and 1,000 bytes.'
+  try { new RegExp(`^(?:${value.matcher})$`) } catch { return 'Matcher is not a valid regular expression.' }
+  return null
+}
+
+export function hookMatcherMatches(matcher, toolName = 'Bash') {
+  if (matcher === '*') return true
+  return new RegExp(`^(?:${matcher})$`).test(toolName)
+}
+
+export function hookInputFor(command) {
+  return {
+    session_id: 'pathway-hook-lab',
+    transcript_path: '/tmp/pathway-hook-lab/transcript.jsonl',
+    cwd: '/workspace',
+    permission_mode: 'default',
+    hook_event_name: 'PreToolUse',
+    tool_name: 'Bash',
+    tool_input: {
+      command,
+      description: 'Pathway Hook Playground simulated Bash tool call',
+    },
+    tool_use_id: 'toolu_pathway_lab',
+  }
+}
+
+export function interpretHookResult(inputJson, matcherMatched, exitCode, stdout = '', stderr = '') {
+  const cleanStdout = stdout.trim()
+  const cleanStderr = stderr.trim()
+  if (!matcherMatched) {
+    return {
+      matcherMatched: false,
+      executed: false,
+      exitCode: null,
+      outcome: 'skipped',
+      summary: 'The hook did not run because the matcher did not match the Bash tool.',
+      reason: null,
+      stdout: '',
+      stderr: '',
+      inputJson,
+    }
+  }
+
+  if (exitCode === 2) {
+    return {
+      matcherMatched: true,
+      executed: true,
+      exitCode,
+      outcome: 'blocked',
+      summary: 'Claude Code would block this PreToolUse tool call.',
+      reason: cleanStderr || 'The hook exited with blocking status code 2.',
+      stdout: cleanStdout,
+      stderr: cleanStderr,
+      inputJson,
+    }
+  }
+
+  let parsed = null
+  if (cleanStdout.startsWith('{') && cleanStdout.endsWith('}')) {
+    try { parsed = JSON.parse(cleanStdout) } catch { parsed = null }
+  }
+
+  const hookOutput = parsed?.hookSpecificOutput
+  if (hookOutput?.hookEventName === 'PreToolUse') {
+    const decision = hookOutput.permissionDecision
+    const reason = hookOutput.permissionDecisionReason ?? null
+    const known = new Set(['allow', 'deny', 'ask', 'defer'])
+    if (!known.has(decision)) {
+      return {
+        matcherMatched: true,
+        executed: true,
+        exitCode,
+        outcome: 'error',
+        summary: 'Claude Code would treat this as a non-blocking hook error and continue normal permission flow.',
+        reason: 'permissionDecision must be allow, deny, ask, or defer.',
+        stdout: cleanStdout,
+        stderr: cleanStderr,
+        inputJson,
+      }
+    }
+    const summaries = {
+      deny: 'Claude Code would deny the Bash tool call and show Claude the hook reason.',
+      allow: 'Claude Code would allow the Bash tool call without prompting for permission.',
+      ask: 'Claude Code would require the normal user permission prompt.',
+      defer: 'Claude Code would defer the tool call for later handling.',
+    }
+    return {
+      matcherMatched: true,
+      executed: true,
+      exitCode,
+      outcome: decision === 'deny' ? 'denied' : decision === 'allow' ? 'allowed' : decision,
+      summary: summaries[decision],
+      reason,
+      stdout: cleanStdout,
+      stderr: cleanStderr,
+      inputJson,
+    }
+  }
+
+  if (exitCode === 0 && !cleanStdout) {
+    return {
+      matcherMatched: true,
+      executed: true,
+      exitCode,
+      outcome: 'no_decision',
+      summary: 'The hook succeeded silently. Claude Code would continue through its normal permission flow.',
+      reason: null,
+      stdout: '',
+      stderr: cleanStderr,
+      inputJson,
+    }
+  }
+
+  return {
+    matcherMatched: true,
+    executed: true,
+    exitCode,
+    outcome: 'error',
+    summary: exitCode === 0
+      ? 'Claude Code would treat this output as a non-blocking hook error and continue normal permission flow.'
+      : 'The hook failed with a non-blocking status. Claude Code would continue normal permission flow.',
+    reason: exitCode === 0
+      ? 'PreToolUse structured decisions must be a valid JSON object on stdout.'
+      : (cleanStderr || `Hook exited with status ${exitCode}.`),
+    stdout: cleanStdout,
+    stderr: cleanStderr,
+    inputJson,
+  }
+}
