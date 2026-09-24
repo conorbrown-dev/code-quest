@@ -64,8 +64,9 @@ async function evaluateHook(payload) {
     await sandbox.filesystem.writeText(payload.script, '/workspace/hook.sh')
     const process = await sandbox.exec(['/bin/bash', '/workspace/hook.sh'], {
       timeoutMs: 5_000,
-      stdin: inputJson,
     })
+    await process.stdin.writeText(inputJson)
+    await process.stdin.close()
     const [stdout, stderr, exitCode] = await Promise.all([
       process.stdout.readText(),
       process.stderr.readText(),
