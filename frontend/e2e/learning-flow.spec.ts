@@ -129,7 +129,7 @@ test('onboarding selects a track and enters the guest learning experience', asyn
   await expect(page.getByText('CHOOSE YOUR FIRST TRACK')).toBeVisible()
   await page.getByRole('button', { name: /Python Web: zero to staff/i }).click()
   await expect(page.getByText('Selected: Python Web: zero to staff')).toBeVisible()
-  await page.getByRole('button', { name: 'Explore as a guest' }).click()
+  await page.getByRole('button', { name: 'Continue as guest' }).click()
   await expect(page.getByRole('heading', { name: 'Values and variables' })).toBeVisible()
   await expect.poll(() => page.evaluate(() => localStorage.getItem('pathway-course-id'))).toBe('python-web')
 })
@@ -139,7 +139,7 @@ test('onboarding selects the Rust systems track', async ({ page }) => {
 
   await page.getByRole('button', { name: /Rust Systems: zero to staff/i }).click()
   await expect(page.getByText('Selected: Rust Systems: zero to staff')).toBeVisible()
-  await page.getByRole('button', { name: 'Explore as a guest' }).click()
+  await page.getByRole('button', { name: 'Continue as guest' }).click()
   await expect(page).toHaveTitle('Pathway — Learn Rust')
   await expect(page.getByRole('heading', { name: 'Install Rust and use Cargo', level: 1 })).toBeVisible()
   await expect.poll(() => page.evaluate(() => localStorage.getItem('pathway-course-id'))).toBe('rust-systems')
@@ -355,7 +355,7 @@ test('persists the selected neon accent after a reload', async ({ page }) => {
 
 test('exposes the learning-experience workspaces for a guest learner', async ({ page }) => {
   await page.goto('/')
-  await page.getByRole('button', { name: 'Explore as a guest' }).click()
+  await page.getByRole('button', { name: 'Continue as guest' }).click()
   await page.getByRole('button', { name: 'Progress' }).click()
   await expect(page.getByRole('heading', { name: 'Make progress visible.' })).toBeVisible()
   await expect(page.getByRole('heading', { name: /checkpoint/i })).toBeVisible()
