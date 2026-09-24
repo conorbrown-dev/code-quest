@@ -232,12 +232,12 @@ test('runs the Claude PreToolUse Hook Playground against simulated Bash commands
   await page.getByRole('button', { name: 'Guard actions before they run' }).click()
   await expect(page.getByRole('heading', { name: 'Run a real PreToolUse hook' })).toBeVisible()
   await page.getByRole('button', { name: 'Run hook' }).click()
-  await expect(page.getByText('BLOCKED')).toBeVisible()
+  await expect(page.getByText('BLOCKED', { exact: true }).last()).toBeVisible()
   await expect(page.getByText('Destructive command blocked by hook')).toBeVisible()
 
   await page.getByRole('button', { name: 'Run tests' }).click()
   await page.getByRole('button', { name: 'Run hook' }).click()
-  await expect(page.getByText('NO DECISION')).toBeVisible()
+  await expect(page.getByText('NO DECISION', { exact: true }).last()).toBeVisible()
   await expect(page.getByText(/normal permission flow/i)).toBeVisible()
 })
 
@@ -249,7 +249,7 @@ test('loads the selected Rust track for a guest learner', async ({ page }) => {
   await page.goto('/')
 
   await expect(page).toHaveTitle('Pathway — Learn Rust')
-  await expect(page.getByRole('heading', { name: 'How a computer follows instructions' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'How a computer follows instructions', level: 1 })).toBeVisible()
 })
 
 test('unlocks resilient HTTP clients after the preceding Python lesson passes', async ({ page }) => {
