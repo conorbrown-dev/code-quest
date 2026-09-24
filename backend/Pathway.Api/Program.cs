@@ -700,18 +700,10 @@ static class Curriculum
 
     // The language courses intentionally start at language/tooling concepts. Generic machine and
     // operating-system concepts now live in Computing Foundations instead of being repeated per language.
-    public static readonly Lesson[] CSharpCourseLessons = Lessons
-        .Skip(9)
-        .Select((lesson, index) => lesson with { Order = index + 1 })
-        .ToArray();
-    public static readonly Lesson[] PythonCourseLessons = PythonAllLessons
-        .Skip(9)
-        .Select((lesson, index) => lesson with { Order = index + 1 })
-        .ToArray();
-    public static readonly Lesson[] RustCourseLessons = RustLessons
-        .Skip(5)
-        .Select((lesson, index) => lesson with { Order = index + 1 })
-        .ToArray();
+    public static readonly Lesson[] CSharpCourseLessons = NormalizeLessons(Lessons.Skip(9));
+    public static readonly Lesson[] PythonCourseLessons = NormalizeLessons(
+        PythonAllLessons.Skip(9).Where(lesson => lesson.Slug != "python-http"));
+    public static readonly Lesson[] RustCourseLessons = NormalizeLessons(RustLessons.Skip(5));
 
     public static readonly Dictionary<string, Lesson> BySlug = ComputingLessons
         .Concat(CSharpCourseLessons)
@@ -848,6 +840,18 @@ static class Curriculum
         "rust-staff-capstone" => "What makes a delivery plan safer when changing a production system?",
         _ => throw new ArgumentOutOfRangeException(nameof(slug), slug, "Rust lesson is missing an assessment question.")
     };
+
+    private static Lesson[] NormalizeLessons(IEnumerable<Lesson> lessons)
+    {
+        var ordered = lessons.OrderBy(lesson => lesson.Order).ToArray();
+        return ordered
+            .Select((lesson, index) => lesson with
+            {
+                Order = index + 1,
+                NextSlug = index + 1 < ordered.Length ? ordered[index + 1].Slug : null
+            })
+            .ToArray();
+    }
 
     private static Course BuildCourse(string id, string title, string languageId, string languageVersion, string frameworkVersion, string reviewed, Lesson[] lessons) => new(id, title, languageId, languageVersion, frameworkVersion, reviewed, BuildModules(lessons));
 
