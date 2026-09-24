@@ -1,7 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&family=Syne:wght@500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 @import 'tailwindcss';
 
-@theme { --font-sans: 'Space Grotesk', sans-serif; --font-display: 'Syne', sans-serif; --font-mono: 'DM Mono', monospace; --color-forest: #f7f3ff; --color-pine: var(--accent); --color-canvas: #0a0910; --color-panel: #12101b; }
+@theme { --font-sans: 'Space Grotesk', sans-serif; --font-display: 'Manrope', sans-serif; --font-mono: 'DM Mono', monospace; --color-forest: #f7f3ff; --color-pine: var(--accent); --color-canvas: #0a0910; --color-panel: #12101b; }
 @layer base { * { box-sizing:border-box } body { margin:0; min-width:320px; background:#0a0910; color:#f5f1ff; font-family:var(--font-sans); } button, textarea { font:inherit } button { cursor:pointer } code { font-family:var(--font-mono); } ::selection { background:var(--accent); color:#fff } }
 @layer utilities { .editor-scroll::-webkit-scrollbar{width:8px;height:8px}.editor-scroll::-webkit-scrollbar-thumb{background:#4c5751;border-radius:99px} }
 
