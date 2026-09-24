@@ -939,7 +939,7 @@ function Sidebar({
     </button>
   );
   return (
-    <aside className={`sidebar-shell hidden min-h-screen shrink-0 flex-col border-r border-[#332846] bg-[#0f0d17] py-7 text-[#eee6fa] transition-[width,padding] duration-200 lg:flex ${collapsed ? "w-[76px] px-3" : "w-[264px] px-4"}`}>
+    <aside className={`sidebar-shell relative hidden min-h-screen shrink-0 flex-col border-r border-[#332846] bg-[#0f0d17] py-7 text-[#eee6fa] transition-[width,padding] duration-200 lg:flex ${collapsed ? "w-[76px] px-3" : "w-[264px] px-4"}`}>
       <div className={`flex items-center ${collapsed ? "justify-center" : "justify-between px-3"}`}>
         <div className={`flex items-center font-display font-semibold text-white ${collapsed ? "" : "gap-2 text-[27px] tracking-[-1.4px]"}`}>
           <span className="brand-orbit font-sans text-[33px] leading-5 text-[#b981ff]">
