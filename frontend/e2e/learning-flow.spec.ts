@@ -13,11 +13,11 @@ test('serves the current C#/.NET curriculum API', async ({ request }) => {
   expect(body.languageVersion).toBe('C# 14')
   expect(body.frameworkVersion).toBe('.NET 10')
   const lessons = body.modules.flatMap((module: { lessons: { slug: string; order: number }[] }) => module.lessons)
-  expect(lessons).toHaveLength(42)
+  expect(lessons).toHaveLength(33)
   expect(lessons.map((lesson: { order: number }) => lesson.order)).toEqual([...Array(42)].map((_, index) => index + 1))
   expect(lessons.map((lesson: { slug: string }) => lesson.slug)).toEqual(expect.arrayContaining(['internet-dns', 'internet-https', 'foundations-data-types', 'objects-purpose', 'modern-csharp-records', 'reliability-http-clients', 'staff-leadership-leverage']))
-  expect(lessons[0]).toMatchObject({ slug: 'internet-devices', order: 1 })
-  expect(lessons.at(-1)).toMatchObject({ slug: 'staff-leadership-leverage', order: 42 })
+  expect(lessons[0]).toMatchObject({ slug: 'foundations-how-code-works', order: 1 })
+  expect(lessons.at(-1)).toMatchObject({ slug: 'staff-leadership-leverage', order: 33 })
 })
 
 test('serves the Python Web curriculum and its framework-choice lesson', async ({ request }) => {
@@ -27,13 +27,13 @@ test('serves the Python Web curriculum and its framework-choice lesson', async (
   expect(body.languageVersion).toBe('Python 3.14')
   expect(body.frameworkVersion).toContain('FastAPI')
   const lessons = body.modules.flatMap((module: { lessons: { slug: string; order: number }[] }) => module.lessons)
-  expect(lessons).toHaveLength(42)
+  expect(lessons).toHaveLength(32)
   expect(lessons.map((lesson: { slug: string }) => lesson.slug)).toEqual(expect.arrayContaining(['python-internet-dns', 'python-internet-https', 'python-framework-choice', 'python-project-foundations', 'python-system-design', 'python-staff-architecture']))
   expect(lessons.map((lesson: { order: number }) => lesson.order)).toEqual([...Array(42)].map((_, index) => index + 1))
   expect(lessons.map((lesson: { slug: string }) => lesson.slug)).toEqual(expect.arrayContaining(['python-testing-pytest', 'python-http-clients']))
   expect(lessons.findIndex((lesson: { slug: string }) => lesson.slug === 'python-http-clients')).toBe(lessons.findIndex((lesson: { slug: string }) => lesson.slug === 'python-testing-pytest') + 1)
-  expect(lessons[0]).toMatchObject({ slug: 'python-internet-devices', order: 1 })
-  expect(lessons.sort((a: { order: number }, b: { order: number }) => a.order - b.order).at(-1)).toMatchObject({ slug: 'python-staff-architecture', order: 42 })
+  expect(lessons[0]).toMatchObject({ slug: 'python-values', order: 1 })
+  expect(lessons.sort((a: { order: number }, b: { order: number }) => a.order - b.order).at(-1)).toMatchObject({ slug: 'python-staff-architecture', order: 32 })
 
   const frameworkChoice = await request.get(`${apiBaseUrl}/api/lessons/python-framework-choice`)
   await expect(frameworkChoice).toBeOK()
@@ -41,6 +41,17 @@ test('serves the Python Web curriculum and its framework-choice lesson', async (
     title: 'Choose a Python web framework',
     version: { language: 'Python 3.14' },
   })
+})
+
+test('serves Computing Foundations separately from language tracks', async ({ request }) => {
+  const course = await request.get(`${apiBaseUrl}/api/courses/computing-foundations`)
+  await expect(course).toBeOK()
+  const body = await course.json()
+  expect(body.languageId).toBe('computing')
+  const lessons = body.modules.flatMap((module: { lessons: { slug: string; order: number }[] }) => module.lessons)
+  expect(lessons).toHaveLength(4)
+  expect(lessons[0]).toMatchObject({ slug: 'computing-machine-model', order: 1 })
+  expect(lessons.at(-1)).toMatchObject({ slug: 'computing-os-shell', order: 4 })
 })
 
 test('serves the Claude Hooks presentation course without a quiz exercise', async ({ request }) => {
