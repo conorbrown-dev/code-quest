@@ -112,7 +112,7 @@ test('onboarding selects the Rust systems track', async ({ page }) => {
   await expect(page.getByText('Selected: Rust Systems: zero to staff')).toBeVisible()
   await page.getByRole('button', { name: 'Explore as a guest' }).click()
   await expect(page).toHaveTitle('Pathway — Learn Rust')
-  await expect(page.getByRole('heading', { name: 'How a computer follows instructions' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'How a computer follows instructions', level: 1 })).toBeVisible()
   await expect.poll(() => page.evaluate(() => localStorage.getItem('pathway-course-id'))).toBe('rust-systems')
 })
 
