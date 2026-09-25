@@ -24,12 +24,23 @@ test.describe('public API contract', () => {
     await expect(catalog).toBeOK()
     await expect(catalog.json()).resolves.toEqual(expect.arrayContaining([
       expect.objectContaining({ id: 'computing-foundations', available: true }),
+      expect.objectContaining({ id: 'electrical-engineering-foundations', available: true }),
       expect.objectContaining({ id: 'csharp-dotnet', available: true }),
       expect.objectContaining({ id: 'python-web', available: true }),
       expect.objectContaining({ id: 'rust-systems', available: true }),
       expect.objectContaining({ id: 'networking-fundamentals', available: false }),
       expect.objectContaining({ id: 'dns', available: false }),
       expect.objectContaining({ id: 'http-apis', available: false }),
+      expect.objectContaining({ id: 'digital-electronics', available: false }),
+      expect.objectContaining({ id: 'analog-electronics', available: false }),
+      expect.objectContaining({ id: 'ac-circuit-analysis', available: false }),
+      expect.objectContaining({ id: 'embedded-systems', available: false }),
+      expect.objectContaining({ id: 'microcontrollers', available: false }),
+      expect.objectContaining({ id: 'pcb-design', available: false }),
+      expect.objectContaining({ id: 'signals-systems', available: false }),
+      expect.objectContaining({ id: 'control-systems', available: false }),
+      expect.objectContaining({ id: 'electromagnetics', available: false }),
+      expect.objectContaining({ id: 'power-electronics', available: false }),
     ]))
   })
 
@@ -39,7 +50,7 @@ test.describe('public API contract', () => {
     expect((await request.post(`${apiBaseUrl}/api/submissions/validate`, { data: { lessonSlug: 'not-a-lesson', answer: 'anything' } })).status()).toBe(404)
   })
 
-  for (const courseId of ['computing-foundations', 'csharp-dotnet', 'python-web', 'rust-systems']) {
+  for (const courseId of ['computing-foundations', 'electrical-engineering-foundations', 'csharp-dotnet', 'python-web', 'rust-systems']) {
     test(`${courseId} has contiguous lessons and representative next-lesson links`, async ({ request }) => {
       const courseResponse = await request.get(`${apiBaseUrl}/api/courses/${courseId}`)
       await expect(courseResponse).toBeOK()
@@ -63,6 +74,45 @@ test.describe('public API contract', () => {
       }
     })
   }
+
+  test('serves Electrical Engineering Foundations and validates numeric answers with tolerance and units', async ({ request }) => {
+    const courseResponse = await request.get(`${apiBaseUrl}/api/courses/electrical-engineering-foundations`)
+    await expect(courseResponse).toBeOK()
+    const course = await courseResponse.json() as Course
+    const summaries = orderedLessons(course)
+    expect(summaries[0]).toMatchObject({ slug: 'ee-charge-voltage-current', order: 1 })
+    expect(summaries.at(-1)).toMatchObject({ slug: 'ee-engineering-habits', order: 16 })
+
+    const lessonResponse = await request.get(`${apiBaseUrl}/api/lessons/ee-ohms-law`)
+    await expect(lessonResponse).toBeOK()
+    await expect(lessonResponse.json()).resolves.toMatchObject({
+      exercise: {
+        kind: 'Numeric',
+        expectedNumeric: 36.36,
+        tolerance: 0.1,
+        unit: 'mA',
+        workedSolution: expect.stringContaining('I = V / R'),
+      },
+    })
+
+    const learnerId = `ee-numeric-${crypto.randomUUID()}`
+    const headers = { 'X-Learner-Id': learnerId }
+    const exact = await request.post(`${apiBaseUrl}/api/submissions/validate`, { headers, data: { lessonSlug: 'ee-ohms-law', answer: '36.36', unit: 'mA' } })
+    await expect(exact).toBeOK()
+    await expect(exact.json()).resolves.toMatchObject({ passed: true, nextLessonSlug: 'ee-unit-conversion', workedSolution: expect.stringContaining('36.36 mA') })
+
+    const withinTolerance = await request.post(`${apiBaseUrl}/api/submissions/validate`, { headers, data: { lessonSlug: 'ee-ohms-law', answer: '36.4', unit: 'mA' } })
+    await expect(withinTolerance).toBeOK()
+    await expect(withinTolerance.json()).resolves.toMatchObject({ passed: true })
+
+    const alternateUnit = await request.post(`${apiBaseUrl}/api/submissions/validate`, { headers, data: { lessonSlug: 'ee-ohms-law', answer: '0.03636', unit: 'A' } })
+    await expect(alternateUnit).toBeOK()
+    await expect(alternateUnit.json()).resolves.toMatchObject({ passed: true })
+
+    const outsideTolerance = await request.post(`${apiBaseUrl}/api/submissions/validate`, { headers, data: { lessonSlug: 'ee-ohms-law', answer: '40', unit: 'mA' } })
+    await expect(outsideTolerance).toBeOK()
+    await expect(outsideTolerance.json()).resolves.toMatchObject({ passed: false, nextLessonSlug: null })
+  })
 
   test('Rust multiple-choice exercises are direct questions with selectable answers', async ({ request }) => {
     const courseResponse = await request.get(`${apiBaseUrl}/api/courses/rust-systems`)
