@@ -33,7 +33,7 @@ import {
 
 type Choice = { id: string; text: string };
 type Exercise = {
-  kind: "MultipleChoice" | "Code" | "Presentation";
+  kind: "MultipleChoice" | "Code" | "Presentation" | "Numeric";
   title: string;
   prompt: string;
   requirements: string[];
@@ -41,6 +41,11 @@ type Exercise = {
   choices: Choice[];
   hint: string;
   tests: string[];
+  expectedNumeric?: number;
+  tolerance?: number;
+  unit?: string;
+  unitConversions?: Record<string, number>;
+  workedSolution?: string;
 };
 type Lesson = {
   slug: string;
@@ -81,6 +86,7 @@ type Result = {
   feedback: string;
   nextLessonSlug?: string;
   codeReview?: CodeReview;
+  workedSolution?: string;
 };
 type HookPlaygroundResult = {
   matcherMatched: boolean;
@@ -145,6 +151,7 @@ function App() {
   );
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [answer, setAnswer] = useState("");
+  const [unit, setUnit] = useState("");
   const [code, setCode] = useState("");
   const [result, setResult] = useState<Result | null>(null);
   const [loading, setLoading] = useState(true);
@@ -231,12 +238,14 @@ function App() {
     setLoading(true);
     setResult(null);
     setAnswer("");
+    setUnit("");
     try {
       const response = await fetch(`${api}/api/lessons/${slug}`);
       if (!response.ok) throw Error();
       const next: Lesson = await response.json();
       setLesson(next);
       setCode(next.exercise.starterCode ?? "");
+      setUnit(next.exercise.unit ?? "");
     } catch {
       notify("Could not load that lesson. Check the API connection.");
     } finally {
@@ -263,6 +272,8 @@ function App() {
         setCourse(nextCourse);
         setLesson(nextLesson);
         setCode(nextLesson.exercise.starterCode ?? "");
+        setAnswer("");
+        setUnit(nextLesson.exercise.unit ?? "");
         const stored =
           progress?.completedLessonSlugs ?? readProgress(progressOwner);
         setCompleted(stored);
@@ -278,11 +289,13 @@ function App() {
     if (!lesson) return;
     if (lesson.exercise.kind === "MultipleChoice" && !answer)
       return notify("Choose an answer first.");
+    if (lesson.exercise.kind === "Numeric" && !answer.trim())
+      return notify("Enter a numeric answer first.");
     try {
       const response = await fetch(`${api}/api/submissions/validate`, {
         method: "POST",
         headers: apiHeaders(account),
-        body: JSON.stringify({ lessonSlug: lesson.slug, answer, code }),
+        body: JSON.stringify({ lessonSlug: lesson.slug, answer, code, unit }),
       });
       if (!response.ok) throw Error();
       const next: Result = await response.json();
@@ -545,6 +558,8 @@ function App() {
                 lesson={lesson}
                 answer={answer}
                 setAnswer={setAnswer}
+                unit={unit}
+                setUnit={setUnit}
                 code={code}
                 setCode={setCode}
                 result={result}
@@ -616,6 +631,7 @@ function Onboarding({
     }
   };
   const computingSelected = selectedCourseId === "computing-foundations";
+  const electricalSelected = selectedCourseId === "electrical-engineering-foundations";
   const pythonSelected = selectedCourseId === "python-web";
   const rustSelected = selectedCourseId === "rust-systems";
   const csharpSelected = selectedCourseId === "csharp-dotnet";
@@ -629,7 +645,7 @@ function Onboarding({
             <span className="brand-orbit text-3xl">⌁</span>pathway
           </div>
           <span className="rounded-full border border-[#9860ef55] bg-[#8d4be214] px-3 py-1 text-[10px] font-bold tracking-[1.4px] text-[#c9a6ff]">
-            YOUR CODING PATH
+            YOUR LEARNING PATH
           </span>
         </div>
         {mode === "welcome" ? (
@@ -644,8 +660,8 @@ function Onboarding({
                 that <span className="neon-text">compound.</span>
               </h1>
               <p className="mt-7 max-w-[480px] text-base leading-relaxed text-[#aaa3b6]">
-                A guided path from your first line of code to the technical
-                judgment expected of a staff engineer.
+                Guided technical courses that build durable mental models, practical
+                judgment, and skills you can carry into deeper engineering work.
               </p>
             </div>
             <div className="onboarding-card rounded-2xl p-6 sm:p-8">
@@ -670,6 +686,17 @@ function Onboarding({
                 {computingSelected && (
                   <Check className="ml-auto text-[#c198ff]" size={19} />
                 )}
+              </button>
+              <button
+                onClick={() => onSelectCourse("electrical-engineering-foundations")}
+                className={`track-option mt-3 flex w-full items-center gap-4 rounded-xl p-4 text-left ${electricalSelected ? "ring-1 ring-[#bd87ff]" : ""}`}
+              >
+                <span className="grid h-11 w-11 place-items-center rounded-lg bg-[#c9772d] font-mono text-sm font-bold text-white">EE</span>
+                <span>
+                  <strong className="block text-sm text-white">Electrical Engineering Foundations</strong>
+                  <small className="mt-1 block text-xs text-[#aaa3b6]">Circuits · measurement · components · signals</small>
+                </span>
+                {electricalSelected && <Check className="ml-auto text-[#c198ff]" size={19} />}
               </button>
               <button
                 onClick={() => onSelectCourse("csharp-dotnet")}
@@ -758,6 +785,16 @@ function Onboarding({
                     ["HTTP & APIs", "Methods · status · headers · contracts"],
                     ["HTTPS & TLS", "Certificates · encryption · trust"],
                     ["Distributed Systems", "Latency · failure · retries · idempotency"],
+                    ["Digital Electronics", "Logic · timing · state"],
+                    ["Analog Electronics", "Amplifiers · filters · feedback"],
+                    ["AC Circuit Analysis", "Phasors · impedance · resonance"],
+                    ["Embedded Systems", "Firmware · peripherals · integration"],
+                    ["Microcontrollers", "GPIO · timers · ADC · buses"],
+                    ["PCB Design", "Schematic · layout · fabrication"],
+                    ["Signals & Systems", "Signals · systems · transforms"],
+                    ["Control Systems", "Feedback · stability · control"],
+                    ["Electromagnetics", "Fields · waves · transmission"],
+                    ["Power Electronics", "Converters · switching · magnetics"],
                   ].map(([title, subtitle]) => (
                     <div
                       key={title}
@@ -1023,7 +1060,9 @@ function Sidebar({
           ? "AI"
           : course.languageId === "computing"
             ? "01"
-            : "C#";
+            : course.languageId === "electrical-engineering"
+              ? "EE"
+              : "C#";
   const nav = (id: Workspace, label: string, icon: ReactNode) => (
     <button
       onClick={() => onNavigate(id)}
@@ -1222,6 +1261,15 @@ function TrackMenu({
       </button>
       <button
         role="menuitem"
+        onClick={() => select("electrical-engineering-foundations")}
+        className={itemClass("electrical-engineering-foundations")}
+      >
+        <span className="rounded bg-[#c9772d] px-1 py-0.5 text-[9px] text-white">EE</span>
+        <span>Electrical Engineering</span>
+        {courseId === "electrical-engineering-foundations" && <Check className="ml-auto" size={14} />}
+      </button>
+      <button
+        role="menuitem"
         onClick={() => select("csharp-dotnet")}
         className={itemClass("csharp-dotnet")}
       >
@@ -1269,7 +1317,7 @@ function TrackMenu({
         )}
       </button>
       <div className="my-1 border-t border-[#ffffff10]" />
-      {["Networking", "DNS", "HTTP & APIs", "HTTPS & TLS", "Distributed Systems"].map((title) => (
+      {["Networking", "DNS", "HTTP & APIs", "HTTPS & TLS", "Distributed Systems", "Digital Electronics", "Analog Electronics", "AC Circuit Analysis", "Embedded Systems", "Microcontrollers", "PCB Design", "Signals & Systems", "Control Systems", "Electromagnetics", "Power Electronics"].map((title) => (
         <div
           key={title}
           className="flex items-center justify-between rounded px-3 py-2 text-[11px] text-[#786f86]"
@@ -1486,7 +1534,9 @@ function LessonContent({ lesson }: { lesson: Lesson }) {
       ? "Rust"
       : lesson.version.language.startsWith("Claude")
         ? "Claude Code"
-        : "C#";
+        : lesson.version.language.startsWith("Electrical")
+          ? "Circuit model"
+          : "C#";
   return (
     <article className="border-b border-[#e1dfd6] bg-[#fbf9f3] px-6 py-12 sm:px-8 lg:border-b-0 lg:border-r lg:px-[clamp(28px,3.5vw,56px)] lg:py-16">
       <p className="text-[10px] font-bold tracking-[1.15px] text-[#6e786f]">
@@ -1887,6 +1937,8 @@ function ExercisePanel({
   lesson,
   answer,
   setAnswer,
+  unit,
+  setUnit,
   code,
   setCode,
   result,
@@ -1898,6 +1950,8 @@ function ExercisePanel({
   lesson: Lesson;
   answer: string;
   setAnswer: (v: string) => void;
+  unit: string;
+  setUnit: (v: string) => void;
   code: string;
   setCode: (v: string) => void;
   result: Result | null;
@@ -1944,6 +1998,29 @@ function ExercisePanel({
             </button>
           ))}
         </div>
+      ) : e.kind === "Numeric" ? (
+        <div className="flex max-w-sm gap-2">
+          <label className="sr-only" htmlFor={`numeric-answer-${lesson.slug}`}>Numeric answer</label>
+          <input
+            id={`numeric-answer-${lesson.slug}`}
+            inputMode="decimal"
+            value={answer}
+            onChange={(event) => setAnswer(event.target.value)}
+            placeholder="0"
+            className="min-w-0 flex-1 rounded-md border border-[#d5d2c9] bg-white px-3 py-3 font-mono text-sm text-[#26342d] outline-none focus:border-[#258160]"
+          />
+          <label className="sr-only" htmlFor={`numeric-unit-${lesson.slug}`}>Unit</label>
+          <select
+            id={`numeric-unit-${lesson.slug}`}
+            value={unit}
+            onChange={(event) => setUnit(event.target.value)}
+            className="rounded-md border border-[#d5d2c9] bg-white px-3 py-3 font-mono text-sm text-[#26342d] outline-none focus:border-[#258160]"
+          >
+            {[...new Set([e.unit, ...Object.keys(e.unitConversions ?? {})].filter(Boolean) as string[])].map((option) => (
+              <option key={option} value={option}>{option}</option>
+            ))}
+          </select>
+        </div>
       ) : (
         <CodeEditor
           code={code}
@@ -1974,7 +2051,7 @@ function ExercisePanel({
             >
               {passed ? "✓" : "!"}
             </span>
-            <strong>{passed ? "Passed" : "Try again"}</strong>
+            <strong>{passed ? (e.kind === "Numeric" ? "Correct" : "Passed") : "Try again"}</strong>
             <span
               className={`ml-auto text-[11px] ${passed ? "text-[#21815f]" : "text-[#c55a3d]"}`}
             >
@@ -1984,6 +2061,12 @@ function ExercisePanel({
           <p className="px-3.5 py-3 text-xs leading-relaxed text-[#526157]">
             {result.feedback}
           </p>
+        </div>
+      )}
+      {passed && result?.workedSolution && (
+        <div className="mt-4 rounded-md border border-[#dce7de] bg-[#f6fbf7] p-3 text-xs text-[#365748]">
+          <strong className="block">Worked solution</strong>
+          <pre className="mt-2 whitespace-pre-wrap font-mono text-[11px] leading-relaxed">{result.workedSolution}</pre>
         </div>
       )}
       {result?.codeReview && (
