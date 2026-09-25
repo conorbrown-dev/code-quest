@@ -32,8 +32,21 @@ import {
 } from "lucide-react";
 
 type Choice = { id: string; text: string };
+type CircuitNode = { id: string; label: string; x: number; y: number; ground: boolean };
+type CircuitComponent = { id: string; kind: string; label: string; fromNode: string; toNode: string; value?: string };
+type CircuitMeasurement = { meterMode: string; redNode: string; blackNode: string; value?: number | null; unit: string; display: string };
+type CircuitDefinition = {
+  title: string;
+  description: string;
+  safetyNote: string;
+  meterModes: string[];
+  nodes: CircuitNode[];
+  components: CircuitComponent[];
+  measurements: CircuitMeasurement[];
+  task: { instruction: string; diagnosisChoices: Choice[] };
+};
 type Exercise = {
-  kind: "MultipleChoice" | "Code" | "Presentation" | "Numeric";
+  kind: "MultipleChoice" | "Code" | "Presentation" | "Numeric" | "Circuit";
   title: string;
   prompt: string;
   requirements: string[];
@@ -46,6 +59,7 @@ type Exercise = {
   unit?: string;
   unitConversions?: Record<string, number>;
   workedSolution?: string;
+  circuit?: CircuitDefinition;
 };
 type Lesson = {
   slug: string;
@@ -87,6 +101,7 @@ type Result = {
   nextLessonSlug?: string;
   codeReview?: CodeReview;
   workedSolution?: string;
+  circuitReading?: { value?: number | null; unit: string; display: string };
 };
 type HookPlaygroundResult = {
   matcherMatched: boolean;
@@ -152,6 +167,10 @@ function App() {
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [answer, setAnswer] = useState("");
   const [unit, setUnit] = useState("");
+  const [meterMode, setMeterMode] = useState("");
+  const [redProbe, setRedProbe] = useState("");
+  const [blackProbe, setBlackProbe] = useState("");
+  const [diagnosis, setDiagnosis] = useState("");
   const [code, setCode] = useState("");
   const [result, setResult] = useState<Result | null>(null);
   const [loading, setLoading] = useState(true);
@@ -239,6 +258,10 @@ function App() {
     setResult(null);
     setAnswer("");
     setUnit("");
+    setMeterMode("");
+    setRedProbe("");
+    setBlackProbe("");
+    setDiagnosis("");
     try {
       const response = await fetch(`${api}/api/lessons/${slug}`);
       if (!response.ok) throw Error();
@@ -274,6 +297,10 @@ function App() {
         setCode(nextLesson.exercise.starterCode ?? "");
         setAnswer("");
         setUnit(nextLesson.exercise.unit ?? "");
+        setMeterMode("");
+        setRedProbe("");
+        setBlackProbe("");
+        setDiagnosis("");
         const stored =
           progress?.completedLessonSlugs ?? readProgress(progressOwner);
         setCompleted(stored);
@@ -291,11 +318,15 @@ function App() {
       return notify("Choose an answer first.");
     if (lesson.exercise.kind === "Numeric" && !answer.trim())
       return notify("Enter a numeric answer first.");
+    if (lesson.exercise.kind === "Circuit" && (!meterMode || !redProbe || !blackProbe))
+      return notify("Choose a meter mode and place both probes first.");
+    if (lesson.exercise.kind === "Circuit" && lesson.exercise.circuit?.task.diagnosisChoices.length && !diagnosis)
+      return notify("Choose a diagnosis before checking your circuit.");
     try {
       const response = await fetch(`${api}/api/submissions/validate`, {
         method: "POST",
         headers: apiHeaders(account),
-        body: JSON.stringify({ lessonSlug: lesson.slug, answer, code, unit }),
+        body: JSON.stringify({ lessonSlug: lesson.slug, answer, code, unit, meterMode, redProbe, blackProbe, diagnosis }),
       });
       if (!response.ok) throw Error();
       const next: Result = await response.json();
@@ -560,6 +591,14 @@ function App() {
                 setAnswer={setAnswer}
                 unit={unit}
                 setUnit={setUnit}
+                meterMode={meterMode}
+                setMeterMode={setMeterMode}
+                redProbe={redProbe}
+                setRedProbe={setRedProbe}
+                blackProbe={blackProbe}
+                setBlackProbe={setBlackProbe}
+                diagnosis={diagnosis}
+                setDiagnosis={setDiagnosis}
                 code={code}
                 setCode={setCode}
                 result={result}
@@ -1939,6 +1978,14 @@ function ExercisePanel({
   setAnswer,
   unit,
   setUnit,
+  meterMode,
+  setMeterMode,
+  redProbe,
+  setRedProbe,
+  blackProbe,
+  setBlackProbe,
+  diagnosis,
+  setDiagnosis,
   code,
   setCode,
   result,
@@ -1952,6 +1999,14 @@ function ExercisePanel({
   setAnswer: (v: string) => void;
   unit: string;
   setUnit: (v: string) => void;
+  meterMode: string;
+  setMeterMode: (v: string) => void;
+  redProbe: string;
+  setRedProbe: (v: string) => void;
+  blackProbe: string;
+  setBlackProbe: (v: string) => void;
+  diagnosis: string;
+  setDiagnosis: (v: string) => void;
   code: string;
   setCode: (v: string) => void;
   result: Result | null;
@@ -2021,6 +2076,18 @@ function ExercisePanel({
             ))}
           </select>
         </div>
+      ) : e.kind === "Circuit" && e.circuit ? (
+        <CircuitLab
+          circuit={e.circuit}
+          meterMode={meterMode}
+          setMeterMode={setMeterMode}
+          redProbe={redProbe}
+          setRedProbe={setRedProbe}
+          blackProbe={blackProbe}
+          setBlackProbe={setBlackProbe}
+          diagnosis={diagnosis}
+          setDiagnosis={setDiagnosis}
+        />
       ) : (
         <CodeEditor
           code={code}
@@ -2051,7 +2118,7 @@ function ExercisePanel({
             >
               {passed ? "✓" : "!"}
             </span>
-            <strong>{passed ? (e.kind === "Numeric" ? "Correct" : "Passed") : "Try again"}</strong>
+            <strong>{passed ? (e.kind === "Numeric" || e.kind === "Circuit" ? "Correct" : "Passed") : "Try again"}</strong>
             <span
               className={`ml-auto text-[11px] ${passed ? "text-[#21815f]" : "text-[#c55a3d]"}`}
             >
@@ -2118,6 +2185,164 @@ function ExercisePanel({
         </p>
       </div>
     </section>
+  );
+}
+
+function CircuitLab({
+  circuit,
+  meterMode,
+  setMeterMode,
+  redProbe,
+  setRedProbe,
+  blackProbe,
+  setBlackProbe,
+  diagnosis,
+  setDiagnosis,
+}: {
+  circuit: CircuitDefinition;
+  meterMode: string;
+  setMeterMode: (value: string) => void;
+  redProbe: string;
+  setRedProbe: (value: string) => void;
+  blackProbe: string;
+  setBlackProbe: (value: string) => void;
+  diagnosis: string;
+  setDiagnosis: (value: string) => void;
+}) {
+  const [activeProbe, setActiveProbe] = useState<"red" | "black">("red");
+  const nodeMap = new Map(circuit.nodes.map((node) => [node.id, node]));
+  const exact = circuit.measurements.find(
+    (item) =>
+      item.meterMode === meterMode &&
+      item.redNode === redProbe &&
+      item.blackNode === blackProbe,
+  );
+  const reversed = circuit.measurements.find(
+    (item) =>
+      meterMode === "V DC" &&
+      item.meterMode === meterMode &&
+      item.redNode === blackProbe &&
+      item.blackNode === redProbe &&
+      item.value != null,
+  );
+  const liveDisplay = exact?.display ?? (reversed?.value != null ? `${(-reversed.value).toFixed(3)} ${reversed.unit}` : "—");
+
+  const placeProbe = (nodeId: string) => {
+    if (activeProbe === "red") {
+      setRedProbe(nodeId);
+      if (blackProbe !== nodeId) setActiveProbe("black");
+    } else {
+      setBlackProbe(nodeId);
+      if (redProbe !== nodeId) setActiveProbe("red");
+    }
+  };
+
+  const componentShape = (component: CircuitComponent) => {
+    const from = nodeMap.get(component.fromNode);
+    const to = nodeMap.get(component.toNode);
+    if (!from || !to) return null;
+    const x1 = from.x, y1 = from.y, x2 = to.x, y2 = to.y;
+    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+    if (component.kind === "resistor") {
+      const points = [
+        [x1, y1], [mx - 14, my], [mx - 10, my - 5], [mx - 6, my + 5],
+        [mx - 2, my - 5], [mx + 2, my + 5], [mx + 6, my - 5],
+        [mx + 10, my + 5], [mx + 14, my], [x2, y2],
+      ].map(([x,y]) => `${x},${y}`).join(" ");
+      return <polyline key={component.id} points={points} fill="none" stroke="currentColor" strokeWidth="1.8" />;
+    }
+    if (component.kind === "led") {
+      return (
+        <g key={component.id}>
+          <line x1={x1} y1={y1} x2={mx - 5} y2={my} stroke="currentColor" strokeWidth="1.8" />
+          <polygon points={`${mx-5},${my-7} ${mx-5},${my+7} ${mx+5},${my}`} fill="none" stroke="currentColor" strokeWidth="1.8" />
+          <line x1={mx + 7} y1={my - 8} x2={mx + 7} y2={my + 8} stroke="currentColor" strokeWidth="1.8" />
+          <line x1={mx + 7} y1={my} x2={x2} y2={y2} stroke="currentColor" strokeWidth="1.8" />
+        </g>
+      );
+    }
+    if (component.kind === "source") {
+      return (
+        <g key={component.id}>
+          <line x1={x1} y1={y1} x2={mx - 5} y2={my} stroke="currentColor" strokeWidth="1.8" />
+          <circle cx={mx} cy={my} r="7" fill="none" stroke="currentColor" strokeWidth="1.8" />
+          <text x={mx} y={my + 2.5} textAnchor="middle" fontSize="6" fill="currentColor">+</text>
+          <line x1={mx + 7} y1={my} x2={x2} y2={y2} stroke="currentColor" strokeWidth="1.8" />
+        </g>
+      );
+    }
+    return <line key={component.id} x1={x1} y1={y1} x2={x2} y2={y2} stroke="currentColor" strokeWidth="1.8" />;
+  };
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-[#d9d5ca] bg-[#fffefa]">
+      <div className="border-b border-[#e1ddd2] px-4 py-3">
+        <strong className="block text-sm text-[#26342d]">{circuit.title}</strong>
+        <span className="mt-1 block text-xs text-[#667068]">{circuit.description}</span>
+      </div>
+      <div className="grid gap-4 p-4 xl:grid-cols-[1fr_210px]">
+        <div>
+          <div className="rounded-lg border border-[#d9d5ca] bg-[#f7f5ee] p-3 text-[#33423a]">
+            <svg viewBox="0 0 100 52" className="h-[230px] w-full" role="img" aria-label={circuit.title}>
+              {circuit.components.map(componentShape)}
+              {circuit.components.map((component) => {
+                const from = nodeMap.get(component.fromNode), to = nodeMap.get(component.toNode);
+                if (!from || !to) return null;
+                return (
+                  <text key={`${component.id}-label`} x={(from.x + to.x) / 2} y={(from.y + to.y) / 2 - 10} textAnchor="middle" fontSize="4" fill="currentColor">
+                    {component.label}{component.value ? ` · ${component.value}` : ""}
+                  </text>
+                );
+              })}
+              {circuit.nodes.map((node) => (
+                <g key={node.id} onClick={() => placeProbe(node.id)} className="cursor-pointer" role="button" aria-label={`Circuit node ${node.label}`}>
+                  <circle cx={node.x} cy={node.y} r="5.5" fill="transparent" />
+                  <circle cx={node.x} cy={node.y} r="2.2" fill={redProbe === node.id ? "#d84f4f" : blackProbe === node.id ? "#252525" : "#fffefa"} stroke="currentColor" strokeWidth="1.2" />
+                  <text x={node.x} y={node.y + 9} textAnchor="middle" fontSize="4" fill="currentColor">{node.label}</text>
+                  {redProbe === node.id && <text x={node.x} y={node.y - 5} textAnchor="middle" fontSize="4" fill="#b52e2e">RED</text>}
+                  {blackProbe === node.id && <text x={node.x} y={node.y - 5} textAnchor="middle" fontSize="4" fill="#222">BLACK</text>}
+                </g>
+              ))}
+            </svg>
+          </div>
+          <p className="mt-3 rounded-md bg-[#f7f0e8] px-3 py-2 text-[11px] leading-relaxed text-[#726656]">
+            <strong>Safety:</strong> {circuit.safetyNote}
+          </p>
+        </div>
+        <div className="space-y-3">
+          <div className="rounded-lg bg-[#202521] p-3 text-white">
+            <span className="text-[9px] font-bold tracking-[1px] text-[#9ca69f]">VIRTUAL MULTIMETER</span>
+            <div className="mt-3 rounded bg-[#b9d1af] px-3 py-4 text-right font-mono text-2xl text-[#172117]" aria-label="Meter reading">
+              {liveDisplay}
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-1.5">
+              {circuit.meterModes.map((mode) => (
+                <button key={mode} onClick={() => setMeterMode(mode)} className={`rounded px-2 py-2 text-[10px] font-bold ${meterMode === mode ? "bg-[#ea7850] text-white" : "bg-[#303832] text-[#c9d0ca]"}`}>
+                  {mode}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={() => setActiveProbe("red")} className={`rounded-md border px-2 py-2 text-[10px] font-bold ${activeProbe === "red" ? "border-[#d84f4f] bg-[#fff0f0] text-[#a92f2f]" : "border-[#ddd8ce]"}`}>Place red</button>
+            <button onClick={() => setActiveProbe("black")} className={`rounded-md border px-2 py-2 text-[10px] font-bold ${activeProbe === "black" ? "border-[#444] bg-[#eee] text-[#222]" : "border-[#ddd8ce]"}`}>Place black</button>
+          </div>
+          <p className="text-xs leading-relaxed text-[#59635c]">{circuit.task.instruction}</p>
+        </div>
+      </div>
+      {circuit.task.diagnosisChoices.length > 0 && (
+        <div className="border-t border-[#e1ddd2] p-4">
+          <p className="mb-2 text-[10px] font-bold tracking-[1px] text-[#6e786f]">DIAGNOSIS</p>
+          <div className="grid gap-2">
+            {circuit.task.diagnosisChoices.map((choice) => (
+              <button key={choice.id} onClick={() => setDiagnosis(choice.id)} className={`rounded-md border p-3 text-left text-xs ${diagnosis === choice.id ? "border-[#258160] bg-[#e5f2eb] text-[#164e3b]" : "border-[#e1dfd6] bg-white"}`}>
+                {choice.text}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
