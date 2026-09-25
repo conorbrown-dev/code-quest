@@ -165,7 +165,7 @@ test('renders numeric EE exercises, accepts tolerance, unlocks the next lesson, 
   await page.getByRole('button', { name: /Check answer/i }).click()
 
   await expect(page.getByText('Correct', { exact: true })).toBeVisible()
-  await expect(page.getByText('Correct. Your calculation is within the accepted engineering tolerance.')).toBeVisible()
+  await expect(page.getByRole('main').getByText('Correct. Your calculation is within the accepted engineering tolerance.')).toBeVisible()
   await expect(page.getByText('Worked solution')).toBeVisible()
   await expect(page.getByText('I = 12 V / 330 Ω')).toBeVisible()
   await expect(page.getByRole('button', { name: /Next lesson/i })).toBeVisible()
