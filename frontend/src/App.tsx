@@ -199,7 +199,7 @@ function App() {
   );
   useEffect(() => {
     if (course)
-      document.title = `Pathway — ${course.languageId === "claude" ? "Claude Engineering" : course.languageId === "computing" ? "Computing Foundations" : `Learn ${course.languageId === "python" ? "Python" : course.languageId === "rust" ? "Rust" : "C#"}`}`;
+      document.title = `Pathway — ${course.languageId === "claude" ? "Claude Engineering" : course.languageId === "computing" ? "Computing Foundations" : course.languageId === "electrical-engineering" ? "Electrical Engineering" : `Learn ${course.languageId === "python" ? "Python" : course.languageId === "rust" ? "Rust" : "C#"}`}`;
   }, [course]);
   const notify = (message: string) => {
     setToast(message);
