@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using System.Globalization;
 using System.Text;
 using System.Net.Http.Json;
 using System.Security.Claims;
@@ -110,8 +111,8 @@ progressEndpoint.RequireRateLimiting("learner");
 var submissionEndpoint = app.MapPost("/api/submissions/validate", async (Submission submission, HttpContext httpContext, IServiceProvider services, IHttpClientFactory httpClientFactory, IConfiguration configuration, IHostEnvironment environment, CancellationToken cancellationToken) =>
 {
     if (!Curriculum.BySlug.TryGetValue(submission.LessonSlug, out var lesson)) return Results.NotFound();
-    if ((submission.Answer?.Length ?? 0) > 200 || Encoding.UTF8.GetByteCount(submission.Code ?? string.Empty) > 50_000)
-        return Results.BadRequest(new { message = "Answers must be under 200 characters and code must be at most 50 KB." });
+    if ((submission.Answer?.Length ?? 0) > 200 || (submission.Unit?.Length ?? 0) > 20 || Encoding.UTF8.GetByteCount(submission.Code ?? string.Empty) > 50_000)
+        return Results.BadRequest(new { message = "Answers must be under 200 characters, units under 20 characters, and code at most 50 KB." });
     if (lesson.Exercise.Kind == ExerciseKind.Code && !string.IsNullOrWhiteSpace(configuration["EVALUATOR_URL"]))
     {
         var evaluatorSharedSecret = configuration["EVALUATOR_SHARED_SECRET"];
@@ -151,6 +152,7 @@ var submissionEndpoint = app.MapPost("/api/submissions/validate", async (Submiss
     var validation = lesson.Exercise.Kind switch
     {
         ExerciseKind.MultipleChoice => ValidateChoice(lesson, submission.Answer),
+        ExerciseKind.Numeric => ValidateNumeric(lesson, submission.Answer, submission.Unit),
         ExerciseKind.Code => ValidateCode(lesson, submission.Code ?? string.Empty),
         _ => new ValidationResult(false, 0, 1, "This exercise type is not supported yet.", null)
     };
@@ -325,6 +327,34 @@ static ValidationResult ValidateChoice(Lesson lesson, string? answer)
     var passed = string.Equals(answer, lesson.Exercise.CorrectAnswer, StringComparison.Ordinal);
     return new ValidationResult(passed, passed ? 1 : 0, 1, passed ? "That’s right. You’ve got the idea." : "Not quite—re-read the example and try again.", passed ? lesson.NextSlug : null);
 }
+static ValidationResult ValidateNumeric(Lesson lesson, string? answer, string? submittedUnit)
+{
+    var exercise = lesson.Exercise;
+    if (exercise.ExpectedNumeric is null || exercise.Tolerance is null)
+        return new ValidationResult(false, 0, 1, "This numeric exercise is not configured correctly.", null);
+
+    if (!double.TryParse(answer, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+        return new ValidationResult(false, 0, 1, "Enter a numeric value, then check the unit.", null);
+
+    var unit = string.IsNullOrWhiteSpace(submittedUnit) ? exercise.Unit : submittedUnit.Trim();
+    if (!string.IsNullOrWhiteSpace(exercise.Unit) && !string.Equals(unit, exercise.Unit, StringComparison.OrdinalIgnoreCase))
+    {
+        if (exercise.UnitConversions is null || !exercise.UnitConversions.TryGetValue(unit ?? string.Empty, out var factor))
+            return new ValidationResult(false, 0, 1, $"Use {exercise.Unit} or one of the accepted equivalent units.", null);
+        value *= factor;
+    }
+
+    var passed = Math.Abs(value - exercise.ExpectedNumeric.Value) <= exercise.Tolerance.Value;
+    return new ValidationResult(
+        passed,
+        passed ? 1 : 0,
+        1,
+        passed ? "Correct. Your calculation is within the accepted engineering tolerance." : exercise.Hint,
+        passed ? lesson.NextSlug : null,
+        null,
+        passed ? exercise.WorkedSolution : null);
+}
+
 static ValidationResult ValidateCode(Lesson lesson, string code)
 {
     if (lesson.Slug.StartsWith("rust-", StringComparison.Ordinal))
@@ -402,19 +432,19 @@ record Module(string Id, string Title, string Level, IReadOnlyList<LessonSummary
 record LessonSummary(string Slug, string Title, int Order);
 record Lesson(string Slug, string Module, int Order, string Title, string Subtitle, string Concept, string Body, string Example, Exercise Exercise, string? NextSlug, VersionStamp Version);
 record VersionStamp(string Language, string Framework, string LastReviewed, string SourceUrl);
-record Exercise(ExerciseKind Kind, string Title, string Prompt, string[] Requirements, string? StarterCode, string? CorrectAnswer, Choice[] Choices, string Hint, string[] Tests);
+record Exercise(ExerciseKind Kind, string Title, string Prompt, string[] Requirements, string? StarterCode, string? CorrectAnswer, Choice[] Choices, string Hint, string[] Tests, double? ExpectedNumeric = null, double? Tolerance = null, string? Unit = null, IReadOnlyDictionary<string, double>? UnitConversions = null, string? WorkedSolution = null);
 record Choice(string Id, string Text);
-record Submission(string LessonSlug, string? Answer, string? Code);
+record Submission(string LessonSlug, string? Answer, string? Code, string? Unit = null);
 record LearnerProgressResponse(string LearnerId, string[] CompletedLessonSlugs);
 record EvaluatorRequest(string LessonSlug, string Code);
 record HookPlaygroundRequest(string Event, string Matcher, string Script, string Command);
 record HookEvaluatorRequest(string Event, string Matcher, string Script, string Command);
 record HookPlaygroundResult(bool MatcherMatched, bool Executed, int? ExitCode, string Outcome, string Summary, string? Reason, string Stdout, string Stderr, string InputJson);
 record CodeReview(string Summary, string[] Suggestions);
-record ValidationResult(bool Passed, int PassingTests, int TotalTests, string Feedback, string? NextLessonSlug, CodeReview? CodeReview = null);
-enum ExerciseKind { MultipleChoice, Code, Presentation }
+record ValidationResult(bool Passed, int PassingTests, int TotalTests, string Feedback, string? NextLessonSlug, CodeReview? CodeReview = null, string? WorkedSolution = null);
+enum ExerciseKind { MultipleChoice, Code, Presentation, Numeric }
 
-static class Curriculum
+static partial class Curriculum
 {
     public const string Version = "C# 14 / .NET 10";
     private static readonly VersionStamp Current = new("C# 14", ".NET 10", "2026-08-12", "https://learn.microsoft.com/en-us/dotnet/csharp/whats-new/csharp-14");
@@ -705,7 +735,10 @@ static class Curriculum
         PythonAllLessons.Skip(9).Where(lesson => lesson.Slug != "python-http"));
     public static readonly Lesson[] RustCourseLessons = NormalizeLessons(RustLessons.Skip(5));
 
+    public static readonly Lesson[] ElectricalEngineeringLessons = BuildElectricalEngineeringLessons();
+
     public static readonly Dictionary<string, Lesson> BySlug = ComputingLessons
+        .Concat(ElectricalEngineeringLessons)
         .Concat(CSharpCourseLessons)
         .Concat(PythonCourseLessons)
         .Concat(RustCourseLessons)
@@ -713,6 +746,7 @@ static class Curriculum
         .ToDictionary(lesson => lesson.Slug, StringComparer.Ordinal);
 
     public static readonly Course ComputingCourse = BuildCourse("computing-foundations", "Computing Foundations", "computing", "Core computing", "Machine · data · processes · OS", "2026-09-24", ComputingLessons);
+    public static readonly Course ElectricalEngineeringCourse = BuildCourse("electrical-engineering-foundations", "Electrical Engineering Foundations", "electrical-engineering", "EE Foundations", "Circuits · measurement · components · signals", "2026-09-25", ElectricalEngineeringLessons);
     public static readonly Course Course = BuildCourse("csharp-dotnet", "C# / .NET: zero to staff", "csharp", "C# 14", ".NET 10", "2026-09-24", CSharpCourseLessons);
     public static readonly Course PythonCourse = BuildCourse("python-web", "Python Web: zero to staff", "python", "Python 3.14", "FastAPI · Flask · Django", "2026-09-24", PythonCourseLessons);
     public static readonly Course RustCourse = BuildCourse("rust-systems", "Rust Systems: zero to staff", "rust", "Rust 1.97", "Edition 2024 · Tokio · Axum", "2026-09-24", RustCourseLessons);
@@ -721,6 +755,7 @@ static class Curriculum
     public static readonly IReadOnlyDictionary<string, Course> Courses = new Dictionary<string, Course>(StringComparer.Ordinal)
     {
         [ComputingCourse.Id] = ComputingCourse,
+        [ElectricalEngineeringCourse.Id] = ElectricalEngineeringCourse,
         [Course.Id] = Course,
         [PythonCourse.Id] = PythonCourse,
         [RustCourse.Id] = RustCourse,
@@ -730,6 +765,7 @@ static class Curriculum
     public static readonly IReadOnlyList<CourseCatalogItem> Catalog =
     [
         new(ComputingCourse.Id, ComputingCourse.Title, ComputingCourse.LanguageId, ComputingCourse.LanguageVersion, ComputingCourse.FrameworkVersion, true),
+        new(ElectricalEngineeringCourse.Id, ElectricalEngineeringCourse.Title, ElectricalEngineeringCourse.LanguageId, ElectricalEngineeringCourse.LanguageVersion, ElectricalEngineeringCourse.FrameworkVersion, true),
         new(Course.Id, Course.Title, Course.LanguageId, Course.LanguageVersion, Course.FrameworkVersion, true),
         new(PythonCourse.Id, PythonCourse.Title, PythonCourse.LanguageId, PythonCourse.LanguageVersion, PythonCourse.FrameworkVersion, true),
         new(RustCourse.Id, RustCourse.Title, RustCourse.LanguageId, RustCourse.LanguageVersion, RustCourse.FrameworkVersion, true),
@@ -738,7 +774,17 @@ static class Curriculum
         new("dns", "DNS", "dns", "Coming Soon", "Names · records · resolvers · caching", false),
         new("http-apis", "HTTP & APIs", "http", "Coming Soon", "Methods · status · headers · contracts", false),
         new("https-tls", "HTTPS & TLS", "security", "Coming Soon", "Certificates · encryption · trust", false),
-        new("distributed-systems", "Distributed Systems", "distributed", "Coming Soon", "Latency · failure · retries · idempotency", false)
+        new("distributed-systems", "Distributed Systems", "distributed", "Coming Soon", "Latency · failure · retries · idempotency", false),
+        new("digital-electronics", "Digital Electronics", "electrical-engineering", "Coming Soon", "Logic families · timing · state · interfaces", false),
+        new("analog-electronics", "Analog Electronics", "electrical-engineering", "Coming Soon", "Biasing · amplifiers · filters · feedback", false),
+        new("ac-circuit-analysis", "AC Circuit Analysis", "electrical-engineering", "Coming Soon", "Phasors · impedance · resonance · power", false),
+        new("embedded-systems", "Embedded Systems", "electrical-engineering", "Coming Soon", "Firmware · peripherals · timing · integration", false),
+        new("microcontrollers", "Microcontrollers", "electrical-engineering", "Coming Soon", "GPIO · timers · ADC · buses", false),
+        new("pcb-design", "PCB Design", "electrical-engineering", "Coming Soon", "Schematic capture · layout · fabrication", false),
+        new("signals-systems", "Signals & Systems", "electrical-engineering", "Coming Soon", "Signals · systems · transforms · response", false),
+        new("control-systems", "Control Systems", "electrical-engineering", "Coming Soon", "Feedback · stability · controllers", false),
+        new("electromagnetics", "Electromagnetics", "electrical-engineering", "Coming Soon", "Fields · waves · transmission", false),
+        new("power-electronics", "Power Electronics", "electrical-engineering", "Coming Soon", "Converters · switching · magnetics", false)
     ];
 
     private static Lesson[] BuildRustLessons()
