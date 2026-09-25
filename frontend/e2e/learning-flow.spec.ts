@@ -174,6 +174,76 @@ test('renders numeric EE exercises, accepts tolerance, unlocks the next lesson, 
   await expect(page.getByText("Ohm's law: V = IR")).toBeVisible()
 })
 
+test('runs an interactive EE circuit measurement lab and unlocks progression', async ({ page }) => {
+  await page.route('**/api/progress', route => route.fulfill({ status: 401 }))
+  await page.addInitScript(() => {
+    localStorage.setItem('pathway-onboarding-complete', 'true')
+    localStorage.setItem('pathway-course-id', 'electrical-engineering-foundations')
+    localStorage.setItem('pathway-learner-id', 'ee-circuit-ui-guest')
+    localStorage.setItem('pathway-completed-lessons:guest:ee-circuit-ui-guest', JSON.stringify([
+      'ee-charge-voltage-current',
+      'ee-resistance-circuits',
+      'ee-ohms-law',
+      'ee-unit-conversion',
+      'ee-series-parallel',
+    ]))
+  })
+  await page.goto('/')
+
+  await page.getByRole('button', { name: 'Voltage and current division' }).click()
+  await expect(page.getByText('VIRTUAL MULTIMETER')).toBeVisible()
+  await page.getByRole('button', { name: 'V DC', exact: true }).click()
+  await page.getByLabel('Circuit node MID').click()
+  await page.getByLabel('Circuit node 0 V').click()
+  await expect(page.getByLabel('Meter reading')).toHaveText('5.000 V')
+
+  await page.getByRole('button', { name: /Check answer/i }).click()
+  await expect(page.getByText('Correct', { exact: true })).toBeVisible()
+  await expect(page.getByRole('main').getByText('Correct. Your meter setup and interpretation match the circuit.')).toBeVisible()
+  await expect(page.getByText('With equal series resistors, the midpoint is half the source voltage')).toBeVisible()
+  await expect(page.getByRole('button', { name: /Next lesson/i })).toBeVisible()
+})
+
+test('completes the EE troubleshooting capstone with a measurement and diagnosis', async ({ page }) => {
+  await page.route('**/api/progress', route => route.fulfill({ status: 401 }))
+  await page.addInitScript(() => {
+    localStorage.setItem('pathway-onboarding-complete', 'true')
+    localStorage.setItem('pathway-course-id', 'electrical-engineering-foundations')
+    localStorage.setItem('pathway-learner-id', 'ee-capstone-ui-guest')
+    localStorage.setItem('pathway-completed-lessons:guest:ee-capstone-ui-guest', JSON.stringify([
+      'ee-charge-voltage-current',
+      'ee-resistance-circuits',
+      'ee-ohms-law',
+      'ee-unit-conversion',
+      'ee-series-parallel',
+      'ee-voltage-divider',
+      'ee-power-energy',
+      'ee-kirchhoff',
+      'ee-schematics',
+      'ee-multimeter',
+      'ee-capacitors-rc',
+      'ee-inductors',
+      'ee-ac-fundamentals',
+      'ee-semiconductors',
+      'ee-digital-electrical',
+    ]))
+  })
+  await page.goto('/')
+
+  await page.getByRole('button', { name: 'Datasheets, tolerances, and systematic debugging' }).click()
+  await expect(page.getByText('Troubleshooting capstone')).toBeVisible()
+  await page.getByRole('button', { name: 'V DC', exact: true }).click()
+  await page.getByLabel('Circuit node LED A').click()
+  await page.getByLabel('Circuit node 0 V').click()
+  await expect(page.getByLabel('Meter reading')).toHaveText('5.000 V')
+  await page.getByRole('button', { name: /D1 is open/i }).click()
+  await page.getByRole('button', { name: /Check answer/i }).click()
+
+  await expect(page.getByText('Correct', { exact: true })).toBeVisible()
+  await expect(page.getByText('A healthy supply is present and the LED anode remains at 5 V')).toBeVisible()
+  await expect(page.getByRole('button', { name: /Next lesson/i })).toHaveCount(0)
+})
+
 test('onboarding selects the Rust systems track', async ({ page }) => {
   await page.goto('/')
 
