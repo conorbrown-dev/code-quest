@@ -20,6 +20,85 @@ static partial class Curriculum
         IReadOnlyDictionary<string, double>? conversions = null) =>
         new(ExerciseKind.Numeric, title, prompt, ["Calculate the value", "Enter the numeric result and choose a unit"], null, null, [], hint, ["Applies the governing relationship", "Uses compatible units"], expected, tolerance, unit, conversions, workedSolution);
 
+    private static Exercise CircuitExercise(
+        string title,
+        string prompt,
+        string hint,
+        string workedSolution,
+        CircuitDefinition circuit) =>
+        new(ExerciseKind.Circuit, title, prompt, ["Choose the meter mode", "Place the red and black probes on circuit nodes", "Use the simulated reading to complete the task"], null, null, [], hint, ["Uses the correct meter mode", "Places probes on the intended nodes", "Interprets the resulting measurement"], WorkedSolution: workedSolution, Circuit: circuit);
+
+    private static CircuitDefinition VoltageDividerLab() => new(
+        "10 V voltage divider",
+        "Two equal 1 kΩ resistors divide a 10 V DC source.",
+        "This is a simulated isolated low-voltage DC circuit.",
+        ["V DC", "Ω", "Continuity"],
+        [
+            new("vin", "+10 V", 12, 22),
+            new("mid", "MID", 50, 22),
+            new("gnd", "0 V", 88, 22, true)
+        ],
+        [
+            new("source", "source", "10 V", "gnd", "vin", "10 V"),
+            new("r1", "resistor", "R1", "vin", "mid", "1 kΩ"),
+            new("r2", "resistor", "R2", "mid", "gnd", "1 kΩ")
+        ],
+        [
+            new("V DC", "mid", "gnd", 5, "V", "5.000 V"),
+            new("V DC", "vin", "gnd", 10, "V", "10.000 V"),
+            new("V DC", "vin", "mid", 5, "V", "5.000 V")
+        ],
+        new("Measure the midpoint voltage relative to ground.", "V DC", "mid", "gnd", []));
+
+    private static CircuitDefinition MultimeterLab() => new(
+        "5 V resistor measurement",
+        "A 1 kΩ resistor is connected across an isolated 5 V DC source.",
+        "Use this simulator to practice meter setup. Real resistance/continuity measurements should be made on de-energized circuits; do not use household mains as a learning target.",
+        ["V DC", "A DC", "Ω", "Continuity"],
+        [
+            new("plus", "+5 V", 15, 25),
+            new("return", "0 V", 85, 25, true)
+        ],
+        [
+            new("source", "source", "5 V", "return", "plus", "5 V"),
+            new("r1", "resistor", "R1", "plus", "return", "1 kΩ")
+        ],
+        [
+            new("V DC", "plus", "return", 5, "V", "5.000 V")
+        ],
+        new("Measure the voltage across R1.", "V DC", "plus", "return", []));
+
+    private static CircuitDefinition TroubleshootingLab() => new(
+        "Dark LED troubleshooting",
+        "The LED is dark even though this isolated 5 V circuit should be on. The simulator contains one hidden fault.",
+        "Stay within the simulated low-voltage circuit. A real circuit should be de-energized before resistance/continuity checks.",
+        ["V DC", "Ω", "Continuity"],
+        [
+            new("supply", "+5 V", 10, 25),
+            new("led-anode", "LED A", 60, 25),
+            new("gnd", "0 V", 90, 25, true)
+        ],
+        [
+            new("source", "source", "5 V", "gnd", "supply", "5 V"),
+            new("r1", "resistor", "R1", "supply", "led-anode", "300 Ω"),
+            new("d1", "led", "D1", "led-anode", "gnd", "LED")
+        ],
+        [
+            new("V DC", "supply", "gnd", 5, "V", "5.000 V"),
+            new("V DC", "led-anode", "gnd", 5, "V", "5.000 V")
+        ],
+        new(
+            "Measure the LED anode relative to ground, then identify the most likely fault from the reading.",
+            "V DC",
+            "led-anode",
+            "gnd",
+            [
+                new("open-led", "D1 is open, so current cannot flow through the LED"),
+                new("dead-supply", "The 5 V source is dead"),
+                new("short-r1", "R1 is shorted to ground")
+            ],
+            "open-led"));
+
     private static Lesson[] BuildElectricalEngineeringLessons()
     {
         var currentConversions = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)
@@ -117,7 +196,7 @@ static partial class Curriculum
                 "A voltage divider follows the fraction of total series resistance.",
                 "For two series resistors, the voltage across R₂ is Vout = Vin × R₂/(R₁ + R₂). Current division follows the inverse-resistance relationship because lower-resistance parallel branches carry more current.",
                 "Vin ─ R1 ─●─ R2 ─ 0 V\n          │\n        Vout",
-                NumericExercise("Solve a voltage divider", "A 10 V source feeds 1 kΩ in series with 1 kΩ. What is the midpoint voltage?", 5, 0.01, "V", "Equal series resistors split the source voltage equally.", "Vout = 10 V × 1 kΩ / (1 kΩ + 1 kΩ)\nVout = 5 V"),
+                CircuitExercise("Measure a voltage divider", "Use the virtual meter to measure the midpoint of a 10 V divider made from two equal 1 kΩ resistors.", "Voltage is measured between two nodes. Ground is the reference node.", "With equal series resistors, the midpoint is half the source voltage: 10 V × 1 kΩ / (1 kΩ + 1 kΩ) = 5 V.", VoltageDividerLab()),
                 null,
                 ElectricalFoundationsDocs),
 
@@ -169,7 +248,7 @@ static partial class Curriculum
                 "Use the meter mode and lead placement that match the quantity.",
                 "Voltage is measured in parallel because a voltmeter compares two node potentials and has high input impedance. Current is measured in series because the meter must carry the branch current and presents a low resistance path. Resistance and continuity are normally measured on de-energized circuits. For learning, stay with isolated low-voltage DC; do not use household mains or other high-energy systems as practice targets.",
                 "Voltage: meter across two nodes\nCurrent: open path and insert meter\nResistance/continuity: power off",
-                ChoiceExercise("Choose the safe setup", "How should you measure the voltage across a 5 V resistor circuit?", "parallel", [new("parallel", "Place the voltmeter across the two resistor nodes"), new("series", "Break the circuit and insert the voltmeter in series"), new("ohms-live", "Use resistance mode while energized")], "Voltage is a difference between two node potentials.", "Uses safe measurement topology"),
+                CircuitExercise("Use the virtual multimeter", "Select the correct meter mode and place both probes to measure the voltage across R1.", "For a voltage measurement, the meter compares two node potentials and is placed across the component.", "Select V DC, place the red probe at +5 V and the black probe at 0 V. The simulated meter reads 5.000 V.", MultimeterLab()),
                 null,
                 ElectricalFoundationsDocs),
 
@@ -247,7 +326,7 @@ static partial class Curriculum
                 "Read operating limits, design with margin, document the circuit, and debug one hypothesis at a time.",
                 "Datasheets separate absolute maximum ratings from recommended operating conditions. Real components have tolerances and should be derated when heat, voltage, or current stress matters. Decoupling capacitors help local supplies stay stable; grounding and layout affect noise. Breadboards are useful prototypes, but draw the schematic first. When a circuit fails, verify power, references, expected node voltages, continuity, and signal flow instead of changing parts at random.",
                 "schematic → expected values → measure → compare → isolate → fix",
-                ChoiceExercise("Debug systematically", "A new low-voltage circuit does not work. What is the strongest first debugging habit?", "measure", [new("measure", "Compare measured power and node voltages with expected values"), new("replace", "Replace every component immediately"), new("raise-voltage", "Increase the supply voltage until it works")], "Turn assumptions into observations.", "Uses datasheets and measurement-driven debugging"),
+                CircuitExercise("Troubleshooting capstone", "Diagnose why the LED is dark using the virtual multimeter and the circuit's expected behavior.", "Verify the supply and node voltage, then ask what fault can leave the LED anode at the full supply voltage while no light is produced.", "A healthy supply is present and the LED anode remains at 5 V. With R1 intact and no current flowing, an open D1 best explains the dark LED in this scenario.", TroubleshootingLab()),
                 null,
                 ElectricalFoundationsDocs)
         ]);
