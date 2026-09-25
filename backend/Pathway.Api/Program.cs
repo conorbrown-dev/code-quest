@@ -111,7 +111,7 @@ progressEndpoint.RequireRateLimiting("learner");
 var submissionEndpoint = app.MapPost("/api/submissions/validate", async (Submission submission, HttpContext httpContext, IServiceProvider services, IHttpClientFactory httpClientFactory, IConfiguration configuration, IHostEnvironment environment, CancellationToken cancellationToken) =>
 {
     if (!Curriculum.BySlug.TryGetValue(submission.LessonSlug, out var lesson)) return Results.NotFound();
-    if ((submission.Answer?.Length ?? 0) > 200 || (submission.Unit?.Length ?? 0) > 20 || Encoding.UTF8.GetByteCount(submission.Code ?? string.Empty) > 50_000)
+    if ((submission.Answer?.Length ?? 0) > 200 || (submission.Unit?.Length ?? 0) > 20 || (submission.MeterMode?.Length ?? 0) > 30 || (submission.RedProbe?.Length ?? 0) > 50 || (submission.BlackProbe?.Length ?? 0) > 50 || (submission.Diagnosis?.Length ?? 0) > 100 || Encoding.UTF8.GetByteCount(submission.Code ?? string.Empty) > 50_000)
         return Results.BadRequest(new { message = "Answers must be under 200 characters, units under 20 characters, and code at most 50 KB." });
     if (lesson.Exercise.Kind == ExerciseKind.Code && !string.IsNullOrWhiteSpace(configuration["EVALUATOR_URL"]))
     {
@@ -153,10 +153,17 @@ var submissionEndpoint = app.MapPost("/api/submissions/validate", async (Submiss
     {
         ExerciseKind.MultipleChoice => ValidateChoice(lesson, submission.Answer),
         ExerciseKind.Numeric => ValidateNumeric(lesson, submission.Answer, submission.Unit),
+        ExerciseKind.Circuit => CircuitExerciseValidator.Validate(lesson, submission.MeterMode, submission.RedProbe, submission.BlackProbe, submission.Diagnosis),
         ExerciseKind.Code => ValidateCode(lesson, submission.Code ?? string.Empty),
         _ => new ValidationResult(false, 0, 1, "This exercise type is not supported yet.", null)
     };
-    await PersistSubmission(services, await ResolveLearnerId(httpContext, services, cancellationToken), submission, validation.Passed, cancellationToken);
+    var persistedSubmission = lesson.Exercise.Kind == ExerciseKind.Circuit
+        ? submission with
+        {
+            Answer = $"meter={submission.MeterMode};red={submission.RedProbe};black={submission.BlackProbe};diagnosis={submission.Diagnosis}"
+        }
+        : submission;
+    await PersistSubmission(services, await ResolveLearnerId(httpContext, services, cancellationToken), persistedSubmission, validation.Passed, cancellationToken);
     return Results.Ok(validation);
 });
 submissionEndpoint.RequireRateLimiting("submission");
@@ -432,17 +439,17 @@ record Module(string Id, string Title, string Level, IReadOnlyList<LessonSummary
 record LessonSummary(string Slug, string Title, int Order);
 record Lesson(string Slug, string Module, int Order, string Title, string Subtitle, string Concept, string Body, string Example, Exercise Exercise, string? NextSlug, VersionStamp Version);
 record VersionStamp(string Language, string Framework, string LastReviewed, string SourceUrl);
-record Exercise(ExerciseKind Kind, string Title, string Prompt, string[] Requirements, string? StarterCode, string? CorrectAnswer, Choice[] Choices, string Hint, string[] Tests, double? ExpectedNumeric = null, double? Tolerance = null, string? Unit = null, IReadOnlyDictionary<string, double>? UnitConversions = null, string? WorkedSolution = null);
+record Exercise(ExerciseKind Kind, string Title, string Prompt, string[] Requirements, string? StarterCode, string? CorrectAnswer, Choice[] Choices, string Hint, string[] Tests, double? ExpectedNumeric = null, double? Tolerance = null, string? Unit = null, IReadOnlyDictionary<string, double>? UnitConversions = null, string? WorkedSolution = null, CircuitDefinition? Circuit = null);
 record Choice(string Id, string Text);
-record Submission(string LessonSlug, string? Answer, string? Code, string? Unit = null);
+record Submission(string LessonSlug, string? Answer, string? Code, string? Unit = null, string? MeterMode = null, string? RedProbe = null, string? BlackProbe = null, string? Diagnosis = null);
 record LearnerProgressResponse(string LearnerId, string[] CompletedLessonSlugs);
 record EvaluatorRequest(string LessonSlug, string Code);
 record HookPlaygroundRequest(string Event, string Matcher, string Script, string Command);
 record HookEvaluatorRequest(string Event, string Matcher, string Script, string Command);
 record HookPlaygroundResult(bool MatcherMatched, bool Executed, int? ExitCode, string Outcome, string Summary, string? Reason, string Stdout, string Stderr, string InputJson);
 record CodeReview(string Summary, string[] Suggestions);
-record ValidationResult(bool Passed, int PassingTests, int TotalTests, string Feedback, string? NextLessonSlug, CodeReview? CodeReview = null, string? WorkedSolution = null);
-enum ExerciseKind { MultipleChoice, Code, Presentation, Numeric }
+record ValidationResult(bool Passed, int PassingTests, int TotalTests, string Feedback, string? NextLessonSlug, CodeReview? CodeReview = null, string? WorkedSolution = null, CircuitReading? CircuitReading = null);
+enum ExerciseKind { MultipleChoice, Code, Presentation, Numeric, Circuit }
 
 static partial class Curriculum
 {
