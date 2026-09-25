@@ -161,7 +161,7 @@ test('renders numeric EE exercises, accepts tolerance, unlocks the next lesson, 
   await page.getByRole('button', { name: 'Ohm\'s law: V = IR' }).click()
   await expect(page.getByText('A 12 V source is connected across a 330 Ω resistor. What current flows?')).toBeVisible()
   await page.getByLabel('Numeric answer').fill('36.4')
-  await expect(page.getByLabel('Unit')).toHaveValue('mA')
+  await expect(page.getByLabel('Unit', { exact: true })).toHaveValue('mA')
   await page.getByRole('button', { name: /Check answer/i }).click()
 
   await expect(page.getByText('Correct', { exact: true })).toBeVisible()
