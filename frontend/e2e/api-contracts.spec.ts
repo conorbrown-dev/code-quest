@@ -114,6 +114,111 @@ test.describe('public API contract', () => {
     await expect(outsideTolerance.json()).resolves.toMatchObject({ passed: false, nextLessonSlug: null })
   })
 
+  test('serves reusable circuit labs without exposing validator answers and validates measurements', async ({ request }) => {
+    const dividerResponse = await request.get(`${apiBaseUrl}/api/lessons/ee-voltage-divider`)
+    await expect(dividerResponse).toBeOK()
+    const divider = await dividerResponse.json() as {
+      nextSlug?: string
+      exercise: {
+        kind: string
+        circuit: {
+          meterModes: string[]
+          nodes: { id: string }[]
+          measurements: { meterMode: string; redNode: string; blackNode: string; display: string }[]
+          task: Record<string, unknown> & { instruction: string; diagnosisChoices: unknown[] }
+        }
+      }
+    }
+    expect(divider.exercise.kind).toBe('Circuit')
+    expect(divider.exercise.circuit.meterModes).toEqual(expect.arrayContaining(['V DC', 'Ω']))
+    expect(divider.exercise.circuit.nodes.map(node => node.id)).toEqual(expect.arrayContaining(['vin', 'mid', 'gnd']))
+    expect(divider.exercise.circuit.measurements).toEqual(expect.arrayContaining([
+      expect.objectContaining({ meterMode: 'V DC', redNode: 'mid', blackNode: 'gnd', display: '5.000 V' }),
+    ]))
+    expect(divider.exercise.circuit.task.instruction).toContain('midpoint voltage')
+    expect(divider.exercise.circuit.task).not.toHaveProperty('expectedMeterMode')
+    expect(divider.exercise.circuit.task).not.toHaveProperty('expectedRedNode')
+    expect(divider.exercise.circuit.task).not.toHaveProperty('expectedBlackNode')
+    expect(divider.exercise.circuit.task).not.toHaveProperty('correctDiagnosis')
+
+    const learnerId = `circuit-lab-${crypto.randomUUID()}`
+    const headers = { 'X-Learner-Id': learnerId }
+    const wrongMode = await request.post(`${apiBaseUrl}/api/submissions/validate`, {
+      headers,
+      data: { lessonSlug: 'ee-voltage-divider', meterMode: 'Ω', redProbe: 'mid', blackProbe: 'gnd' },
+    })
+    await expect(wrongMode).toBeOK()
+    await expect(wrongMode.json()).resolves.toMatchObject({
+      passed: false,
+      feedback: expect.stringContaining('meter mode'),
+    })
+
+    const correct = await request.post(`${apiBaseUrl}/api/submissions/validate`, {
+      headers,
+      data: { lessonSlug: 'ee-voltage-divider', meterMode: 'V DC', redProbe: 'mid', blackProbe: 'gnd' },
+    })
+    await expect(correct).toBeOK()
+    await expect(correct.json()).resolves.toMatchObject({
+      passed: true,
+      nextLessonSlug: 'ee-power-energy',
+      circuitReading: { value: 5, unit: 'V', display: '5.000 V' },
+      workedSolution: expect.stringContaining('midpoint is half'),
+    })
+  })
+
+  test('validates the EE troubleshooting capstone measurement and diagnosis together', async ({ request }) => {
+    const lessonResponse = await request.get(`${apiBaseUrl}/api/lessons/ee-engineering-habits`)
+    await expect(lessonResponse).toBeOK()
+    const lesson = await lessonResponse.json() as {
+      exercise: {
+        kind: string
+        circuit: {
+          task: { diagnosisChoices: { id: string; text: string }[] }
+        }
+      }
+    }
+    expect(lesson.exercise.kind).toBe('Circuit')
+    expect(lesson.exercise.circuit.task.diagnosisChoices.map(choice => choice.id)).toEqual(
+      expect.arrayContaining(['open-led', 'dead-supply', 'short-r1']),
+    )
+
+    const learnerId = `circuit-capstone-${crypto.randomUUID()}`
+    const headers = { 'X-Learner-Id': learnerId }
+    const wrongDiagnosis = await request.post(`${apiBaseUrl}/api/submissions/validate`, {
+      headers,
+      data: {
+        lessonSlug: 'ee-engineering-habits',
+        meterMode: 'V DC',
+        redProbe: 'led-anode',
+        blackProbe: 'gnd',
+        diagnosis: 'dead-supply',
+      },
+    })
+    await expect(wrongDiagnosis).toBeOK()
+    await expect(wrongDiagnosis.json()).resolves.toMatchObject({
+      passed: false,
+      circuitReading: { value: 5, unit: 'V', display: '5.000 V' },
+      feedback: expect.stringContaining('diagnosis'),
+    })
+
+    const correct = await request.post(`${apiBaseUrl}/api/submissions/validate`, {
+      headers,
+      data: {
+        lessonSlug: 'ee-engineering-habits',
+        meterMode: 'V DC',
+        redProbe: 'led-anode',
+        blackProbe: 'gnd',
+        diagnosis: 'open-led',
+      },
+    })
+    await expect(correct).toBeOK()
+    await expect(correct.json()).resolves.toMatchObject({
+      passed: true,
+      nextLessonSlug: null,
+      workedSolution: expect.stringContaining('open D1'),
+    })
+  })
+
   test('Rust multiple-choice exercises are direct questions with selectable answers', async ({ request }) => {
     const courseResponse = await request.get(`${apiBaseUrl}/api/courses/rust-systems`)
     await expect(courseResponse).toBeOK()
