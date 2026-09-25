@@ -134,6 +134,46 @@ test('onboarding selects a track and enters the guest learning experience', asyn
   await expect.poll(() => page.evaluate(() => localStorage.getItem('pathway-course-id'))).toBe('python-web')
 })
 
+test('onboarding selects Electrical Engineering Foundations for a guest', async ({ page }) => {
+  await page.goto('/')
+
+  await page.getByRole('button', { name: /Electrical Engineering Foundations/i }).click()
+  await expect(page.getByText('Selected: Electrical Engineering Foundations')).toBeVisible()
+  await page.getByRole('button', { name: 'Continue as guest' }).click()
+  await expect(page).toHaveTitle('Pathway — Electrical Engineering')
+  await expect(page.getByRole('heading', { name: 'Charge, voltage, and current', level: 1 })).toBeVisible()
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('pathway-course-id'))).toBe('electrical-engineering-foundations')
+})
+
+test('renders numeric EE exercises, accepts tolerance, unlocks the next lesson, and adds review', async ({ page }) => {
+  await page.route('**/api/progress', route => route.fulfill({ status: 401 }))
+  await page.addInitScript(() => {
+    localStorage.setItem('pathway-onboarding-complete', 'true')
+    localStorage.setItem('pathway-course-id', 'electrical-engineering-foundations')
+    localStorage.setItem('pathway-learner-id', 'ee-numeric-ui-guest')
+    localStorage.setItem('pathway-completed-lessons:guest:ee-numeric-ui-guest', JSON.stringify([
+      'ee-charge-voltage-current',
+      'ee-resistance-circuits',
+    ]))
+  })
+  await page.goto('/')
+
+  await page.getByRole('button', { name: 'Ohm\'s law: V = IR' }).click()
+  await expect(page.getByText('A 12 V source is connected across a 330 Ω resistor. What current flows?')).toBeVisible()
+  await page.getByLabel('Numeric answer').fill('36.4')
+  await expect(page.getByLabel('Unit', { exact: true })).toHaveValue('mA')
+  await page.getByRole('button', { name: /Check answer/i }).click()
+
+  await expect(page.getByText('Correct', { exact: true })).toBeVisible()
+  await expect(page.getByRole('main').getByText('Correct. Your calculation is within the accepted engineering tolerance.')).toBeVisible()
+  await expect(page.getByText('Worked solution')).toBeVisible()
+  await expect(page.getByText('I = 12 V / 330 Ω')).toBeVisible()
+  await expect(page.getByRole('button', { name: /Next lesson/i })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Practice' }).click()
+  await expect(page.getByText("Ohm's law: V = IR")).toBeVisible()
+})
+
 test('onboarding selects the Rust systems track', async ({ page }) => {
   await page.goto('/')
 
