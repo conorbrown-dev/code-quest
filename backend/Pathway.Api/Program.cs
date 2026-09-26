@@ -813,9 +813,11 @@ static partial class Curriculum
     public static readonly Lesson[] ElectricalEngineeringLessons = BuildElectricalEngineeringLessons();
     public static readonly Lesson[] ReactCourseLessons = BuildReactCourseLessons();
     public static readonly Lesson[] ReactLiteCourseLessons = BuildReactLiteCourseLessons();
+    public static readonly Lesson[] WebBasicsLessons = BuildWebBasicsLessons();
 
     public static readonly Dictionary<string, Lesson> BySlug = ComputingLessons
         .Concat(ElectricalEngineeringLessons)
+        .Concat(WebBasicsLessons)
         .Concat(GitCliLessons)
         .Concat(ReactCourseLessons)
         .Concat(ReactLiteCourseLessons)
@@ -828,6 +830,7 @@ static partial class Curriculum
     public static readonly Course ComputingCourse = BuildCourse("computing-foundations", "Computing Foundations", "computing", "Core computing", "Machine · data · processes · OS", "2026-09-24", ComputingLessons);
     public static readonly Course ElectricalEngineeringCourse = BuildCourse("electrical-engineering-foundations", "Electrical Engineering Foundations", "electrical-engineering", "EE Foundations", "Circuits · measurement · components · signals", "2026-09-25", ElectricalEngineeringLessons);
     public static readonly Course GitCliCourse = BuildCourse("git-cli", "Git CLI", "git", "Git CLI", "Repositories · branches · remotes · recovery", "2026-09-26", GitCliLessons);
+    public static readonly Course WebBasicsCourse = BuildCourse("web-development-basics", "Web Development Basics 2026", "web", "Web Platform 2026", "HTML · CSS · JavaScript · TypeScript · HTTP", "2026-09-26", WebBasicsLessons);
     public static readonly Course ReactCourse = BuildCourse("react-enterprise", "React 2026: enterprise applications", "react", "React 19.3 · TypeScript 6.0", "Vite 8.1 · React Router 8 · Tailwind CSS 4.3", "2026-09-26", ReactCourseLessons);
     public static readonly Course ReactLiteCourse = BuildCourse("react-lite", "React Lite 2026: your first admin dashboard", "react", "React 19.3 · TypeScript 6.0", "Vite 8.1 · React Router 8 · Tailwind CSS 4.3", "2026-09-26", ReactLiteCourseLessons);
     public static readonly Course Course = BuildCourse("csharp-dotnet", "C# / .NET: zero to staff", "csharp", "C# 14", ".NET 10", "2026-09-24", CSharpCourseLessons);
@@ -840,6 +843,7 @@ static partial class Curriculum
         [ComputingCourse.Id] = ComputingCourse,
         [ElectricalEngineeringCourse.Id] = ElectricalEngineeringCourse,
         [GitCliCourse.Id] = GitCliCourse,
+        [WebBasicsCourse.Id] = WebBasicsCourse,
         [ReactCourse.Id] = ReactCourse,
         [ReactLiteCourse.Id] = ReactLiteCourse,
         [Course.Id] = Course,
@@ -853,6 +857,7 @@ static partial class Curriculum
         new(ComputingCourse.Id, ComputingCourse.Title, ComputingCourse.LanguageId, ComputingCourse.LanguageVersion, ComputingCourse.FrameworkVersion, true),
         new(ElectricalEngineeringCourse.Id, ElectricalEngineeringCourse.Title, ElectricalEngineeringCourse.LanguageId, ElectricalEngineeringCourse.LanguageVersion, ElectricalEngineeringCourse.FrameworkVersion, true),
         new(GitCliCourse.Id, GitCliCourse.Title, GitCliCourse.LanguageId, GitCliCourse.LanguageVersion, GitCliCourse.FrameworkVersion, true),
+        new(WebBasicsCourse.Id, WebBasicsCourse.Title, WebBasicsCourse.LanguageId, WebBasicsCourse.LanguageVersion, WebBasicsCourse.FrameworkVersion, true),
         new(ReactCourse.Id, ReactCourse.Title, ReactCourse.LanguageId, ReactCourse.LanguageVersion, ReactCourse.FrameworkVersion, true),
         new(ReactLiteCourse.Id, ReactLiteCourse.Title, ReactLiteCourse.LanguageId, ReactLiteCourse.LanguageVersion, ReactLiteCourse.FrameworkVersion, true),
         new(Course.Id, Course.Title, Course.LanguageId, Course.LanguageVersion, Course.FrameworkVersion, true),
