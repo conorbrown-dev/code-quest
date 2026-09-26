@@ -380,6 +380,42 @@ test('runs the Claude PreToolUse Hook Playground against simulated Bash commands
   await expect(page.getByText(/normal permission flow/i)).toBeVisible()
 })
 
+test('loads Web Development Basics as its own course', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('pathway-onboarding-complete', 'true')
+    localStorage.setItem('pathway-course-id', 'web-development-basics')
+  })
+  await page.goto('/')
+
+  await expect(page).toHaveTitle('Pathway — Web Development Basics')
+  await expect(page.getByRole('heading', { name: 'How a web application fits together', level: 1 })).toBeVisible()
+  await expect(page.getByText('Place the responsibility')).toBeVisible()
+})
+
+test('loads React Lite and reaches a TypeScript exercise without Web Basics lessons', async ({ page }) => {
+  await page.route('**/api/progress', route => route.fulfill({ status: 401 }))
+  await page.addInitScript(() => {
+    localStorage.setItem('pathway-onboarding-complete', 'true')
+    localStorage.setItem('pathway-course-id', 'react-lite')
+    localStorage.setItem('pathway-learner-id', 'react-lite-ui-guest')
+    localStorage.setItem('pathway-completed-lessons:guest:react-lite-ui-guest', JSON.stringify([
+      'react-lite-vite-bootstrap',
+      'react-lite-router-tailwind',
+      'react-lite-devtools-project-files',
+      'react-lite-folder-structure',
+    ]))
+  })
+  await page.goto('/')
+
+  await expect(page).toHaveTitle('Pathway — React Lite 2026')
+  await expect(page.getByRole('heading', { name: 'Bootstrap the same modern React stack', level: 1 })).toBeVisible()
+  await expect(page.getByText('Choose the starter')).toBeVisible()
+  await page.getByRole('button', { name: 'Understand JSX and rendering' }).click()
+  await expect(page.getByText('App.tsx')).toBeVisible()
+  await expect(page.locator('.monaco-editor')).toBeVisible()
+  await expect(page.getByRole('button', { name: /Run tests/i })).toBeVisible()
+})
+
 test('loads the selected React enterprise track with a TypeScript exercise editor', async ({ page }) => {
   await page.route('**/api/progress', route => route.fulfill({ status: 401 }))
   await page.addInitScript(() => {
