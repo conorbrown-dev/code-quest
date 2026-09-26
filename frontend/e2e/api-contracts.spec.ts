@@ -103,6 +103,22 @@ test.describe('public API contract', () => {
     expect(checkpoint.title).toBe('React rendering and hooks checkpoint')
     expect(checkpoint.questions).toHaveLength(8)
     expect(checkpoint.questions.every(question => question.correctAnswer == null)).toBe(true)
+
+    const [capstones, scenarios] = await Promise.all([
+      request.get(`${apiBaseUrl}/api/experience/career/react-enterprise/capstones`),
+      request.get(`${apiBaseUrl}/api/experience/career/react-enterprise/scenarios`),
+    ])
+    await expect(capstones).toBeOK()
+    await expect(scenarios).toBeOK()
+    await expect(capstones.json()).resolves.toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'react-foundation-app' }),
+      expect.objectContaining({ id: 'react-production-workflow' }),
+      expect.objectContaining({ id: 'react-frontend-platform' }),
+    ]))
+    await expect(scenarios.json()).resolves.toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'incident-react-render-storm' }),
+      expect.objectContaining({ id: 'pr-react-boundaries' }),
+    ]))
   })
 
   test('serves the Git CLI course and its checkpoint quiz', async ({ request }) => {
