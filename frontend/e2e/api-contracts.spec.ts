@@ -27,11 +27,15 @@ test.describe('public API contract', () => {
       expect.objectContaining({ id: 'electrical-engineering-foundations', available: true }),
       expect.objectContaining({ id: 'git-cli', available: true }),
       expect.objectContaining({ id: 'web-development-basics', available: true }),
+      expect.objectContaining({ id: 'sqlite', available: true }),
       expect.objectContaining({ id: 'react-lite', available: true }),
       expect.objectContaining({ id: 'react-enterprise', available: true }),
       expect.objectContaining({ id: 'csharp-dotnet', available: true }),
       expect.objectContaining({ id: 'python-web', available: true }),
       expect.objectContaining({ id: 'rust-systems', available: true }),
+      expect.objectContaining({ id: 'sql-server', available: false }),
+      expect.objectContaining({ id: 'mysql', available: false }),
+      expect.objectContaining({ id: 'postgresql', available: false }),
       expect.objectContaining({ id: 'networking-fundamentals', available: false }),
       expect.objectContaining({ id: 'dns', available: false }),
       expect.objectContaining({ id: 'http-apis', available: false }),
@@ -54,7 +58,7 @@ test.describe('public API contract', () => {
     expect((await request.post(`${apiBaseUrl}/api/submissions/validate`, { data: { lessonSlug: 'not-a-lesson', answer: 'anything' } })).status()).toBe(404)
   })
 
-  for (const courseId of ['computing-foundations', 'electrical-engineering-foundations', 'git-cli', 'web-development-basics', 'react-lite', 'react-enterprise', 'csharp-dotnet', 'python-web', 'rust-systems']) {
+  for (const courseId of ['computing-foundations', 'electrical-engineering-foundations', 'git-cli', 'web-development-basics', 'sqlite', 'react-lite', 'react-enterprise', 'csharp-dotnet', 'python-web', 'rust-systems']) {
     test(`${courseId} has contiguous lessons and representative next-lesson links`, async ({ request }) => {
       const courseResponse = await request.get(`${apiBaseUrl}/api/courses/${courseId}`)
       await expect(courseResponse).toBeOK()
@@ -94,6 +98,48 @@ test.describe('public API contract', () => {
     expect(checkpoint.title).toBe('Web development basics checkpoint')
     expect(checkpoint.questions).toHaveLength(8)
     expect(checkpoint.questions.every(question => question.correctAnswer == null)).toBe(true)
+  })
+
+  test('serves the SQLite course, checkpoint, and database capstone', async ({ request }) => {
+    const courseResponse = await request.get(`${apiBaseUrl}/api/courses/sqlite`)
+    await expect(courseResponse).toBeOK()
+    const course = await courseResponse.json() as Course
+    const summaries = orderedLessons(course)
+    expect(summaries).toHaveLength(25)
+    expect(summaries[0]).toMatchObject({ slug: 'sqlite-what-it-is', order: 1 })
+    expect(summaries.at(-1)).toMatchObject({ slug: 'sqlite-capstone', order: 25 })
+
+    const cliLesson = await request.get(`${apiBaseUrl}/api/lessons/sqlite-cli-db-browser`)
+    await expect(cliLesson).toBeOK()
+    await expect(cliLesson.json()).resolves.toMatchObject({
+      version: {
+        language: 'SQLite 3.53.4',
+        framework: 'sqlite3 CLI · DB Browser for SQLite 3.13.1',
+      },
+      concept: expect.stringContaining('DB Browser for SQLite'),
+    })
+
+    const sqlExercise = await request.get(`${apiBaseUrl}/api/lessons/sqlite-open-inspect`)
+    await expect(sqlExercise).toBeOK()
+    await expect(sqlExercise.json()).resolves.toMatchObject({
+      exercise: {
+        kind: 'Code',
+        prompt: expect.stringContaining('Create a products table'),
+      },
+    })
+
+    const assessment = await request.get(`${apiBaseUrl}/api/experience/assessments/sqlite/sqlite-foundations`)
+    await expect(assessment).toBeOK()
+    const checkpoint = await assessment.json() as { title: string; questions: { correctAnswer?: string }[] }
+    expect(checkpoint.title).toBe('SQLite foundations checkpoint')
+    expect(checkpoint.questions).toHaveLength(8)
+    expect(checkpoint.questions.every(question => question.correctAnswer == null)).toBe(true)
+
+    const capstones = await request.get(`${apiBaseUrl}/api/experience/career/sqlite/capstones`)
+    await expect(capstones).toBeOK()
+    await expect(capstones.json()).resolves.toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'sqlite-issue-tracker-db' }),
+    ]))
   })
 
   test('serves React Lite without duplicating Web Basics', async ({ request }) => {
