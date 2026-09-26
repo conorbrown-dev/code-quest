@@ -39,6 +39,31 @@ test('has isolated TypeScript fixtures for every React coding exercise', () => {
   }
 })
 
+test('has isolated TypeScript fixtures for every React Lite coding exercise', () => {
+  const lessons = [
+    'react-lite-jsx-rendering',
+    'react-lite-components-props',
+    'react-lite-state',
+    'react-lite-forms',
+    'react-lite-router-pages',
+    'react-lite-layout-nav',
+    'react-lite-table-filter-sort',
+    'react-lite-dummy-api-read',
+    'react-lite-router-loader',
+    'react-lite-dummy-api-write',
+    'react-lite-router-action-crud',
+    'react-lite-basic-testing',
+    'react-lite-capstone',
+  ]
+  for (const lessonSlug of lessons) {
+    const fixture = fixtureFor(lessonSlug, 'export const value = 1')
+    assert.ok(fixture, `missing fixture for ${lessonSlug}`)
+    assert.equal(fixture.runtime, 'react')
+    assert.equal(fixture.tests, 2)
+    assert.match(fixture.command.join(' '), /tsc/)
+  }
+})
+
 test('has isolated Git fixtures for the full CLI course', () => {
   const lessons = [
     'git-init-status', 'git-stage-files', 'git-first-commit', 'git-history-diff',
