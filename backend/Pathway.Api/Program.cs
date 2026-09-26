@@ -420,6 +420,32 @@ static ValidationResult ValidateCode(Lesson lesson, string code)
         };
         return new ValidationResult(gitPassed, gitPassed ? 3 : 0, 3, gitPassed ? "Command shape looks right for local authoring. Deployed lessons verify the real repository state inside the sandbox." : lesson.Exercise.Hint, gitPassed ? lesson.NextSlug : null, BuildCodeReview(lesson, code));
     }
+    if (lesson.Slug.StartsWith("linux-", StringComparison.Ordinal) || lesson.Slug.StartsWith("bash-", StringComparison.Ordinal) || lesson.Slug.StartsWith("vim-", StringComparison.Ordinal))
+    {
+        var normalized = code.ToLowerInvariant();
+        var linuxPassed = lesson.Slug switch
+        {
+            "linux-paths-navigation" => normalized.Contains("cd") && normalized.Contains("pwd") && normalized.Contains("ls"),
+            "linux-files-directories" => normalized.Contains("mkdir") && normalized.Contains("cp") && normalized.Contains("mv") && normalized.Contains("rm"),
+            "linux-read-text" => normalized.Contains("head") && normalized.Contains("tail") && normalized.Contains("wc"),
+            "linux-pipes-redirection" => normalized.Contains("grep") && normalized.Contains("sort") && normalized.Contains("uniq") && normalized.Contains(">"),
+            "linux-grep-find" => normalized.Contains("find") && normalized.Contains("grep"),
+            "linux-expansion-quoting" => normalized.Contains("cp") && code.Contains("\"$SOURCE\"", StringComparison.Ordinal),
+            "linux-permissions" => normalized.Contains("chmod"),
+            "linux-environment-path" => normalized.Contains("export") && normalized.Contains("path") && normalized.Contains("command -v"),
+            "linux-archives-compression" => normalized.Contains("tar"),
+            "bash-script-basics" => normalized.Contains("#!/usr/bin/env bash") && normalized.Contains("chmod"),
+            "bash-variables-arguments" => normalized.Contains("#!/usr/bin/env bash") && normalized.Contains("exit 2"),
+            "bash-status-conditionals" => normalized.Contains("[[") && normalized.Contains("-f") && normalized.Contains("-s"),
+            "bash-loops-functions" => code.Contains("\"$@\"", StringComparison.Ordinal) && normalized.Contains("for "),
+            "bash-safe-scripting" => normalized.Contains("set -euo pipefail") && normalized.Contains("mktemp") && normalized.Contains("trap"),
+            "bash-text-processing" => normalized.Contains("awk") && normalized.Contains("sort"),
+            "vim-search-substitute" => normalized.Contains("%s/todo/done/g") && (normalized.Contains("write") || normalized.Contains("w")),
+            "linux-cli-capstone" => normalized.Contains("set -euo pipefail") && normalized.Contains("mktemp") && normalized.Contains("trap") && normalized.Contains("tar"),
+            _ => false
+        };
+        return new ValidationResult(linuxPassed, linuxPassed ? 3 : 0, 3, linuxPassed ? "Command shape looks right for local authoring. Deployed lessons verify the real Linux/Vim state inside the sandbox." : lesson.Exercise.Hint, linuxPassed ? lesson.NextSlug : null, BuildCodeReview(lesson, code));
+    }
     if (lesson.Slug.StartsWith("sqlite-", StringComparison.Ordinal))
     {
         var normalized = code.ToUpperInvariant();
@@ -496,6 +522,13 @@ static CodeReview BuildCodeReview(Lesson lesson, string code)
         if (code.Contains("git add .", StringComparison.Ordinal)) suggestions.Add("Prefer staging the specific paths that belong in the commit when the exercise calls for a focused change.");
         if (code.Contains("--force", StringComparison.Ordinal) && !code.Contains("--force-with-lease", StringComparison.Ordinal)) suggestions.Add("On shared remotes, prefer --force-with-lease over --force when a history rewrite is truly necessary.");
         if (code.Contains("git reset --hard", StringComparison.Ordinal)) suggestions.Add("git reset --hard discards working-tree and index changes. Confirm status and the target commit before using it outside a disposable lab.");
+    }
+    else if (lesson.Slug.StartsWith("linux-", StringComparison.Ordinal) || lesson.Slug.StartsWith("bash-", StringComparison.Ordinal) || lesson.Slug.StartsWith("vim-", StringComparison.Ordinal))
+    {
+        if (code.Contains("rm -rf /", StringComparison.OrdinalIgnoreCase)) suggestions.Add("Avoid destructive recursive removal against root-level paths; narrow and inspect the target first.");
+        if (code.Contains("$@", StringComparison.Ordinal) && !code.Contains("\"$@\"", StringComparison.Ordinal)) suggestions.Add("Quote \"$@\" so each original argument keeps its boundary.");
+        if (code.Contains("chmod 777", StringComparison.OrdinalIgnoreCase)) suggestions.Add("Avoid chmod 777; grant only the owner/group/other permissions actually required.");
+        if (code.Contains("for ", StringComparison.OrdinalIgnoreCase) && code.Contains("$(", StringComparison.Ordinal) && !code.Contains("\"$@\"", StringComparison.Ordinal)) suggestions.Add("Avoid iterating command-substitution text when filenames or fields may contain whitespace; preserve argument/record boundaries.");
     }
     else if (lesson.Slug.StartsWith("sqlite-", StringComparison.Ordinal))
     {
@@ -845,11 +878,13 @@ static partial class Curriculum
     public static readonly Lesson[] ReactLiteCourseLessons = BuildReactLiteCourseLessons();
     public static readonly Lesson[] WebBasicsLessons = BuildWebBasicsLessons();
     public static readonly Lesson[] SQLiteLessons = BuildSQLiteLessons();
+    public static readonly Lesson[] LinuxCliLessons = BuildLinuxCliLessons();
 
     public static readonly Dictionary<string, Lesson> BySlug = ComputingLessons
         .Concat(ElectricalEngineeringLessons)
         .Concat(WebBasicsLessons)
         .Concat(SQLiteLessons)
+        .Concat(LinuxCliLessons)
         .Concat(GitCliLessons)
         .Concat(ReactCourseLessons)
         .Concat(ReactLiteCourseLessons)
@@ -864,6 +899,7 @@ static partial class Curriculum
     public static readonly Course GitCliCourse = BuildCourse("git-cli", "Git CLI", "git", "Git CLI", "Repositories · branches · remotes · recovery", "2026-09-26", GitCliLessons);
     public static readonly Course WebBasicsCourse = BuildCourse("web-development-basics", "Web Development Basics 2026", "web", "Web Platform 2026", "HTML · CSS · JavaScript · TypeScript · HTTP", "2026-09-26", WebBasicsLessons);
     public static readonly Course SQLiteCourse = BuildCourse("sqlite", "SQLite", "sqlite", "SQLite 3.53.4", "sqlite3 CLI · DB Browser for SQLite 3.13.1", "2026-09-26", SQLiteLessons);
+    public static readonly Course LinuxCliCourse = BuildCourse("linux-cli-bash-vim", "Linux CLI / Bash / Vim", "linux", "GNU/Linux CLI · Bash 5.3", "GNU coreutils · Vim 9.2", "2026-09-26", LinuxCliLessons);
     public static readonly Course ReactCourse = BuildCourse("react-enterprise", "React 2026: enterprise applications", "react", "React 19.3 · TypeScript 6.0", "Vite 8.1 · React Router 8 · Tailwind CSS 4.3", "2026-09-26", ReactCourseLessons);
     public static readonly Course ReactLiteCourse = BuildCourse("react-lite", "React Lite 2026: your first admin dashboard", "react", "React 19.3 · TypeScript 6.0", "Vite 8.1 · React Router 8 · Tailwind CSS 4.3", "2026-09-26", ReactLiteCourseLessons);
     public static readonly Course Course = BuildCourse("csharp-dotnet", "C# / .NET: zero to staff", "csharp", "C# 14", ".NET 10", "2026-09-24", CSharpCourseLessons);
@@ -878,6 +914,7 @@ static partial class Curriculum
         [GitCliCourse.Id] = GitCliCourse,
         [WebBasicsCourse.Id] = WebBasicsCourse,
         [SQLiteCourse.Id] = SQLiteCourse,
+        [LinuxCliCourse.Id] = LinuxCliCourse,
         [ReactCourse.Id] = ReactCourse,
         [ReactLiteCourse.Id] = ReactLiteCourse,
         [Course.Id] = Course,
@@ -893,6 +930,7 @@ static partial class Curriculum
         new(GitCliCourse.Id, GitCliCourse.Title, GitCliCourse.LanguageId, GitCliCourse.LanguageVersion, GitCliCourse.FrameworkVersion, true),
         new(WebBasicsCourse.Id, WebBasicsCourse.Title, WebBasicsCourse.LanguageId, WebBasicsCourse.LanguageVersion, WebBasicsCourse.FrameworkVersion, true),
         new(SQLiteCourse.Id, SQLiteCourse.Title, SQLiteCourse.LanguageId, SQLiteCourse.LanguageVersion, SQLiteCourse.FrameworkVersion, true),
+        new(LinuxCliCourse.Id, LinuxCliCourse.Title, LinuxCliCourse.LanguageId, LinuxCliCourse.LanguageVersion, LinuxCliCourse.FrameworkVersion, true),
         new(ReactCourse.Id, ReactCourse.Title, ReactCourse.LanguageId, ReactCourse.LanguageVersion, ReactCourse.FrameworkVersion, true),
         new(ReactLiteCourse.Id, ReactLiteCourse.Title, ReactLiteCourse.LanguageId, ReactLiteCourse.LanguageVersion, ReactLiteCourse.FrameworkVersion, true),
         new(Course.Id, Course.Title, Course.LanguageId, Course.LanguageVersion, Course.FrameworkVersion, true),
