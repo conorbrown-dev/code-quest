@@ -92,6 +92,43 @@ type Course = {
     lessons: { slug: string; title: string; order: number }[];
   }[];
 };
+type CourseCatalogItem = {
+  id: string;
+  title: string;
+  languageId: string;
+  languageVersion: string;
+  frameworkVersion: string;
+  available: boolean;
+};
+const courseBadgeText = (course: { id: string; languageId: string }) =>
+  course.id === "react-lite"
+    ? "⚛L"
+    : course.languageId === "react"
+      ? "⚛"
+      : course.languageId === "python"
+        ? "Py"
+        : course.languageId === "sqlite"
+          ? "SQL"
+          : course.languageId === "linux"
+            ? "$_"
+            : course.languageId === "kubernetes"
+              ? "K8s"
+              : course.languageId === "rust"
+                ? "Rs"
+                : course.languageId === "claude"
+                  ? "AI"
+                  : course.languageId === "computing"
+                    ? "01"
+                    : course.languageId === "electrical-engineering"
+                      ? "EE"
+                      : course.languageId === "git"
+                        ? "Git"
+                        : course.languageId === "web"
+                          ? "WEB"
+                          : course.languageId === "csharp"
+                            ? "C#"
+                            : course.languageId.slice(0, 3).toUpperCase();
+
 type CodeReview = { summary: string; suggestions: string[] };
 type Result = {
   passed: boolean;
@@ -233,7 +270,7 @@ function App() {
   );
   useEffect(() => {
     if (course)
-      document.title = `Pathway — ${course.languageId === "claude" ? "Claude Engineering" : course.languageId === "computing" ? "Computing Foundations" : course.languageId === "electrical-engineering" ? "Electrical Engineering" : course.languageId === "git" ? "Git CLI" : course.id === "react-lite" ? "React Lite 2026" : course.id === "react-enterprise" ? "React 2026" : course.languageId === "web" ? "Web Development Basics" : course.languageId === "sqlite" ? "SQLite" : course.languageId === "linux" ? "Linux CLI / Bash / Vim" : `Learn ${course.languageId === "python" ? "Python" : course.languageId === "rust" ? "Rust" : "C#"}`}`;
+      document.title = `Pathway — ${course.languageId === "claude" ? "Claude Engineering" : course.languageId === "computing" ? "Computing Foundations" : course.languageId === "electrical-engineering" ? "Electrical Engineering" : course.languageId === "git" ? "Git CLI" : course.id === "react-lite" ? "React Lite 2026" : course.id === "react-enterprise" ? "React 2026" : course.languageId === "web" ? "Web Development Basics" : course.languageId === "sqlite" ? "SQLite" : course.languageId === "linux" ? "Linux CLI / Bash / Vim" : course.languageId === "kubernetes" ? "Kubernetes" : `Learn ${course.languageId === "python" ? "Python" : course.languageId === "rust" ? "Rust" : "C#"}`}`;
   }, [course]);
   const notify = (message: string) => {
     setToast(message);
@@ -721,6 +758,7 @@ function Onboarding({
   const webBasicsSelected = selectedCourseId === "web-development-basics";
   const sqliteSelected = selectedCourseId === "sqlite";
   const linuxSelected = selectedCourseId === "linux-cli-bash-vim";
+  const kubernetesSelected = selectedCourseId === "kubernetes";
   const reactLiteSelected = selectedCourseId === "react-lite";
   const reactSelected = selectedCourseId === "react-enterprise";
   const pythonSelected = selectedCourseId === "python-web";
@@ -838,6 +876,18 @@ function Onboarding({
                   <small className="mt-1 block text-xs text-[#aaa3b6]">Terminal · Bash 5.3 · GNU tools · Vim 9.2</small>
                 </span>
                 {linuxSelected && <Check className="ml-auto text-[#c198ff]" size={19} />}
+              </button>
+              <button
+                aria-label="Select Kubernetes course"
+                onClick={() => onSelectCourse("kubernetes")}
+                className={`track-option mt-3 flex w-full items-center gap-4 rounded-xl p-4 text-left ${kubernetesSelected ? "ring-1 ring-[#bd87ff]" : ""}`}
+              >
+                <span className="grid h-11 w-11 place-items-center rounded-lg bg-[#326ce5] font-mono text-xs font-bold text-white">K8s</span>
+                <span>
+                  <strong className="block text-sm text-white">Kubernetes: foundations to internals</strong>
+                  <small className="mt-1 block text-xs text-[#aaa3b6]">Containers · workloads · networking · storage · control plane</small>
+                </span>
+                {kubernetesSelected && <Check className="ml-auto text-[#c198ff]" size={19} />}
               </button>
               <button
                 onClick={() => onSelectCourse("react-lite")}
@@ -1221,22 +1271,7 @@ function Sidebar({
     setTrackMenuOpen(false);
     localStorage.setItem("pathway-sidebar-collapsed", String(next));
   };
-  const languageBadge =
-    course.languageId === "python"
-      ? "Py"
-      : course.languageId === "sqlite"
-        ? "SQL"
-      : course.languageId === "linux"
-        ? "$_"
-      : course.languageId === "rust"
-        ? "Rs"
-        : course.languageId === "claude"
-          ? "AI"
-          : course.languageId === "computing"
-            ? "01"
-            : course.languageId === "electrical-engineering"
-              ? "EE"
-              : "C#";
+  const languageBadge = courseBadgeText(course);
   const nav = (id: Workspace, label: string, icon: ReactNode) => (
     <button
       onClick={() => onNavigate(id)}
@@ -1409,149 +1444,62 @@ function TrackMenu({
   close: () => void;
   onChangeCourse: (courseId: string) => void;
 }) {
+  const [catalog, setCatalog] = useState<CourseCatalogItem[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${api}/api/courses`)
+      .then((response) => (response.ok ? response.json() : Promise.reject()))
+      .then((items: CourseCatalogItem[]) => {
+        if (!cancelled) setCatalog(items);
+      })
+      .catch(() => {
+        if (!cancelled) setCatalog([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const select = (id: string) => {
     close();
     onChangeCourse(id);
   };
   const itemClass = (id: string) =>
     `flex w-full items-center gap-3 rounded px-3 py-2.5 text-left text-xs ${courseId === id ? "bg-[#6d36ce42] font-bold text-white" : "text-[#d5cae4] hover:bg-[#ffffff0b]"}`;
+  const availableCourses = catalog.filter((item) => item.available);
+  const comingSoonCourses = catalog.filter((item) => !item.available);
+
   return (
     <div
       role="menu"
-      className="absolute z-20 w-full rounded-md border border-[#4b3a67] bg-[#21182f] p-1 shadow-xl"
+      className="absolute z-20 max-h-[70vh] w-full overflow-y-auto rounded-md border border-[#4b3a67] bg-[#21182f] p-1 shadow-xl"
     >
-      <button
-        role="menuitem"
-        onClick={() => select("computing-foundations")}
-        className={itemClass("computing-foundations")}
-      >
-        <span className="rounded bg-[#4f7b69] px-1 py-0.5 text-[9px] text-white">
-          01
-        </span>
-        <span>Computing Foundations</span>
-        {courseId === "computing-foundations" && (
-          <Check className="ml-auto" size={14} />
-        )}
-      </button>
-      <button
-        role="menuitem"
-        onClick={() => select("electrical-engineering-foundations")}
-        className={itemClass("electrical-engineering-foundations")}
-      >
-        <span className="rounded bg-[#c9772d] px-1 py-0.5 text-[9px] text-white">EE</span>
-        <span>Electrical Engineering</span>
-        {courseId === "electrical-engineering-foundations" && <Check className="ml-auto" size={14} />}
-      </button>
-      <button
-        role="menuitem"
-        onClick={() => select("git-cli")}
-        className={itemClass("git-cli")}
-      >
-        <span className="rounded bg-[#f05032] px-1 py-0.5 text-[9px] text-white">Git</span>
-        <span>Git CLI</span>
-        {courseId === "git-cli" && <Check className="ml-auto" size={14} />}
-      </button>
-      <button
-        role="menuitem"
-        onClick={() => select("web-development-basics")}
-        className={itemClass("web-development-basics")}
-      >
-        <span className="rounded bg-[#46658a] px-1 py-0.5 text-[9px] text-white">WEB</span>
-        <span>Web Development Basics</span>
-        {courseId === "web-development-basics" && <Check className="ml-auto" size={14} />}
-      </button>
-      <button
-        role="menuitem"
-        onClick={() => select("sqlite")}
-        className={itemClass("sqlite")}
-      >
-        <span className="rounded bg-[#4d86c6] px-1 py-0.5 text-[9px] text-white">SQL</span>
-        <span>SQLite</span>
-        {courseId === "sqlite" && <Check className="ml-auto" size={14} />}
-      </button>
-      <button
-        role="menuitem"
-        onClick={() => select("linux-cli-bash-vim")}
-        className={itemClass("linux-cli-bash-vim")}
-      >
-        <span className="rounded bg-[#3f6b50] px-1 py-0.5 text-[9px] text-white">$_</span>
-        <span>Linux CLI / Bash / Vim</span>
-        {courseId === "linux-cli-bash-vim" && <Check className="ml-auto" size={14} />}
-      </button>
-      <button
-        role="menuitem"
-        onClick={() => select("react-lite")}
-        className={itemClass("react-lite")}
-      >
-        <span className="rounded bg-[#149eca] px-1 py-0.5 text-[9px] text-white">⚛L</span>
-        <span>React Lite 2026</span>
-        {courseId === "react-lite" && <Check className="ml-auto" size={14} />}
-      </button>
-      <button
-        role="menuitem"
-        onClick={() => select("react-enterprise")}
-        className={itemClass("react-enterprise")}
-      >
-        <span className="rounded bg-[#149eca] px-1 py-0.5 text-[9px] text-white">⚛</span>
-        <span>React 2026</span>
-        {courseId === "react-enterprise" && <Check className="ml-auto" size={14} />}
-      </button>
-      <button
-        role="menuitem"
-        onClick={() => select("csharp-dotnet")}
-        className={itemClass("csharp-dotnet")}
-      >
-        <span className="rounded bg-[#785aa8] px-1 py-0.5 text-[9px] text-white">
-          C#
-        </span>
-        <span>C# / .NET</span>
-        {courseId === "csharp-dotnet" && (
-          <Check className="ml-auto" size={14} />
-        )}
-      </button>
-      <button
-        role="menuitem"
-        onClick={() => select("python-web")}
-        className={itemClass("python-web")}
-      >
-        <span className="rounded bg-[#3776ab] px-1 py-0.5 text-[9px] text-white">
-          Py
-        </span>
-        <span>Python Web</span>
-        {courseId === "python-web" && <Check className="ml-auto" size={14} />}
-      </button>
-      <button
-        role="menuitem"
-        onClick={() => select("rust-systems")}
-        className={itemClass("rust-systems")}
-      >
-        <span className="rounded bg-[#dea584] px-1 py-0.5 text-[9px] text-[#2b1d16]">
-          Rs
-        </span>
-        <span>Rust Systems</span>
-        {courseId === "rust-systems" && <Check className="ml-auto" size={14} />}
-      </button>
-      <button
-        role="menuitem"
-        onClick={() => select("claude-engineering")}
-        className={itemClass("claude-engineering")}
-      >
-        <span className="rounded bg-[#d97757] px-1 py-0.5 text-[9px] text-white">
-          AI
-        </span>
-        <span>Claude Engineering</span>
-        {courseId === "claude-engineering" && (
-          <Check className="ml-auto" size={14} />
-        )}
-      </button>
-      <div className="my-1 border-t border-[#ffffff10]" />
-      {["SQL Server · SSMS", "MySQL · Workbench", "PostgreSQL · pgAdmin", "Networking", "DNS", "HTTP & APIs", "HTTPS & TLS", "Distributed Systems", "Digital Electronics", "Analog Electronics", "AC Circuit Analysis", "Embedded Systems", "Microcontrollers", "PCB Design", "Signals & Systems", "Control Systems", "Electromagnetics", "Power Electronics"].map((title) => (
+      {availableCourses.length ? (
+        availableCourses.map((item) => (
+          <button
+            key={item.id}
+            role="menuitem"
+            onClick={() => select(item.id)}
+            className={itemClass(item.id)}
+          >
+            <span className="min-w-8 rounded bg-[#785aa8] px-1 py-0.5 text-center text-[9px] text-white">
+              {courseBadgeText(item)}
+            </span>
+            <span className="min-w-0 flex-1 truncate">{item.title}</span>
+            {courseId === item.id && <Check className="ml-auto shrink-0" size={14} />}
+          </button>
+        ))
+      ) : (
+        <div className="px-3 py-2.5 text-xs text-[#9688ae]">Loading courses…</div>
+      )}
+      {comingSoonCourses.length ? <div className="my-1 border-t border-[#ffffff10]" /> : null}
+      {comingSoonCourses.map((item) => (
         <div
-          key={title}
-          className="flex items-center justify-between rounded px-3 py-2 text-[11px] text-[#786f86]"
+          key={item.id}
+          className="flex items-center justify-between gap-3 rounded px-3 py-2 text-[11px] text-[#786f86]"
         >
-          <span>{title}</span>
-          <span className="text-[9px] font-bold uppercase tracking-[.8px]">Soon</span>
+          <span className="min-w-0 truncate">{item.title}</span>
+          <span className="shrink-0 text-[9px] font-bold uppercase tracking-[.8px]">Soon</span>
         </div>
       ))}
     </div>
