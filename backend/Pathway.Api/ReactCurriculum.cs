@@ -75,7 +75,7 @@ static partial class Curriculum
             hint,
             tests);
 
-    public static readonly Lesson[] ReactCourseLessons = NormalizeLessons(
+    public static Lesson[] BuildReactCourseLessons() => NormalizeLessons(
     [
         new(
             "react-vite-bootstrap",
