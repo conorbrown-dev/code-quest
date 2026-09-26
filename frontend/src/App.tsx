@@ -233,7 +233,7 @@ function App() {
   );
   useEffect(() => {
     if (course)
-      document.title = `Pathway — ${course.languageId === "claude" ? "Claude Engineering" : course.languageId === "computing" ? "Computing Foundations" : course.languageId === "electrical-engineering" ? "Electrical Engineering" : course.languageId === "git" ? "Git CLI" : course.id === "react-lite" ? "React Lite 2026" : course.id === "react-enterprise" ? "React 2026" : course.languageId === "web" ? "Web Development Basics" : `Learn ${course.languageId === "python" ? "Python" : course.languageId === "rust" ? "Rust" : "C#"}`}`;
+      document.title = `Pathway — ${course.languageId === "claude" ? "Claude Engineering" : course.languageId === "computing" ? "Computing Foundations" : course.languageId === "electrical-engineering" ? "Electrical Engineering" : course.languageId === "git" ? "Git CLI" : course.id === "react-lite" ? "React Lite 2026" : course.id === "react-enterprise" ? "React 2026" : course.languageId === "web" ? "Web Development Basics" : course.languageId === "sqlite" ? "SQLite" : `Learn ${course.languageId === "python" ? "Python" : course.languageId === "rust" ? "Rust" : "C#"}`}`;
   }, [course]);
   const notify = (message: string) => {
     setToast(message);
@@ -719,6 +719,7 @@ function Onboarding({
   const electricalSelected = selectedCourseId === "electrical-engineering-foundations";
   const gitSelected = selectedCourseId === "git-cli";
   const webBasicsSelected = selectedCourseId === "web-development-basics";
+  const sqliteSelected = selectedCourseId === "sqlite";
   const reactLiteSelected = selectedCourseId === "react-lite";
   const reactSelected = selectedCourseId === "react-enterprise";
   const pythonSelected = selectedCourseId === "python-web";
@@ -812,6 +813,17 @@ function Onboarding({
                   <small className="mt-1 block text-xs text-[#aaa3b6]">HTML · CSS · JavaScript · TypeScript · HTTP</small>
                 </span>
                 {webBasicsSelected && <Check className="ml-auto text-[#c198ff]" size={19} />}
+              </button>
+              <button
+                onClick={() => onSelectCourse("sqlite")}
+                className={`track-option mt-3 flex w-full items-center gap-4 rounded-xl p-4 text-left ${sqliteSelected ? "ring-1 ring-[#bd87ff]" : ""}`}
+              >
+                <span className="grid h-11 w-11 place-items-center rounded-lg bg-[#4d86c6] font-mono text-xs font-bold text-white">SQL</span>
+                <span>
+                  <strong className="block text-sm text-white">SQLite</strong>
+                  <small className="mt-1 block text-xs text-[#aaa3b6]">SQLite 3.53.4 · sqlite3 CLI · DB Browser</small>
+                </span>
+                {sqliteSelected && <Check className="ml-auto text-[#c198ff]" size={19} />}
               </button>
               <button
                 onClick={() => onSelectCourse("react-lite")}
@@ -921,6 +933,9 @@ function Onboarding({
                 </p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   {[
+                    ["SQL Server", "T-SQL · SQL Server · SSMS"],
+                    ["MySQL", "MySQL SQL · MySQL Server · Workbench"],
+                    ["PostgreSQL", "PostgreSQL SQL · PostgreSQL · pgAdmin"],
                     ["Networking Fundamentals", "Packets · IP · routing · ports"],
                     ["DNS", "Names · records · resolvers · caching"],
                     ["HTTP & APIs", "Methods · status · headers · contracts"],
@@ -1195,6 +1210,8 @@ function Sidebar({
   const languageBadge =
     course.languageId === "python"
       ? "Py"
+      : course.languageId === "sqlite"
+        ? "SQL"
       : course.languageId === "rust"
         ? "Rs"
         : course.languageId === "claude"
@@ -1429,6 +1446,15 @@ function TrackMenu({
       </button>
       <button
         role="menuitem"
+        onClick={() => select("sqlite")}
+        className={itemClass("sqlite")}
+      >
+        <span className="rounded bg-[#4d86c6] px-1 py-0.5 text-[9px] text-white">SQL</span>
+        <span>SQLite</span>
+        {courseId === "sqlite" && <Check className="ml-auto" size={14} />}
+      </button>
+      <button
+        role="menuitem"
         onClick={() => select("react-lite")}
         className={itemClass("react-lite")}
       >
@@ -1494,7 +1520,7 @@ function TrackMenu({
         )}
       </button>
       <div className="my-1 border-t border-[#ffffff10]" />
-      {["Networking", "DNS", "HTTP & APIs", "HTTPS & TLS", "Distributed Systems", "Digital Electronics", "Analog Electronics", "AC Circuit Analysis", "Embedded Systems", "Microcontrollers", "PCB Design", "Signals & Systems", "Control Systems", "Electromagnetics", "Power Electronics"].map((title) => (
+      {["SQL Server · SSMS", "MySQL · Workbench", "PostgreSQL · pgAdmin", "Networking", "DNS", "HTTP & APIs", "HTTPS & TLS", "Distributed Systems", "Digital Electronics", "Analog Electronics", "AC Circuit Analysis", "Embedded Systems", "Microcontrollers", "PCB Design", "Signals & Systems", "Control Systems", "Electromagnetics", "Power Electronics"].map((title) => (
         <div
           key={title}
           className="flex items-center justify-between rounded px-3 py-2 text-[11px] text-[#786f86]"
@@ -1606,7 +1632,22 @@ function WorkspacePanel({
     );
   }
   const stages =
-    course.id === "web-development-basics"
+    course.id === "sqlite"
+      ? [
+          [
+            "Relational database foundation",
+            "Build a constrained SQLite schema and prove CRUD, filtering, joins, aggregates, and transactional behavior.",
+          ],
+          [
+            "Performance and reliability",
+            "Add indexes from real query patterns, inspect query plans, evolve schema safely, and reason about WAL and locking.",
+          ],
+          [
+            "SQLite capstone",
+            "Ship a production-minded issue-tracker database with integrity constraints, dashboard queries, backup checks, and documented operations.",
+          ],
+        ]
+      : course.id === "web-development-basics"
       ? [
           [
             "Web page foundations",
@@ -1758,6 +1799,7 @@ type SnippetLanguage =
   | "html"
   | "css"
   | "json"
+  | "sql"
   | "shell"
   | "plaintext";
 
@@ -1792,6 +1834,10 @@ function snippetLanguage(lesson: Lesson, code = lesson.example): SnippetLanguage
   if (looksLikeFileTree(trimmed)) return "plaintext";
 
   if (lesson.slug.startsWith("git-")) return "shell";
+  if (lesson.slug.startsWith("sqlite-")) {
+    if (/^sqlite3\b/.test(trimmed) || /^\.[a-z]+/m.test(trimmed)) return "shell";
+    return "sql";
+  }
   if (lesson.slug.startsWith("react-")) return "typescript";
   if (lesson.slug.startsWith("web-basics-")) {
     if (/^<[/!a-zA-Z]/.test(trimmed)) return "html";
@@ -1817,6 +1863,7 @@ const snippetLanguageLabel: Record<SnippetLanguage, string> = {
   html: "HTML",
   css: "CSS",
   json: "JSON",
+  sql: "SQLite SQL",
   shell: "Shell / CLI",
   plaintext: "Text",
 };
@@ -2324,6 +2371,8 @@ function ExercisePanel({
       ? "Rust"
       : lesson.version.language.startsWith("Git")
         ? "Shell"
+      : lesson.version.language.startsWith("SQLite")
+        ? "SQL"
         : "C#";
   return (
     <section className="bg-panel px-7 py-10 sm:px-[9vw] lg:px-[clamp(27px,4vw,58px)] lg:py-[42px]">
@@ -2661,18 +2710,19 @@ function CodeEditor({
   code: string;
   setCode: (v: string) => void;
   onReset: () => void;
-  language: "C#" | "Python" | "Rust" | "Shell" | "TypeScript";
+  language: "C#" | "Python" | "Rust" | "Shell" | "TypeScript" | "SQL";
 }) {
   const isPython = language === "Python";
   const isRust = language === "Rust";
   const isShell = language === "Shell";
   const isTypeScript = language === "TypeScript";
+  const isSql = language === "SQL";
   return (
     <div className="overflow-hidden rounded-md border border-[#303735] shadow-md shadow-[#19241f]/5">
       <div className="flex justify-between bg-[#2a302e] px-3 py-2.5 font-mono text-[11px] text-[#c3cac3]">
         <span>
           <i className="mr-2 inline-block h-2 w-2 rounded-full bg-[#55b794]" />
-          {isPython ? "main.py" : isRust ? "main.rs" : isShell ? "exercise.sh" : isTypeScript ? "App.tsx" : "Program.cs"}
+          {isPython ? "main.py" : isRust ? "main.rs" : isShell ? "exercise.sh" : isTypeScript ? "App.tsx" : isSql ? "exercise.sql" : "Program.cs"}
         </span>
         <span>
           <button
@@ -2693,7 +2743,7 @@ function CodeEditor({
       </div>
       <Editor
         height="245px"
-        language={isPython ? "python" : isRust ? "rust" : isShell ? "shell" : isTypeScript ? "typescript" : "csharp"}
+        language={isPython ? "python" : isRust ? "rust" : isShell ? "shell" : isTypeScript ? "typescript" : isSql ? "sql" : "csharp"}
         theme="vs-dark"
         value={code}
         onChange={(value) => setCode(value ?? "")}
