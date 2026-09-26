@@ -244,7 +244,22 @@ export function fixtureFor(lessonSlug, code) {
     case 'linux-archives-compression':
       return linuxFixture(code, "mkdir -p /workspace/dist; printf 'app\\n' > /workspace/dist/app.txt; printf 'cfg\\n' > /workspace/dist/config.ini", "test -f /workspace/release.tar.gz; tar -tzf /workspace/release.tar.gz | grep -Fq 'dist/app.txt'; tar -tzf /workspace/release.tar.gz | grep -Fq 'dist/config.ini'; grep -Fq 'dist/app.txt' /workspace/learner.out")
     case 'bash-script-basics':
-      return linuxFixture(code, '', "test -x /workspace/greet.sh; head -n 1 /workspace/greet.sh | grep -Eq '^#!/usr/bin/env bash
+      return linuxFixture(code, '', "test -x /workspace/greet.sh; head -n 1 /workspace/greet.sh | grep -Fqx '#!/usr/bin/env bash'; grep -Fxq 'Hello, Pathway!' /workspace/learner.out")
+    case 'bash-variables-arguments':
+      return linuxFixture(code, '', "test -x /workspace/show-user.sh; set +e; /workspace/show-user.sh >/workspace/missing.out 2>/workspace/missing.err; missing_status=$?; set -e; test \"$missing_status\" = '2'; grep -Fxq 'Usage: show-user.sh USER' /workspace/missing.err; /workspace/show-user.sh Ada | grep -Fxq 'User: Ada'")
+    case 'bash-status-conditionals':
+      return linuxFixture(code, "printf 'data\\n' > /workspace/full.txt; : > /workspace/empty.txt", "test -x /workspace/validate.sh; /workspace/validate.sh /workspace/full.txt | grep -Fxq 'ready'; set +e; /workspace/validate.sh /workspace/empty.txt >/workspace/empty.out 2>/workspace/empty.err; s1=$?; /workspace/validate.sh /workspace/missing.txt >/workspace/miss.out 2>/workspace/miss.err; s2=$?; set -e; test \"$s1\" = '1'; test \"$s2\" = '1'; grep -Fxq 'invalid' /workspace/empty.err; grep -Fxq 'invalid' /workspace/miss.err")
+    case 'bash-loops-functions':
+      return linuxFixture(code, "printf 'a\\nb\\n' > '/workspace/alpha file.txt'; printf 'x\\n' > /workspace/beta.txt", "test -x /workspace/count-lines.sh; /workspace/count-lines.sh '/workspace/alpha file.txt' /workspace/beta.txt > /workspace/count.out; grep -Fq '/workspace/alpha file.txt: 2' /workspace/count.out; grep -Fq '/workspace/beta.txt: 1' /workspace/count.out")
+    case 'bash-safe-scripting':
+      return linuxFixture(code, '', "test -x /workspace/safe-temp.sh; grep -Fq 'Pathway' /workspace/learner.out; grep -Fq 'set -euo pipefail' /workspace/safe-temp.sh; grep -Fq 'mktemp' /workspace/safe-temp.sh; grep -Fq 'trap' /workspace/safe-temp.sh")
+    case 'bash-text-processing':
+      return linuxFixture(code, "printf '1,Ada,active\\n2,Grace,inactive\\n3,Linus,active\\n4,Ada,active\\n' > /workspace/users.csv", "printf 'Ada\\nLinus\\n' > /workspace/expected_names; cmp -s /workspace/expected_names /workspace/learner.out")
+    case 'vim-search-substitute':
+      return vimFixture(code, "printf 'TODO one\\nkeep\\nTODO two\\n' > /workspace/notes.txt", "! grep -Fq 'TODO' /workspace/notes.txt; test \"$(grep -c '^DONE' /workspace/notes.txt)\" = '2'")
+    case 'linux-cli-capstone':
+      return linuxFixture(code, "mkdir -p '/workspace/source bundle'; printf 'ERROR db\\nINFO ok\\nERROR db\\nERROR api\\n' > '/workspace/source bundle/app.log'; printf 'PORT=8080\\n' > '/workspace/source bundle/app.conf'; printf 'ignore\\n' > '/workspace/source bundle/ignore.txt'", "test -x /workspace/support-bundle.sh; /workspace/support-bundle.sh '/workspace/source bundle' /workspace/support.tar.gz; test -f /workspace/support.tar.gz; tar -tzf /workspace/support.tar.gz | grep -Fq 'app.log'; tar -tzf /workspace/support.tar.gz | grep -Fq 'app.conf'; tar -tzf /workspace/support.tar.gz | grep -Fq 'error-summary.txt'; mkdir -p /workspace/check; tar -xzf /workspace/support.tar.gz -C /workspace/check; summary=$(find /workspace/check -name error-summary.txt -print -quit); grep -Fq 'ERROR api' \"$summary\"; grep -Fq 'ERROR db' \"$summary\"")
+    case 'sqlite-open-inspect':
       return sqliteFixture(code, '', "test \"$(sqlite3 \"$DB\" \"SELECT COUNT(*) FROM sqlite_schema WHERE type='table' AND name='products';\")\" = '1'; test \"$(sqlite3 \"$DB\" \"SELECT pk FROM pragma_table_info('products') WHERE name='id';\")\" = '1'; test \"$(sqlite3 \"$DB\" \"SELECT [notnull] FROM pragma_table_info('products') WHERE name='name';\")\" = '1'")
     case 'sqlite-strict-tables':
       return sqliteFixture(code, '', "grep -Eq 'CREATE TABLE users.*STRICT' <(sqlite3 \"$DB\" \"SELECT replace(sql, char(10), ' ') FROM sqlite_schema WHERE name='users';\") || { echo 'users must be STRICT'; exit 1; }; test \"$(sqlite3 \"$DB\" \"SELECT COUNT(*) FROM pragma_index_list('users') WHERE [unique]=1;\")\" -ge 1; test \"$(sqlite3 \"$DB\" \"SELECT dflt_value FROM pragma_table_info('users') WHERE name='active';\")\" = '1'")
