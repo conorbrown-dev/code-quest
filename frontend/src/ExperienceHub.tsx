@@ -85,7 +85,13 @@ function CapstoneReviewRequestPanel({ course }: { course: Course }) {
 }
 
 function AssessmentPanel({ course, onSelectLesson }: { course: Course; onSelectLesson: (slug: string) => void }) {
-  const moduleId = course.id === 'python-web' ? 'python-foundations' : 'foundations'
+  const moduleId = course.id === 'python-web'
+    ? 'python-foundations'
+    : course.id === 'rust-systems'
+      ? 'rust-foundations'
+      : course.id === 'git-cli'
+        ? 'git-foundations-1'
+        : 'foundations'
   const [assessment, setAssessment] = useState<Assessment | null>(null)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [result, setResult] = useState<AssessmentResult | null>(null)

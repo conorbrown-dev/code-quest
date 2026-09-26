@@ -6,6 +6,32 @@ export function validateRequest(value) {
   return null
 }
 
+function gitFixture(code, setup, checks, tests = 3) {
+  const script = [
+    '#!/bin/bash',
+    'set -u',
+    'export HOME=/workspace',
+    'export GIT_PAGER=cat',
+    'export PAGER=cat',
+    'export GIT_TERMINAL_PROMPT=0',
+    'git config --global init.defaultBranch main',
+    'git config --global user.name "Pathway Learner"',
+    'git config --global user.email "learner@pathway.invalid"',
+    'mkdir -p /workspace/repo',
+    'cd /workspace/repo',
+    setup,
+    'set +e',
+    '(',
+    code,
+    ') > /workspace/learner.out 2>&1',
+    'set -e',
+    'cat /workspace/learner.out',
+    checks,
+    'echo PATHWAY_TEST_PASS',
+    '',
+  ].join('\n')
+  return { files: { 'exercise.sh': script }, command: ['/bin/bash', '/workspace/exercise.sh'], tests, runtime: 'git' }
+}
 export function fixtureFor(lessonSlug, code) {
   switch (lessonSlug) {
     case 'python-functions':
@@ -65,6 +91,32 @@ export function fixtureFor(lessonSlug, code) {
         command: ['python3', '/workspace/test_submission.py'],
         tests: 2,
       }
+    case "git-init-status":
+      return gitFixture(code, "printf '# Pathway Git Lab\\n' > README.md", "test -d .git || { echo 'Repository was not initialized.'; exit 1; }; git status --porcelain | grep -Fq '?? README.md' || { echo 'README.md should remain untracked.'; exit 1; }")
+    case "git-stage-files":
+      return gitFixture(code, "git init -q; printf '# Pathway Git Lab\\n' > README.md; printf 'scratch\\n' > notes.txt", "git diff --cached --name-only | grep -Fxq 'README.md' || { echo 'README.md is not staged.'; exit 1; }; ! git diff --cached --name-only | grep -Fxq 'notes.txt' || { echo 'notes.txt should not be staged.'; exit 1; }; git status --porcelain | grep -Fq '?? notes.txt' || { echo 'notes.txt should remain untracked.'; exit 1; }")
+    case "git-first-commit":
+      return gitFixture(code, "git init -q; printf '# Pathway Git Lab\\n' > README.md; git add README.md", "git rev-parse --verify HEAD >/dev/null 2>&1 || { echo 'No commit exists yet.'; exit 1; }; git ls-tree --name-only HEAD | grep -Fxq 'README.md' || { echo 'README.md is not in the commit.'; exit 1; }; test -z \"$(git status --porcelain)\" || { echo 'The working tree should be clean after the commit.'; exit 1; }")
+    case "git-history-diff":
+      return gitFixture(code, "git init -q; printf '# Pathway Git Lab\\n' > README.md; git add README.md; git commit -qm 'Initial README'; printf 'notes v1\\n' > notes.txt; git add notes.txt; git commit -qm 'Add notes'; printf 'draft change\\n' >> notes.txt", "grep -Fq 'Add notes' /workspace/learner.out || { echo 'Output should include the Add notes commit.'; exit 1; }; grep -Fq 'Initial README' /workspace/learner.out || { echo 'Output should include the Initial README commit.'; exit 1; }; grep -Fq 'notes.txt' /workspace/learner.out || { echo 'Output should identify notes.txt as modified.'; exit 1; }")
+    case "git-switch-branch":
+      return gitFixture(code, "git init -q; printf 'baseline\\n' > app.txt; git add app.txt; git commit -qm 'Initial app'", "test \"$(git branch --show-current)\" = 'feature/navigation' || { echo 'Current branch should be feature/navigation.'; exit 1; }; git merge-base --is-ancestor main feature/navigation || { echo 'feature/navigation should start from main.'; exit 1; }")
+    case "git-feature-commit":
+      return gitFixture(code, "git init -q; printf 'Pathway app\\n' > app.txt; git add app.txt; git commit -qm 'Initial app'; git switch -q -c feature/greeting; git rev-parse main > /workspace/base_main", "test \"$(git branch --show-current)\" = 'feature/greeting' || { echo 'Stay on feature/greeting.'; exit 1; }; test \"$(git rev-list --count main..HEAD)\" -ge 1 || { echo 'The feature branch needs a commit.'; exit 1; }; grep -Fxq 'Hello from the feature branch' app.txt || { echo 'app.txt is missing the requested greeting.'; exit 1; }; test \"$(git rev-parse main)\" = \"$(cat /workspace/base_main)\" || { echo 'main should remain unchanged.'; exit 1; }")
+    case "git-merge-feature":
+      return gitFixture(code, "git init -q; printf '# Project\\n' > README.md; git add README.md; git commit -qm 'Initial README'; git switch -q -c feature/readme; printf '\\nFeature documentation\\n' >> README.md; git add README.md; git commit -qm 'Document feature'; git switch -q main", "git merge-base --is-ancestor feature/readme main || { echo 'feature/readme is not integrated into main.'; exit 1; }; grep -Fq 'Feature documentation' README.md || { echo 'README.md does not contain the feature content.'; exit 1; }; test -z \"$(git status --porcelain)\" || { echo 'The working tree should be clean.'; exit 1; }")
+    case "git-resolve-conflict":
+      return gitFixture(code, "git init -q; printf 'theme=light\\nfont=sans\\n' > settings.txt; git add settings.txt; git commit -qm 'Add settings'; git switch -q -c feature/theme; printf 'theme=purple\\nfont=sans\\n' > settings.txt; git add settings.txt; git commit -qm 'Use purple theme'; git switch -q main; printf 'theme=light\\nfont=mono\\n' > settings.txt; git add settings.txt; git commit -qm 'Use mono font'", "test -z \"$(git ls-files -u)\" || { echo 'Unmerged paths remain.'; exit 1; }; printf 'theme=purple\\nfont=mono\\n' > /workspace/expected_settings; cmp -s settings.txt /workspace/expected_settings || { echo 'settings.txt does not contain the required combined result.'; exit 1; }; test \"$(git rev-list --parents -n 1 HEAD | wc -w)\" -eq 3 || { echo 'HEAD should be the completed merge commit.'; exit 1; }")
+    case "git-restore-reset":
+      return gitFixture(code, "git init -q; printf 'stable app\\n' > app.txt; printf 'stable notes\\n' > notes.txt; git add app.txt notes.txt; git commit -qm 'Baseline'; printf 'temporary app edit\\n' >> app.txt; printf 'keep this notes edit\\n' >> notes.txt; git add notes.txt", "git diff --quiet -- app.txt || { echo 'The unstaged app.txt change should be discarded.'; exit 1; }; git diff --cached --quiet -- notes.txt || { echo 'notes.txt should be unstaged.'; exit 1; }; ! git diff --quiet -- notes.txt || { echo 'The notes.txt working-tree edit should be preserved.'; exit 1; }")
+    case "git-ignore-generated-files":
+      return gitFixture(code, "git init -q; printf 'SECRET=not-real\\n' > .env; printf 'generated log\\n' > app.log; printf 'source\\n' > src.txt", "git check-ignore -q .env || { echo '.env should be ignored.'; exit 1; }; git check-ignore -q app.log || { echo 'app.log should be ignored by *.log.'; exit 1; }; git diff --cached --name-only | grep -Fxq '.gitignore' || { echo '.gitignore should be staged.'; exit 1; }; git diff --cached --name-only | grep -Fxq 'src.txt' || { echo 'src.txt should be staged.'; exit 1; }; ! git diff --cached --name-only | grep -Fxq '.env' || { echo '.env must not be staged.'; exit 1; }; ! git diff --cached --name-only | grep -Fxq 'app.log' || { echo 'app.log must not be staged.'; exit 1; }")
+    case "git-fetch-remote":
+      return gitFixture(code, "cd /workspace; git init -q --bare remote.git; git init -q seed; cd seed; printf 'v1\\n' > app.txt; git add app.txt; git commit -qm 'Initial remote'; git remote add origin /workspace/remote.git; git push -q -u origin main; cd /workspace; git clone -q /workspace/remote.git repo; cd repo; git rev-parse main > /workspace/local_before; cd /workspace/seed; printf 'v2\\n' >> app.txt; git add app.txt; git commit -qm 'Remote update'; git push -q origin main; git rev-parse HEAD > /workspace/remote_head; cd /workspace/repo", "test \"$(git rev-parse origin/main)\" = \"$(cat /workspace/remote_head)\" || { echo 'origin/main was not updated by fetch.'; exit 1; }; test \"$(git rev-parse main)\" = \"$(cat /workspace/local_before)\" || { echo 'fetch should not move local main.'; exit 1; }; test \"$(git rev-parse main)\" != \"$(git rev-parse origin/main)\" || { echo 'local main should remain behind origin/main.'; exit 1; }; test -z \"$(git status --porcelain)\" || { echo 'The working tree should remain unchanged.'; exit 1; }")
+    case "git-rebase-feature":
+      return gitFixture(code, "git init -q; printf 'base\\n' > app.txt; git add app.txt; git commit -qm 'Initial app'; git switch -q -c feature/search; printf 'search\\n' > search.txt; git add search.txt; git commit -qm 'Add search'; git switch -q main; printf 'main update\\n' > main.txt; git add main.txt; git commit -qm 'Update main'; git switch -q feature/search", "git merge-base --is-ancestor main feature/search || { echo 'feature/search is not rebased onto main.'; exit 1; }; grep -Fxq 'search' search.txt || { echo 'The feature change was not preserved.'; exit 1; }; test -z \"$(git rev-list --merges main..feature/search)\" || { echo 'The rebased feature history should be linear.'; exit 1; }")
+    case "git-revert-push":
+      return gitFixture(code, "cd /workspace; git init -q --bare remote.git; cd repo; git init -q; printf 'stable\\n' > app.txt; git add app.txt; git commit -qm 'Stable release'; git remote add origin /workspace/remote.git; git push -q -u origin main; printf 'debug=true\\n' > debug.txt; git add debug.txt; git commit -qm 'Bad debug change'; git push -q origin main; git rev-parse HEAD > /workspace/bad_sha", "test \"$(git rev-parse HEAD)\" != \"$(cat /workspace/bad_sha)\" || { echo 'A new revert commit should exist.'; exit 1; }; git merge-base --is-ancestor \"$(cat /workspace/bad_sha)\" HEAD || { echo 'The bad commit should remain in history rather than being rewritten away.'; exit 1; }; test ! -e debug.txt || { echo 'The revert should remove debug.txt.'; exit 1; }; test \"$(git rev-parse HEAD)\" = \"$(git --git-dir=/workspace/remote.git rev-parse refs/heads/main)\" || { echo 'origin/main does not match local main after push.'; exit 1; }")
     default:
       return null
   }

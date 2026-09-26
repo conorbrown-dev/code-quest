@@ -86,6 +86,7 @@ async function evaluateHook(payload) {
 }
 function modalImage(modal, runtime) {
   if (runtime === 'rust') return modal.images.fromRegistry('rust:1.97-slim')
+  if (runtime === 'git') return modal.images.fromRegistry('debian:bookworm-slim').dockerfileCommands(['RUN apt-get update && apt-get install -y --no-install-recommends bash git coreutils grep && rm -rf /var/lib/apt/lists/*'])
   return modal.images.fromRegistry('mcr.microsoft.com/dotnet/sdk:10.0').dockerfileCommands(['RUN apt-get update && apt-get install -y --no-install-recommends python3 coreutils && rm -rf /var/lib/apt/lists/*'])
 }
 

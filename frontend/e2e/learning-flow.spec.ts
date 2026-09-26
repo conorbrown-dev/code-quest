@@ -380,6 +380,20 @@ test('runs the Claude PreToolUse Hook Playground against simulated Bash commands
   await expect(page.getByText(/normal permission flow/i)).toBeVisible()
 })
 
+test('loads the selected Git CLI track with a shell exercise editor', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('pathway-onboarding-complete', 'true')
+    localStorage.setItem('pathway-course-id', 'git-cli')
+  })
+  await page.goto('/')
+
+  await expect(page).toHaveTitle('Pathway — Git CLI')
+  await expect(page.getByRole('heading', { name: 'Create a repository and read its state', level: 1 })).toBeVisible()
+  await expect(page.getByText('Initialize the repository')).toBeVisible()
+  await expect(page.getByRole('button', { name: /Run tests/i })).toBeVisible()
+  await expect(page.locator('.monaco-editor')).toBeVisible()
+})
+
 test('loads the selected Rust track for a guest learner', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem('pathway-onboarding-complete', 'true')
