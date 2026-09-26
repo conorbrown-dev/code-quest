@@ -7,9 +7,9 @@ static partial class Curriculum
             "Project setup",
             1,
             "Bootstrap a modern React application",
-            "Start with a small toolchain where each piece has one clear responsibility.",
-            "React is the UI library. TypeScript adds compile-time checks and richer editor/refactoring support to JavaScript-shaped code, then its type syntax is removed before the browser runs the resulting JavaScript. Vite provides the local development server and production build, while npm installs dependencies and runs project scripts.",
-            "npm create vite scaffolds the project, npm install downloads the dependencies declared in package.json, and npm run dev starts a local development server. The react-ts template configures React and TypeScript together. Source code lives under src, public holds files copied as-is, index.html hosts the application, and main.tsx starts React. Vite later produces optimized browser assets for deployment.",
+            "A toolchain is the set of development tools used to create, check, run, and build an application. Start with a small toolchain where each piece has one clear responsibility.",
+            "React is a UI (user-interface) library: reusable code for describing interactive screens. TypeScript is JavaScript plus optional type syntax checked during development; those type annotations are removed before browsers run the resulting JavaScript. Vite is a build tool that provides a local development server and creates production-ready browser files. npm is the package manager used here: a package is reusable code published for installation, and a dependency is a package this project relies on.",
+            "To scaffold means to generate the starter files/configuration for a project. npm create vite scaffolds the project; npm install downloads dependencies listed in package.json, the project's package metadata/configuration file; npm run dev runs the named dev script. The react-ts template is Vite's React + TypeScript starter. Source code lives under src, public holds files copied as-is, index.html is the browser's initial HTML document, and main.tsx is the TypeScript/JSX entry file that starts React. A production build creates optimized browser assets (deployable HTML, JavaScript, CSS, and related files).",
             "npm create vite@latest admin-dashboard -- --template react-ts\ncd admin-dashboard\nnpm install\nnpm run dev",
             ReactChoice(
                 "Understand TypeScript's role",
