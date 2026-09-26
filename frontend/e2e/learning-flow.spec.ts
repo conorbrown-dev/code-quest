@@ -482,8 +482,8 @@ test('loads React Lite and reaches a TypeScript exercise without Web Basics less
   await page.goto('/')
 
   await expect(page).toHaveTitle('Pathway — React Lite 2026')
-  await expect(page.getByRole('heading', { name: 'Bootstrap the same modern React stack', level: 1 })).toBeVisible()
-  await expect(page.getByText('Choose the starter')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Bootstrap a modern React application', level: 1 })).toBeVisible()
+  await expect(page.getByText('Understand TypeScript's role')).toBeVisible()
   await page.getByRole('button', { name: 'Understand JSX and rendering' }).click()
   await expect(page.getByText('App.tsx')).toBeVisible()
   await expect(page.locator('.monaco-editor')).toBeVisible()
