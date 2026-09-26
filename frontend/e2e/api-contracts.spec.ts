@@ -106,6 +106,25 @@ test.describe('public API contract', () => {
     expect(summaries.at(-1)).toMatchObject({ slug: 'react-lite-capstone', order: 27 })
     expect(summaries.some(lesson => lesson.slug.startsWith('web-basics-'))).toBe(false)
 
+    const setupResponse = await request.get(`${apiBaseUrl}/api/lessons/react-lite-vite-bootstrap`)
+    await expect(setupResponse).toBeOK()
+    const setup = await setupResponse.json() as {
+      title: string
+      concept: string
+      body: string
+      exercise: { title: string; prompt: string }
+    }
+    expect(setup).toMatchObject({
+      title: 'Bootstrap a modern React application',
+      exercise: {
+        title: "Understand TypeScript's role",
+        prompt: expect.stringContaining('What does TypeScript add'),
+      },
+    })
+    expect(setup.concept).toContain('TypeScript adds compile-time checks')
+    expect(setup.concept).toContain('type syntax is removed')
+    expect(setup.body).toContain('react-ts template configures React and TypeScript together')
+
     const lessonResponse = await request.get(`${apiBaseUrl}/api/lessons/react-lite-dummy-api-read`)
     await expect(lessonResponse).toBeOK()
     await expect(lessonResponse.json()).resolves.toMatchObject({

@@ -285,7 +285,7 @@ static partial class Curriculum
                 "Waveforms, frequency, RMS, and phase",
                 "AC describes quantities that vary with time.",
                 "Frequency and period are reciprocal: f = 1/T.",
-                "A sine wave has amplitude, frequency, period, and phase. Peak voltage is the maximum magnitude from zero. RMS is an effective-value measure useful for comparing heating effects. Advanced impedance and phasor analysis belong in AC Circuit Analysis.",
+                "A sine wave has amplitude, frequency, period, and phase. Peak voltage is the maximum magnitude from zero. RMS is an effective-value measure useful for comparing heating effects. Impedance and phasor analysis extend these ideas when voltage and current are not simply in phase.",
                 "f = 1/T\nT = 1/f",
                 NumericExercise("Convert period to frequency", "A periodic waveform repeats every 2 ms. What is its frequency?", 500, 0.1, "Hz", "Convert 2 ms to 0.002 s, then use f = 1/T.", "T = 2 ms = 0.002 s\nf = 1 / 0.002 s\nf = 500 Hz", frequencyConversions),
                 null,
