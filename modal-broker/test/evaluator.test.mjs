@@ -11,6 +11,22 @@ test('has isolated fixtures for every shipped code exercise', () => {
   for (const lessonSlug of ['foundations-making-decisions', 'modern-csharp-records', 'web-api-sealed-services', 'python-functions', 'python-fastapi-endpoint'])
     assert.ok(fixtureFor(lessonSlug, 'pass'))
 })
+
+test('has isolated Git fixtures for the full CLI course', () => {
+  const lessons = [
+    'git-init-status', 'git-stage-files', 'git-first-commit', 'git-history-diff',
+    'git-switch-branch', 'git-feature-commit', 'git-merge-feature', 'git-resolve-conflict',
+    'git-restore-reset', 'git-ignore-generated-files', 'git-fetch-remote',
+    'git-rebase-feature', 'git-revert-push',
+  ]
+  for (const lessonSlug of lessons) {
+    const fixture = fixtureFor(lessonSlug, 'git status')
+    assert.ok(fixture, `missing fixture for ${lessonSlug}`)
+    assert.equal(fixture.runtime, 'git')
+    assert.equal(fixture.tests, 3)
+    assert.match(fixture.files['exercise.sh'], /PATHWAY_TEST_PASS/)
+  }
+})
 test('bounds sandbox output', () => assert.match(boundedOutput('a'.repeat(4_001)), /output truncated/))
 
 
