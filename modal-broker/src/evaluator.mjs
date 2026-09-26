@@ -32,6 +32,68 @@ function gitFixture(code, setup, checks, tests = 3) {
   ].join('\n')
   return { files: { 'exercise.sh': script }, command: ['/bin/bash', '/workspace/exercise.sh'], tests, runtime: 'git' }
 }
+
+function reactFixture(code, checks, tests = 2) {
+  const stubs = `
+declare namespace React { type ReactNode = any }
+declare namespace JSX { interface IntrinsicElements { [element: string]: any } }
+declare module 'react' {
+  export type ReactNode = any
+  export type ButtonHTMLAttributes<T> = { className?: string; [key: string]: any }
+  export type Context<T> = { __type?: T }
+  export function useState<T>(initial: T): [T, (value: T | ((current: T) => T)) => void]
+  export function useReducer<S, A>(reducer: (state: S, action: A) => S, initial: S): [S, (action: A) => void]
+  export function useEffect(effect: () => void | (() => void), deps?: readonly unknown[]): void
+  export function createContext<T>(value: T): Context<T>
+  export function useContext<T>(context: Context<T>): T
+  export function useActionState<S>(action: (state: S, data: FormData) => Promise<S>, initial: S): [S, (data: FormData) => void, boolean]
+}
+declare module 'react-dom' { export function useFormStatus(): { pending: boolean } }
+declare module 'react-router/dom' {
+  export type Router = unknown
+  export function RouterProvider(props: { router: Router }): any
+}
+declare module 'react-router' {
+  export type LoaderFunctionArgs = { params: Record<string, string | undefined>; request: Request }
+  export type ActionFunctionArgs = { params: Record<string, string | undefined>; request: Request }
+  export function createBrowserRouter(routes: unknown[]): unknown
+  export function Form(props: { method?: string; action?: string; children?: any }): any
+}
+declare module '@testing-library/react' {
+  export function render(value: any): unknown
+  export const screen: { getByRole(role: string, options?: any): any }
+}
+declare module 'vitest' {
+  export function describe(name: string, fn: () => void): void
+  export function it(name: string, fn: () => void): void
+  export function expect(value: any): any
+}
+`
+  const tsconfig = JSON.stringify({
+    compilerOptions: {
+      target: 'ES2023',
+      module: 'Preserve',
+      moduleResolution: 'Bundler',
+      jsx: 'preserve',
+      strict: true,
+      skipLibCheck: true,
+      noEmit: true,
+      lib: ['ES2023', 'DOM'],
+    },
+    files: ['/workspace/react-stubs.d.ts', '/workspace/submission.tsx'],
+  })
+  return {
+    files: {
+      'submission.tsx': code,
+      'react-stubs.d.ts': stubs,
+      'tsconfig.json': tsconfig,
+    },
+    command: ['/bin/sh', '-c', `tsc -p /workspace/tsconfig.json && ${checks} && echo PATHWAY_TEST_PASS`],
+    tests,
+    runtime: 'react',
+  }
+}
+
 export function fixtureFor(lessonSlug, code) {
   switch (lessonSlug) {
     case 'python-functions':
@@ -91,6 +153,35 @@ export function fixtureFor(lessonSlug, code) {
         command: ['python3', '/workspace/test_submission.py'],
         tests: 2,
       }
+
+    case 'react-composition-root':
+      return reactFixture(code, "grep -Fq 'RouterProvider' /workspace/submission.tsx && grep -Fq 'AppProviders' /workspace/submission.tsx")
+    case 'react-props-composition':
+      return reactFixture(code, "grep -Fq 'OrderStatusBadge' /workspace/submission.tsx && grep -Fq '<span' /workspace/submission.tsx")
+    case 'react-use-state':
+      return reactFixture(code, "grep -Fq 'useState' /workspace/submission.tsx && grep -Fq 'onClick' /workspace/submission.tsx")
+    case 'react-use-reducer':
+      return reactFixture(code, "grep -Fq 'useReducer' /workspace/submission.tsx && grep -Fq 'type Action' /workspace/submission.tsx")
+    case 'react-effects-synchronization':
+      return reactFixture(code, "grep -Fq 'useEffect' /workspace/submission.tsx && grep -Fq 'subscribeToOrder' /workspace/submission.tsx && grep -Fq '[orderId]' /workspace/submission.tsx")
+    case 'react-context-provider-boundaries':
+      return reactFixture(code, "grep -Fq 'createContext' /workspace/submission.tsx && grep -Fq 'useTenant' /workspace/submission.tsx && grep -Fq 'TenantProvider' /workspace/submission.tsx")
+    case 'react-actions-optimistic-use':
+      return reactFixture(code, "grep -Fq 'useActionState' /workspace/submission.tsx && grep -Fq 'useFormStatus' /workspace/submission.tsx && grep -Fq '<form' /workspace/submission.tsx")
+    case 'react-router-data-mode':
+      return reactFixture(code, "grep -Fq 'createBrowserRouter' /workspace/submission.tsx && grep -Fq 'orders' /workspace/submission.tsx")
+    case 'react-router-loaders-params-search':
+      return reactFixture(code, "grep -Fq 'params.orderId' /workspace/submission.tsx && grep -Fq 'getOrder' /workspace/submission.tsx")
+    case 'react-router-actions-navigation':
+      return reactFixture(code, "grep -Fq 'approveOrder' /workspace/submission.tsx && grep -Fq '<Form' /workspace/submission.tsx")
+    case 'react-api-client-boundary':
+      return reactFixture(code, "grep -Fq 'encodeURIComponent' /workspace/submission.tsx && grep -Fq 'response.ok' /workspace/submission.tsx && grep -Fq 'signal' /workspace/submission.tsx")
+    case 'react-tailwind-design-system':
+      return reactFixture(code, "grep -Fq 'ButtonHTMLAttributes' /workspace/submission.tsx && grep -Fq 'primary' /workspace/submission.tsx && grep -Fq 'secondary' /workspace/submission.tsx")
+    case 'react-testing-vitest-rtl':
+      return reactFixture(code, "grep -Fq 'render(' /workspace/submission.tsx && grep -Fq 'getByRole' /workspace/submission.tsx && grep -Fq 'expect' /workspace/submission.tsx")
+    case 'react-enterprise-capstone':
+      return reactFixture(code, "grep -Fq 'OrderApprovalPage' /workspace/submission.tsx && grep -Fq 'OrderSummary' /workspace/submission.tsx && grep -Fq 'ApproveOrderForm' /workspace/submission.tsx")
     case "git-init-status":
       return gitFixture(code, "printf '# Pathway Git Lab\\n' > README.md", "test -d .git || { echo 'Repository was not initialized.'; exit 1; }; git status --porcelain | grep -Fq '?? README.md' || { echo 'README.md should remain untracked.'; exit 1; }")
     case "git-stage-files":
