@@ -162,6 +162,7 @@ test('course-only deep links resolve to the next incomplete lesson', async ({ pa
 })
 
 test('lesson navigation updates history and browser back/forward restores lessons', async ({ page }) => {
+  await page.route('**/api/progress', route => route.fulfill({ status: 401 }))
   await page.addInitScript(() => {
     localStorage.setItem('pathway-onboarding-complete', 'true')
     localStorage.setItem('pathway-learner-id', 'history-deep-link-guest')
