@@ -186,6 +186,45 @@ test('lesson navigation updates history and browser back/forward restores lesson
   await expect(page.getByRole('heading', { name: 'Values and variables', level: 1 })).toBeVisible()
 })
 
+test('syntax-highlights displayed code and CLI examples across every course family', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('pathway-onboarding-complete', 'true')
+  })
+
+  const highlightedCases = [
+    ['git-cli', 'git-init-status', 'shell'],
+    ['react-lite', 'react-lite-vite-bootstrap', 'shell'],
+    ['react-lite', 'react-lite-jsx-rendering', 'typescript'],
+    ['react-enterprise', 'react-use-state', 'typescript'],
+    ['web-development-basics', 'web-basics-html', 'html'],
+    ['web-development-basics', 'web-basics-css-box-layout', 'css'],
+    ['web-development-basics', 'web-basics-javascript', 'javascript'],
+    ['web-development-basics', 'web-basics-typescript', 'typescript'],
+    ['csharp-dotnet', 'foundations-methods', 'csharp'],
+    ['python-web', 'python-data-models', 'python'],
+    ['rust-systems', 'rust-hello-functions', 'rust'],
+    ['claude-engineering', 'claude-hooks-anatomy', 'json'],
+  ] as const
+
+  for (const [courseId, lessonSlug, language] of highlightedCases) {
+    await page.goto(`/courses/${courseId}/lessons/${lessonSlug}`)
+    const snippet = page.locator(`pre[data-syntax-language="${language}"]`).first()
+    await expect(snippet).toBeVisible()
+    await expect(snippet).toHaveAttribute('data-syntax-highlighted', 'true', { timeout: 15_000 })
+    await expect(snippet.locator('span[class*="mtk"]').first()).toBeVisible()
+  }
+
+  for (const [courseId, lessonSlug] of [
+    ['computing-foundations', 'computing-machine-model'],
+    ['electrical-engineering-foundations', 'ee-ohms-law'],
+  ] as const) {
+    await page.goto(`/courses/${courseId}/lessons/${lessonSlug}`)
+    const snippet = page.locator('pre[data-syntax-language="plaintext"]').first()
+    await expect(snippet).toBeVisible()
+    await expect(snippet).toHaveAttribute('data-syntax-highlighted', 'plain')
+  }
+})
+
 test('loads the first lesson for a guest learner', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('pathway-onboarding-complete', 'true'))
   await page.goto('/')
