@@ -88,6 +88,7 @@ function modalImage(modal, runtime) {
   if (runtime === 'rust') return modal.images.fromRegistry('rust:1.97-slim')
   if (runtime === 'git') return modal.images.fromRegistry('debian:bookworm-slim').dockerfileCommands(['RUN apt-get update && apt-get install -y --no-install-recommends bash git coreutils grep && rm -rf /var/lib/apt/lists/*'])
   if (runtime === 'sqlite') return modal.images.fromRegistry('debian:bookworm-slim').dockerfileCommands(['RUN apt-get update && apt-get install -y --no-install-recommends bash sqlite3 coreutils grep && rm -rf /var/lib/apt/lists/*'])
+  if (runtime === 'linux') return modal.images.fromRegistry('debian:bookworm-slim').dockerfileCommands(['RUN apt-get update && apt-get install -y --no-install-recommends bash coreutils grep findutils sed gawk tar gzip vim && rm -rf /var/lib/apt/lists/*'])
   if (runtime === 'react') return modal.images.fromRegistry('node:22-bookworm-slim').dockerfileCommands(['RUN npm install -g typescript@^6 && apt-get update && apt-get install -y --no-install-recommends grep && rm -rf /var/lib/apt/lists/*'])
   return modal.images.fromRegistry('mcr.microsoft.com/dotnet/sdk:10.0').dockerfileCommands(['RUN apt-get update && apt-get install -y --no-install-recommends python3 coreutils && rm -rf /var/lib/apt/lists/*'])
 }
