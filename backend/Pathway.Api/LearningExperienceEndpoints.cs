@@ -452,6 +452,16 @@ public static class AssessmentCatalog
             new("fetch", "What does git fetch origin do to your checked-out main branch by itself?", ["Nothing; it updates remote-tracking refs without merging", "It always fast-forwards main", "It deletes local commits"], "Nothing; it updates remote-tracking refs without merging", "git-fetch-remote"),
             new("rebase", "When is rebasing usually safest?", ["On private or coordinated unpublished work", "On shared commits without telling collaborators", "Whenever a merge conflict exists"], "On private or coordinated unpublished work", "git-rebase-feature"),
             new("revert", "What is the usual safe way to undo a bad commit that has already been shared?", ["Create a new revert commit", "Reset --hard and force-push immediately", "Delete the .git directory"], "Create a new revert commit", "git-revert-push")
+        ]),
+        new("react-enterprise", "react-rendering-model", "React rendering and hooks checkpoint", [
+            new("purity", "Why must a React component remain pure during render?", ["React may render, restart, or discard work before commit", "JSX cannot call functions", "The DOM cannot contain state"], "React may render, restart, or discard work before commit", "react-jsx-purity"),
+            new("state", "When the next state depends on the previous state, which update is safest?", ["A functional state updater", "Mutating the current state variable", "Reading the DOM directly"], "A functional state updater", "react-state-snapshots-batching"),
+            new("effect", "What is useEffect primarily for?", ["Synchronizing React with an external system", "Deriving every computed value", "Replacing event handlers"], "Synchronizing React with an external system", "react-effects-synchronization"),
+            new("context", "What is a good use for Context?", ["A focused ambient dependency such as current tenant", "Every server response in the application", "Every local input value"], "A focused ambient dependency such as current tenant", "react-context-provider-boundaries"),
+            new("transition", "What should remain urgent when filtering a large result grid?", ["The controlled input value", "Every expensive derived result render", "A background report refresh"], "The controlled input value", "react-transitions-deferred"),
+            new("external", "Which hook is designed for subscribing to an external store?", ["useSyncExternalStore", "useRef", "useInsertionEffect"], "useSyncExternalStore", "react-external-store-custom-hooks"),
+            new("router", "Which React Router primitive owns page-entry reads in Data Mode?", ["A route loader", "A component mount Effect by default", "A CSS module"], "A route loader", "react-router-loaders-params-search"),
+            new("state-owner", "Where should a shareable filter that must survive refresh normally live?", ["URL search params", "Only local component state", "A global store by default"], "URL search params", "react-state-ownership-server-client")
         ])
     ];
     public static ModuleAssessment? Get(string courseId, string moduleId) => All.SingleOrDefault(item => item.CourseId == courseId && item.ModuleId == moduleId);
