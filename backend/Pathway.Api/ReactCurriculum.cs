@@ -1,36 +1,36 @@
 static partial class Curriculum
 {
-    private static readonly VersionStamp ReactDocs = new(
+    private static VersionStamp ReactDocs => new(
         "React 19.3",
         "React",
         "2026-09-26",
         "https://react.dev/reference/react");
 
-    private static readonly VersionStamp ReactHooksDocs = new(
+    private static VersionStamp ReactHooksDocs => new(
         "React 19.3",
         "Hooks",
         "2026-09-26",
         "https://react.dev/reference/react/hooks");
 
-    private static readonly VersionStamp ViteReactDocs = new(
+    private static VersionStamp ViteReactDocs => new(
         "React 19.3 / TypeScript 6",
         "Vite 8.1",
         "2026-09-26",
         "https://vite.dev/guide/");
 
-    private static readonly VersionStamp ReactRouterDocs = new(
+    private static VersionStamp ReactRouterDocs => new(
         "React Router 8",
         "Data Mode",
         "2026-09-26",
         "https://reactrouter.com/start/data/installation");
 
-    private static readonly VersionStamp TailwindDocs = new(
+    private static VersionStamp TailwindDocs => new(
         "Tailwind CSS 4.3",
         "Vite",
         "2026-09-26",
         "https://tailwindcss.com/docs/installation/using-vite");
 
-    private static readonly VersionStamp TypeScriptDocs = new(
+    private static VersionStamp TypeScriptDocs => new(
         "TypeScript 6.0",
         "Strict ESM",
         "2026-09-26",
@@ -161,7 +161,7 @@ static partial class Curriculum
             ReactCode(
                 "Compose the application",
                 "Write an AppRoot component that renders RouterProvider with a router prop inside an AppProviders component.",
-                "import { RouterProvider, type Router } from 'react-router/dom';\n\ntype Props = { router: Router };\n\nexport function AppRoot({ router }: Props) {\n  return null;\n}\n\nfunction AppProviders({ children }: { children: React.ReactNode }) {\n  return <>{children}</>;\n}",
+                "import type { ReactNode } from 'react';\nimport { createBrowserRouter } from 'react-router';\nimport { RouterProvider } from 'react-router/dom';\n\ntype Props = { router: ReturnType<typeof createBrowserRouter> };\n\nexport function AppRoot({ router }: Props) {\n  return null;\n}\n\nfunction AppProviders({ children }: { children: ReactNode }) {\n  return <>{children}</>;\n}",
                 "Return AppProviders containing RouterProvider and pass router through explicitly.",
                 "Preserves a thin composition root",
                 "Keeps router infrastructure above business features"),
