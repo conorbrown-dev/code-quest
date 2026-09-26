@@ -1632,7 +1632,9 @@ function WorkspacePanel({
 }
 
 function LessonContent({ lesson }: { lesson: Lesson }) {
-  const language = lesson.version.language.startsWith("Python")
+  const language = lesson.slug.startsWith("react-")
+    ? "TypeScript"
+    : lesson.version.language.startsWith("Python")
     ? "Python"
     : lesson.version.language.startsWith("Rust")
       ? "Rust"
@@ -2085,7 +2087,9 @@ function ExercisePanel({
   onNext: () => void;
 }) {
   const e = lesson.exercise;
-  const language = lesson.version.language.startsWith("Python")
+  const language = lesson.slug.startsWith("react-")
+    ? "React / TypeScript"
+    : lesson.version.language.startsWith("Python")
     ? "Python"
     : lesson.version.language.startsWith("Rust")
       ? "Rust"
