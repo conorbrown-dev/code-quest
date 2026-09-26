@@ -1633,7 +1633,7 @@ function WorkspacePanel({
 
 function LessonContent({ lesson }: { lesson: Lesson }) {
   const language = lesson.slug.startsWith("react-")
-    ? "TypeScript"
+    ? "React / TypeScript"
     : lesson.version.language.startsWith("Python")
     ? "Python"
     : lesson.version.language.startsWith("Rust")
@@ -2088,16 +2088,14 @@ function ExercisePanel({
 }) {
   const e = lesson.exercise;
   const language = lesson.slug.startsWith("react-")
-    ? "React / TypeScript"
+    ? "TypeScript"
     : lesson.version.language.startsWith("Python")
     ? "Python"
     : lesson.version.language.startsWith("Rust")
       ? "Rust"
       : lesson.version.language.startsWith("Git")
         ? "Shell"
-        : lesson.version.language.startsWith("React")
-          ? "TypeScript"
-          : "C#";
+        : "C#";
   return (
     <section className="bg-panel px-7 py-10 sm:px-[9vw] lg:px-[clamp(27px,4vw,58px)] lg:py-[42px]">
       <p className="text-[10px] font-bold tracking-[1.2px] text-[#5d886f]">
