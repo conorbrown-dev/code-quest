@@ -195,6 +195,8 @@ test('syntax-highlights displayed code and CLI examples across every course fami
     ['git-cli', 'git-init-status', 'shell'],
     ['sqlite', 'sqlite-select-filter-sort', 'sql'],
     ['sqlite', 'sqlite-cli-db-browser', 'shell'],
+    ['linux-cli-bash-vim', 'linux-pipes-redirection', 'shell'],
+    ['linux-cli-bash-vim', 'bash-safe-scripting', 'shell'],
     ['react-lite', 'react-lite-vite-bootstrap', 'shell'],
     ['react-lite', 'react-lite-jsx-rendering', 'typescript'],
     ['react-enterprise', 'react-use-state', 'typescript'],
@@ -219,6 +221,7 @@ test('syntax-highlights displayed code and CLI examples across every course fami
   for (const [courseId, lessonSlug] of [
     ['computing-foundations', 'computing-machine-model'],
     ['electrical-engineering-foundations', 'ee-ohms-law'],
+    ['linux-cli-bash-vim', 'vim-modes-save-quit'],
   ] as const) {
     await page.goto(`/courses/${courseId}/lessons/${lessonSlug}`)
     const snippet = page.locator('pre[data-syntax-language="plaintext"]').first()
@@ -505,6 +508,35 @@ test('loads Web Development Basics as its own course', async ({ page }) => {
   await expect(page).toHaveTitle('Pathway — Web Development Basics')
   await expect(page.getByRole('heading', { name: 'How a web application fits together', level: 1 })).toBeVisible()
   await expect(page.getByText('Place the responsibility')).toBeVisible()
+})
+
+test('loads Linux CLI Bash Vim and reaches a Bash sandbox exercise', async ({ page }) => {
+  await page.route('**/api/progress', route => route.fulfill({ status: 401 }))
+  await page.addInitScript(() => {
+    localStorage.setItem('pathway-onboarding-complete', 'true')
+    localStorage.setItem('pathway-course-id', 'linux-cli-bash-vim')
+    localStorage.setItem('pathway-learner-id', 'linux-cli-ui-guest')
+    localStorage.setItem('pathway-completed-lessons:guest:linux-cli-ui-guest', JSON.stringify([
+      'linux-shell-terminal',
+    ]))
+  })
+  await page.goto('/')
+
+  await expect(page).toHaveTitle('Pathway — Linux CLI / Bash / Vim')
+  await expect(page.getByRole('heading', { name: 'Understand the terminal, shell, and command', level: 1 })).toBeVisible()
+  await page.getByRole('button', { name: 'Navigate with absolute and relative paths' }).click()
+  await expect(page.getByText('exercise.sh')).toBeVisible()
+  await expect(page.locator('.monaco-editor')).toBeVisible()
+  await expect(page.getByRole('button', { name: /Run tests/i })).toBeVisible()
+})
+
+test('onboarding exposes Linux CLI Bash Vim as a selectable course', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Select Linux CLI Bash Vim course' }).click()
+  await expect(page.getByText('Selected: Linux CLI / Bash / Vim')).toBeVisible()
+  await page.getByRole('button', { name: 'Continue as guest' }).click()
+  await expect(page).toHaveTitle('Pathway — Linux CLI / Bash / Vim')
+  await expect(page.getByRole('heading', { name: 'Understand the terminal, shell, and command', level: 1 })).toBeVisible()
 })
 
 test('loads SQLite with SQL syntax highlighting and an editable SQL exercise', async ({ page }) => {
