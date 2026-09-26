@@ -64,6 +64,24 @@ test('has isolated TypeScript fixtures for every React Lite coding exercise', ()
   }
 })
 
+test('has isolated Linux Bash Vim fixtures for every coding exercise', () => {
+  const lessons = [
+    'linux-paths-navigation', 'linux-files-directories', 'linux-read-text',
+    'linux-pipes-redirection', 'linux-grep-find', 'linux-expansion-quoting',
+    'linux-permissions', 'linux-environment-path', 'linux-archives-compression',
+    'bash-script-basics', 'bash-variables-arguments', 'bash-status-conditionals',
+    'bash-loops-functions', 'bash-safe-scripting', 'bash-text-processing',
+    'vim-search-substitute', 'linux-cli-capstone',
+  ]
+  for (const lessonSlug of lessons) {
+    const fixture = fixtureFor(lessonSlug, 'printf test')
+    assert.ok(fixture, `missing fixture for ${lessonSlug}`)
+    assert.equal(fixture.runtime, 'linux')
+    assert.equal(fixture.tests, 3)
+    assert.match(fixture.files['exercise.sh'], /PATHWAY_TEST_PASS/)
+  }
+})
+
 test('has isolated SQLite fixtures for every SQL coding exercise', () => {
   const lessons = [
     'sqlite-open-inspect',
