@@ -6,6 +6,12 @@ static partial class Curriculum
         "2026-09-26",
         "https://sqlite.org/docs.html");
 
+    private static VersionStamp SQLiteBrowserDocs => new(
+        "DB Browser for SQLite 3.13.1",
+        "SQLite GUI",
+        "2026-09-26",
+        "https://sqlitebrowser.org/");
+
     private static Exercise SqliteChoice(
         string title,
         string prompt,
@@ -100,7 +106,7 @@ static partial class Curriculum
                 "DB Browser separates pending edits from writing them to the database file.",
                 "Uses DB Browser's change workflow deliberately"),
             null,
-            SQLiteDocs),
+            SQLiteBrowserDocs),
         new(
             "sqlite-open-inspect",
             "SQLite foundations",
