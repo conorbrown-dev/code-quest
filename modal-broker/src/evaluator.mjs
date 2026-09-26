@@ -33,6 +33,31 @@ function gitFixture(code, setup, checks, tests = 3) {
   return { files: { 'exercise.sh': script }, command: ['/bin/bash', '/workspace/exercise.sh'], tests, runtime: 'git' }
 }
 
+function sqliteFixture(code, setup, checks, tests = 3) {
+  const script = [
+    '#!/bin/bash',
+    'set -euo pipefail',
+    'DB=/workspace/lab.db',
+    "sqlite3 -batch -bail \"$DB\" <<'PATHWAY_SETUP'",
+    setup,
+    'PATHWAY_SETUP',
+    "cat > /workspace/submission.sql <<'PATHWAY_SQL'",
+    code,
+    'PATHWAY_SQL',
+    'sqlite3 -batch -bail "$DB" < /workspace/submission.sql > /workspace/learner.out',
+    'cat /workspace/learner.out',
+    checks,
+    'echo PATHWAY_TEST_PASS',
+    '',
+  ].join('\n')
+  return {
+    files: { 'exercise.sh': script },
+    command: ['/bin/bash', '/workspace/exercise.sh'],
+    tests,
+    runtime: 'sqlite',
+  }
+}
+
 function reactFixture(code, checks, tests = 2) {
   const stubs = `
 declare namespace React { type ReactNode = any }
@@ -155,6 +180,35 @@ export function fixtureFor(lessonSlug, code) {
         command: ['python3', '/workspace/test_submission.py'],
         tests: 2,
       }
+
+    case 'sqlite-open-inspect':
+      return sqliteFixture(code, '', "test \"$(sqlite3 \"$DB\" \"SELECT COUNT(*) FROM sqlite_schema WHERE type='table' AND name='products';\")\" = '1'; test \"$(sqlite3 \"$DB\" \"SELECT pk FROM pragma_table_info('products') WHERE name='id';\")\" = '1'; test \"$(sqlite3 \"$DB\" \"SELECT [notnull] FROM pragma_table_info('products') WHERE name='name';\")\" = '1'")
+    case 'sqlite-strict-tables':
+      return sqliteFixture(code, '', "grep -Eq 'CREATE TABLE users.*STRICT' <(sqlite3 \"$DB\" \"SELECT replace(sql, char(10), ' ') FROM sqlite_schema WHERE name='users';\") || { echo 'users must be STRICT'; exit 1; }; test \"$(sqlite3 \"$DB\" \"SELECT COUNT(*) FROM pragma_index_list('users') WHERE [unique]=1;\")\" -ge 1; test \"$(sqlite3 \"$DB\" \"SELECT dflt_value FROM pragma_table_info('users') WHERE name='active';\")\" = '1'")
+    case 'sqlite-constraints':
+      return sqliteFixture(code, '', "sqlite3 \"$DB\" \"INSERT INTO inventory(sku, location) VALUES('A','WH1');\"; test \"$(sqlite3 \"$DB\" \"SELECT quantity FROM inventory WHERE sku='A';\")\" = '0'; ! sqlite3 \"$DB\" \"INSERT INTO inventory(sku,quantity,location) VALUES('B',-1,'WH1');\" >/dev/null 2>&1; test \"$(sqlite3 \"$DB\" \"SELECT pk FROM pragma_table_info('inventory') WHERE name='sku';\")\" = '1'")
+    case 'sqlite-crud':
+      return sqliteFixture(code, "CREATE TABLE users(id INTEGER PRIMARY KEY, email TEXT NOT NULL UNIQUE, active INTEGER NOT NULL DEFAULT 1); INSERT INTO users(email) VALUES('temp@example.test');", "test \"$(sqlite3 \"$DB\" \"SELECT COUNT(*) FROM users WHERE email IN ('ada@example.test','grace@example.test');\")\" = '2'; test \"$(sqlite3 \"$DB\" \"SELECT active FROM users WHERE email='grace@example.test';\")\" = '0'; test \"$(sqlite3 \"$DB\" \"SELECT COUNT(*) FROM users WHERE email='temp@example.test';\")\" = '0'")
+    case 'sqlite-select-filter-sort':
+      return sqliteFixture(code, "CREATE TABLE users(email TEXT, active INTEGER, created_at TEXT); INSERT INTO users VALUES('old@example.test',1,'2026-01-01'),('new@example.test',1,'2026-09-01'),('off@example.test',0,'2026-10-01'),('b@example.test',1,'2026-08-01'),('c@example.test',1,'2026-07-01'),('d@example.test',1,'2026-06-01'),('e@example.test',1,'2026-05-01'),('f@example.test',1,'2026-04-01');", "test \"$(wc -l < /workspace/learner.out | tr -d ' ')\" = '5'; head -n 1 /workspace/learner.out | grep -Fq 'new@example.test|2026-09-01'; ! grep -Fq 'off@example.test' /workspace/learner.out")
+    case 'sqlite-joins':
+      return sqliteFixture(code, "CREATE TABLE customers(id INTEGER PRIMARY KEY,name TEXT); CREATE TABLE orders(id INTEGER PRIMARY KEY,customer_id INTEGER,total REAL); INSERT INTO customers VALUES(1,'Ada'),(2,'Grace'); INSERT INTO orders VALUES(10,1,12.5),(11,2,30.0);", "test \"$(wc -l < /workspace/learner.out | tr -d ' ')\" = '2'; grep -Fq '10|Ada|12.5' /workspace/learner.out; grep -Fq '11|Grace|30.0' /workspace/learner.out")
+    case 'sqlite-aggregates-group-having':
+      return sqliteFixture(code, "CREATE TABLE orders(customer_id INTEGER,total REAL); INSERT INTO orders VALUES(1,10),(1,20),(2,5),(3,7),(3,8),(3,9);", "grep -Fq '1|2|30.0' /workspace/learner.out; grep -Fq '3|3|24.0' /workspace/learner.out; ! grep -Eq '^2\\|' /workspace/learner.out")
+    case 'sqlite-ctes-subqueries':
+      return sqliteFixture(code, "CREATE TABLE users(role TEXT,active INTEGER); INSERT INTO users VALUES('admin',1),('admin',1),('admin',0),('editor',1),('viewer',1),('viewer',1);", "grep -Fq 'admin|2' /workspace/learner.out; grep -Fq 'viewer|2' /workspace/learner.out; ! grep -Fq 'editor|' /workspace/learner.out")
+    case 'sqlite-transactions':
+      return sqliteFixture(code, "CREATE TABLE accounts(id INTEGER PRIMARY KEY,balance INTEGER NOT NULL); INSERT INTO accounts VALUES(1,100),(2,50);", "test \"$(sqlite3 \"$DB\" \"SELECT balance FROM accounts WHERE id=1;\")\" = '75'; test \"$(sqlite3 \"$DB\" \"SELECT balance FROM accounts WHERE id=2;\")\" = '75'; grep -Eqi 'BEGIN|BEGIN TRANSACTION' /workspace/submission.sql")
+    case 'sqlite-foreign-keys':
+      return sqliteFixture(code, "CREATE TABLE customers(id INTEGER PRIMARY KEY); INSERT INTO customers VALUES(1);", "grep -Eqi 'PRAGMA[[:space:]]+foreign_keys[[:space:]]*=[[:space:]]*ON' /workspace/submission.sql; grep -Eqi 'REFERENCES[[:space:]]+customers' /workspace/submission.sql; grep -Eqi 'ON[[:space:]]+DELETE[[:space:]]+RESTRICT' /workspace/submission.sql; ! sqlite3 \"$DB\" \"PRAGMA foreign_keys=ON; INSERT INTO orders(customer_id) VALUES(999);\" >/dev/null 2>&1")
+    case 'sqlite-indexes':
+      return sqliteFixture(code, "CREATE TABLE orders(id INTEGER PRIMARY KEY,customer_id INTEGER,created_at TEXT);", "test \"$(sqlite3 \"$DB\" \"SELECT COUNT(*) FROM sqlite_schema WHERE type='index' AND name='idx_orders_customer_created';\")\" = '1'; test \"$(sqlite3 \"$DB\" \"SELECT group_concat(name, ',') FROM pragma_index_info('idx_orders_customer_created') ORDER BY seqno;\")\" = 'customer_id,created_at'; test \"$(sqlite3 \"$DB\" \"SELECT [unique] FROM pragma_index_list('orders') WHERE name='idx_orders_customer_created';\")\" = '0'")
+    case 'sqlite-schema-migrations':
+      return sqliteFixture(code, "CREATE TABLE users(id INTEGER PRIMARY KEY,email TEXT NOT NULL); INSERT INTO users(email) VALUES('ada@example.test');", "test \"$(sqlite3 \"$DB\" \"SELECT type FROM pragma_table_info('users') WHERE name='display_name';\")\" = 'TEXT'; test \"$(sqlite3 \"$DB\" \"SELECT COUNT(*) FROM users;\")\" = '1'; test \"$(sqlite3 \"$DB\" \"SELECT [notnull] FROM pragma_table_info('users') WHERE name='display_name';\")\" = '0'")
+    case 'sqlite-views-triggers':
+      return sqliteFixture(code, "CREATE TABLE users(id INTEGER PRIMARY KEY,email TEXT,active INTEGER); INSERT INTO users VALUES(1,'ada@example.test',1),(2,'off@example.test',0);", "test \"$(sqlite3 \"$DB\" \"SELECT COUNT(*) FROM sqlite_schema WHERE type='view' AND name='active_users';\")\" = '1'; test \"$(sqlite3 \"$DB\" \"SELECT group_concat(name, ',') FROM pragma_table_info('active_users');\")\" = 'id,email'; test \"$(sqlite3 \"$DB\" \"SELECT COUNT(*) FROM active_users;\")\" = '1'")
+    case 'sqlite-capstone':
+      return sqliteFixture(code, '', "test \"$(sqlite3 \"$DB\" \"SELECT COUNT(*) FROM sqlite_schema WHERE type='table' AND name IN ('projects','users','issues','comments');\")\" = '4'; test \"$(sqlite3 \"$DB\" \"SELECT COUNT(*) FROM sqlite_schema WHERE type='index' AND name='idx_issues_project_status_created';\")\" = '1'; test \"$(sqlite3 \"$DB\" \"SELECT COUNT(*) FROM sqlite_schema WHERE type='view' AND name='open_issue_summary';\")\" = '1'; test \"$(sqlite3 \"$DB\" \"SELECT COUNT(*) FROM issues WHERE status='open';\")\" -ge 1; test \"$(sqlite3 \"$DB\" \"SELECT COUNT(*) FROM comments;\")\" -ge 1; test \"$(sqlite3 \"$DB\" \"PRAGMA integrity_check;\")\" = 'ok'; grep -Eqi 'BEGIN|BEGIN TRANSACTION' /workspace/submission.sql")
 
     case 'react-lite-jsx-rendering':
       return reactFixture(code, "grep -Fq 'DashboardHeading' /workspace/submission.tsx && grep -Fq '<h1' /workspace/submission.tsx && grep -Fq 'title' /workspace/submission.tsx")

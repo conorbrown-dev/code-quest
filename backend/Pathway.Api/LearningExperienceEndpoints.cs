@@ -463,6 +463,16 @@ public static class AssessmentCatalog
             new("fetch", "What should you inspect before treating fetch JSON as successful data?", ["response.ok or status", "Nothing", "Only content length"], "response.ok or status", "web-basics-fetch-async"),
             new("debug", "Which DevTools panel shows HTTP requests and responses?", ["Network", "Elements", "Fonts"], "Network", "web-basics-devtools")
         ]),
+        new("sqlite", "sqlite-foundations", "SQLite foundations checkpoint", [
+            new("embedded", "What makes SQLite different from a typical client/server database?", ["It runs embedded in the application process", "It requires a separate database server", "It can only run in memory"], "It runs embedded in the application process", "sqlite-what-it-is"),
+            new("types", "What do declared types provide in a normal SQLite table?", ["Type affinity", "No behavior at all", "A universal hard type system identical to every SQL engine"], "Type affinity", "sqlite-storage-types-affinity"),
+            new("null", "How do you test for a missing SQL value?", ["IS NULL", "= NULL", "= ''"], "IS NULL", "sqlite-null-expressions-functions"),
+            new("tx", "Why put related writes in one transaction?", ["So they commit or roll back as one unit", "To make SELECT syntax shorter", "To disable constraints"], "So they commit or roll back as one unit", "sqlite-transactions"),
+            new("fk", "What must be true for SQLite foreign-key constraints to protect relationships?", ["Foreign-key enforcement must be enabled on the connection", "Every key must use AUTOINCREMENT", "The database must run on a server"], "Foreign-key enforcement must be enabled on the connection", "sqlite-foreign-keys"),
+            new("index", "What is the strongest reason to add an index?", ["A real query pattern benefits from it", "Every column should always have one", "The table has more than ten rows"], "A real query pattern benefits from it", "sqlite-indexes"),
+            new("wal", "What remains true in WAL mode?", ["Database writes are still serialized", "Only one reader can exist", "A TCP server is required"], "Database writes are still serialized", "sqlite-wal-locking"),
+            new("params", "How should application values be placed into SQL statements?", ["Bound parameters", "String concatenation", "HTML encoding"], "Bound parameters", "sqlite-parameters")
+        ]),
         new("react-lite", "react-lite-foundations", "React Lite foundations checkpoint", [
             new("jsx", "What does JSX let a component describe?", ["The UI tree it wants React to render", "A database schema", "A DNS zone"], "The UI tree it wants React to render", "react-lite-jsx-rendering"),
             new("props", "What are props?", ["Inputs passed to a component", "Global mutable variables", "Database rows only"], "Inputs passed to a component", "react-lite-components-props"),

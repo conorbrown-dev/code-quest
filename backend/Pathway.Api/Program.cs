@@ -420,6 +420,29 @@ static ValidationResult ValidateCode(Lesson lesson, string code)
         };
         return new ValidationResult(gitPassed, gitPassed ? 3 : 0, 3, gitPassed ? "Command shape looks right for local authoring. Deployed lessons verify the real repository state inside the sandbox." : lesson.Exercise.Hint, gitPassed ? lesson.NextSlug : null, BuildCodeReview(lesson, code));
     }
+    if (lesson.Slug.StartsWith("sqlite-", StringComparison.Ordinal))
+    {
+        var normalized = code.ToUpperInvariant();
+        var sqlitePassed = lesson.Slug switch
+        {
+            "sqlite-open-inspect" => normalized.Contains("CREATE TABLE") && normalized.Contains("PRODUCTS") && normalized.Contains("PRIMARY KEY") && normalized.Contains("NOT NULL"),
+            "sqlite-strict-tables" => normalized.Contains("CREATE TABLE") && normalized.Contains("STRICT") && normalized.Contains("UNIQUE") && normalized.Contains("DEFAULT 1"),
+            "sqlite-constraints" => normalized.Contains("CHECK") && normalized.Contains("QUANTITY") && normalized.Contains("PRIMARY KEY"),
+            "sqlite-crud" => normalized.Contains("INSERT") && normalized.Contains("UPDATE") && normalized.Contains("DELETE"),
+            "sqlite-select-filter-sort" => normalized.Contains("SELECT") && normalized.Contains("WHERE") && normalized.Contains("ORDER BY") && normalized.Contains("LIMIT 5"),
+            "sqlite-joins" => normalized.Contains("JOIN") && normalized.Contains("CUSTOMER_ID"),
+            "sqlite-aggregates-group-having" => normalized.Contains("GROUP BY") && normalized.Contains("HAVING") && normalized.Contains("COUNT") && normalized.Contains("SUM"),
+            "sqlite-ctes-subqueries" => normalized.Contains("WITH") && normalized.Contains("ACTIVE_COUNTS") && normalized.Contains("GROUP BY"),
+            "sqlite-transactions" => normalized.Contains("BEGIN") && normalized.Contains("UPDATE") && normalized.Contains("COMMIT"),
+            "sqlite-foreign-keys" => normalized.Contains("PRAGMA FOREIGN_KEYS") && normalized.Contains("REFERENCES") && normalized.Contains("ON DELETE RESTRICT"),
+            "sqlite-indexes" => normalized.Contains("CREATE INDEX") && normalized.Contains("IDX_ORDERS_CUSTOMER_CREATED"),
+            "sqlite-schema-migrations" => normalized.Contains("ALTER TABLE") && normalized.Contains("ADD COLUMN") && normalized.Contains("DISPLAY_NAME"),
+            "sqlite-views-triggers" => normalized.Contains("CREATE VIEW") && normalized.Contains("ACTIVE_USERS"),
+            "sqlite-capstone" => normalized.Contains("CREATE TABLE") && normalized.Contains("CREATE INDEX") && normalized.Contains("CREATE VIEW") && normalized.Contains("BEGIN") && normalized.Contains("FOREIGN KEY"),
+            _ => false
+        };
+        return new ValidationResult(sqlitePassed, sqlitePassed ? 3 : 0, 3, sqlitePassed ? "Your SQL passes the local SQLite authoring checks." : lesson.Exercise.Hint, sqlitePassed ? lesson.NextSlug : null, BuildCodeReview(lesson, code));
+    }
     if (lesson.Slug.StartsWith("rust-", StringComparison.Ordinal))
     {
         var rustPassed = lesson.Slug switch
@@ -473,6 +496,13 @@ static CodeReview BuildCodeReview(Lesson lesson, string code)
         if (code.Contains("git add .", StringComparison.Ordinal)) suggestions.Add("Prefer staging the specific paths that belong in the commit when the exercise calls for a focused change.");
         if (code.Contains("--force", StringComparison.Ordinal) && !code.Contains("--force-with-lease", StringComparison.Ordinal)) suggestions.Add("On shared remotes, prefer --force-with-lease over --force when a history rewrite is truly necessary.");
         if (code.Contains("git reset --hard", StringComparison.Ordinal)) suggestions.Add("git reset --hard discards working-tree and index changes. Confirm status and the target commit before using it outside a disposable lab.");
+    }
+    else if (lesson.Slug.StartsWith("sqlite-", StringComparison.Ordinal))
+    {
+        if (code.Contains("SELECT *", StringComparison.OrdinalIgnoreCase)) suggestions.Add("Prefer explicit result columns when the query is part of a durable application contract.");
+        if ((code.Contains("UPDATE ", StringComparison.OrdinalIgnoreCase) || code.Contains("DELETE FROM", StringComparison.OrdinalIgnoreCase)) && !code.Contains("WHERE", StringComparison.OrdinalIgnoreCase)) suggestions.Add("Double-check write scope: UPDATE or DELETE without WHERE affects every row.");
+        if (code.Contains("AUTOINCREMENT", StringComparison.OrdinalIgnoreCase)) suggestions.Add("Use AUTOINCREMENT only when never reusing historical rowids is a real requirement; INTEGER PRIMARY KEY is usually enough.");
+        if (code.Contains("PRAGMA foreign_keys = OFF", StringComparison.OrdinalIgnoreCase)) suggestions.Add("Disabling foreign-key enforcement weakens relationship integrity; keep it enabled unless a controlled migration specifically requires otherwise.");
     }
     else if (lesson.Slug.StartsWith("rust-", StringComparison.Ordinal))
     {
@@ -814,10 +844,12 @@ static partial class Curriculum
     public static readonly Lesson[] ReactCourseLessons = BuildReactCourseLessons();
     public static readonly Lesson[] ReactLiteCourseLessons = BuildReactLiteCourseLessons();
     public static readonly Lesson[] WebBasicsLessons = BuildWebBasicsLessons();
+    public static readonly Lesson[] SQLiteLessons = BuildSQLiteLessons();
 
     public static readonly Dictionary<string, Lesson> BySlug = ComputingLessons
         .Concat(ElectricalEngineeringLessons)
         .Concat(WebBasicsLessons)
+        .Concat(SQLiteLessons)
         .Concat(GitCliLessons)
         .Concat(ReactCourseLessons)
         .Concat(ReactLiteCourseLessons)
@@ -831,6 +863,7 @@ static partial class Curriculum
     public static readonly Course ElectricalEngineeringCourse = BuildCourse("electrical-engineering-foundations", "Electrical Engineering Foundations", "electrical-engineering", "EE Foundations", "Circuits · measurement · components · signals", "2026-09-25", ElectricalEngineeringLessons);
     public static readonly Course GitCliCourse = BuildCourse("git-cli", "Git CLI", "git", "Git CLI", "Repositories · branches · remotes · recovery", "2026-09-26", GitCliLessons);
     public static readonly Course WebBasicsCourse = BuildCourse("web-development-basics", "Web Development Basics 2026", "web", "Web Platform 2026", "HTML · CSS · JavaScript · TypeScript · HTTP", "2026-09-26", WebBasicsLessons);
+    public static readonly Course SQLiteCourse = BuildCourse("sqlite", "SQLite", "sqlite", "SQLite 3.53.4", "sqlite3 CLI · DB Browser for SQLite 3.13.1", "2026-09-26", SQLiteLessons);
     public static readonly Course ReactCourse = BuildCourse("react-enterprise", "React 2026: enterprise applications", "react", "React 19.3 · TypeScript 6.0", "Vite 8.1 · React Router 8 · Tailwind CSS 4.3", "2026-09-26", ReactCourseLessons);
     public static readonly Course ReactLiteCourse = BuildCourse("react-lite", "React Lite 2026: your first admin dashboard", "react", "React 19.3 · TypeScript 6.0", "Vite 8.1 · React Router 8 · Tailwind CSS 4.3", "2026-09-26", ReactLiteCourseLessons);
     public static readonly Course Course = BuildCourse("csharp-dotnet", "C# / .NET: zero to staff", "csharp", "C# 14", ".NET 10", "2026-09-24", CSharpCourseLessons);
@@ -844,6 +877,7 @@ static partial class Curriculum
         [ElectricalEngineeringCourse.Id] = ElectricalEngineeringCourse,
         [GitCliCourse.Id] = GitCliCourse,
         [WebBasicsCourse.Id] = WebBasicsCourse,
+        [SQLiteCourse.Id] = SQLiteCourse,
         [ReactCourse.Id] = ReactCourse,
         [ReactLiteCourse.Id] = ReactLiteCourse,
         [Course.Id] = Course,
@@ -858,12 +892,16 @@ static partial class Curriculum
         new(ElectricalEngineeringCourse.Id, ElectricalEngineeringCourse.Title, ElectricalEngineeringCourse.LanguageId, ElectricalEngineeringCourse.LanguageVersion, ElectricalEngineeringCourse.FrameworkVersion, true),
         new(GitCliCourse.Id, GitCliCourse.Title, GitCliCourse.LanguageId, GitCliCourse.LanguageVersion, GitCliCourse.FrameworkVersion, true),
         new(WebBasicsCourse.Id, WebBasicsCourse.Title, WebBasicsCourse.LanguageId, WebBasicsCourse.LanguageVersion, WebBasicsCourse.FrameworkVersion, true),
+        new(SQLiteCourse.Id, SQLiteCourse.Title, SQLiteCourse.LanguageId, SQLiteCourse.LanguageVersion, SQLiteCourse.FrameworkVersion, true),
         new(ReactCourse.Id, ReactCourse.Title, ReactCourse.LanguageId, ReactCourse.LanguageVersion, ReactCourse.FrameworkVersion, true),
         new(ReactLiteCourse.Id, ReactLiteCourse.Title, ReactLiteCourse.LanguageId, ReactLiteCourse.LanguageVersion, ReactLiteCourse.FrameworkVersion, true),
         new(Course.Id, Course.Title, Course.LanguageId, Course.LanguageVersion, Course.FrameworkVersion, true),
         new(PythonCourse.Id, PythonCourse.Title, PythonCourse.LanguageId, PythonCourse.LanguageVersion, PythonCourse.FrameworkVersion, true),
         new(RustCourse.Id, RustCourse.Title, RustCourse.LanguageId, RustCourse.LanguageVersion, RustCourse.FrameworkVersion, true),
         new(ClaudeCourse.Id, ClaudeCourse.Title, ClaudeCourse.LanguageId, ClaudeCourse.LanguageVersion, ClaudeCourse.FrameworkVersion, true),
+        new("sql-server", "SQL Server", "sql-server", "Coming Soon", "T-SQL · SQL Server · SSMS", false),
+        new("mysql", "MySQL", "mysql", "Coming Soon", "MySQL SQL · MySQL Server · Workbench", false),
+        new("postgresql", "PostgreSQL", "postgresql", "Coming Soon", "PostgreSQL SQL · PostgreSQL · pgAdmin", false),
         new("networking-fundamentals", "Networking Fundamentals", "networking", "Coming Soon", "Packets · IP · routing · ports", false),
         new("dns", "DNS", "dns", "Coming Soon", "Names · records · resolvers · caching", false),
         new("http-apis", "HTTP & APIs", "http", "Coming Soon", "Methods · status · headers · contracts", false),

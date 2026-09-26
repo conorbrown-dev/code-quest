@@ -91,6 +91,8 @@ function AssessmentPanel({ course, onSelectLesson }: { course: Course; onSelectL
       ? 'rust-foundations'
       : course.id === 'git-cli'
         ? 'git-foundations-1'
+        : course.id === 'sqlite'
+          ? 'sqlite-foundations'
         : course.id === 'react-enterprise'
           ? 'react-rendering-model'
           : course.id === 'react-lite'
