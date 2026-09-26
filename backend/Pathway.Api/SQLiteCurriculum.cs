@@ -488,7 +488,7 @@ static partial class Curriculum
             "A database file is convenient, but safe backup still needs SQLite-aware operations when the database may be active.",
             "The sqlite3 CLI provides .backup and .dump; VACUUM INTO creates a compact database copy; .import can load delimited data after you deliberately define the destination schema.",
             "Do not blindly copy an actively written database together with an uncertain journal state. Use supported backup mechanisms. Test restore procedures, because a backup that has never been restored is only an assumption.",
-            "sqlite3 app.db ".backup 'app-backup.db'"\nsqlite3 app.db ".dump" > app.sql",
+            "sqlite3 app.db \".backup 'app-backup.db'\"\nsqlite3 app.db \".dump\" > app.sql",
             SqliteChoice(
                 "Choose a live backup approach",
                 "Which approach is designed to create a consistent SQLite backup while the database may be in use?",
