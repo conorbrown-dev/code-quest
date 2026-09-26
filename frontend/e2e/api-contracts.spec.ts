@@ -25,6 +25,7 @@ test.describe('public API contract', () => {
     await expect(catalog.json()).resolves.toEqual(expect.arrayContaining([
       expect.objectContaining({ id: 'computing-foundations', available: true }),
       expect.objectContaining({ id: 'electrical-engineering-foundations', available: true }),
+      expect.objectContaining({ id: 'git-cli', available: true }),
       expect.objectContaining({ id: 'csharp-dotnet', available: true }),
       expect.objectContaining({ id: 'python-web', available: true }),
       expect.objectContaining({ id: 'rust-systems', available: true }),
@@ -50,7 +51,7 @@ test.describe('public API contract', () => {
     expect((await request.post(`${apiBaseUrl}/api/submissions/validate`, { data: { lessonSlug: 'not-a-lesson', answer: 'anything' } })).status()).toBe(404)
   })
 
-  for (const courseId of ['computing-foundations', 'electrical-engineering-foundations', 'csharp-dotnet', 'python-web', 'rust-systems']) {
+  for (const courseId of ['computing-foundations', 'electrical-engineering-foundations', 'git-cli', 'csharp-dotnet', 'python-web', 'rust-systems']) {
     test(`${courseId} has contiguous lessons and representative next-lesson links`, async ({ request }) => {
       const courseResponse = await request.get(`${apiBaseUrl}/api/courses/${courseId}`)
       await expect(courseResponse).toBeOK()
@@ -74,6 +75,34 @@ test.describe('public API contract', () => {
       }
     })
   }
+
+  test('serves the Git CLI course and its checkpoint quiz', async ({ request }) => {
+    const courseResponse = await request.get(`${apiBaseUrl}/api/courses/git-cli`)
+    await expect(courseResponse).toBeOK()
+    const course = await courseResponse.json() as Course
+    const summaries = orderedLessons(course)
+    expect(summaries).toHaveLength(13)
+    expect(summaries[0]).toMatchObject({ slug: 'git-init-status', order: 1 })
+    expect(summaries.at(-1)).toMatchObject({ slug: 'git-revert-push', order: 13 })
+
+    const exerciseResponse = await request.get(`${apiBaseUrl}/api/lessons/git-stage-files`)
+    await expect(exerciseResponse).toBeOK()
+    await expect(exerciseResponse.json()).resolves.toMatchObject({
+      exercise: {
+        kind: 'Code',
+        prompt: expect.stringContaining('Stage README.md'),
+        starterCode: expect.stringContaining('Stage only README.md'),
+      },
+      version: { language: 'Git', framework: 'CLI' },
+    })
+
+    const assessment = await request.get(`${apiBaseUrl}/api/experience/assessments/git-cli/git-foundations-1`)
+    await expect(assessment).toBeOK()
+    const checkpoint = await assessment.json() as { title: string; questions: { correctAnswer?: string }[] }
+    expect(checkpoint.title).toBe('Git CLI checkpoint')
+    expect(checkpoint.questions).toHaveLength(6)
+    expect(checkpoint.questions.every(question => question.correctAnswer == null)).toBe(true)
+  })
 
   test('serves Electrical Engineering Foundations and validates numeric answers with tolerance and units', async ({ request }) => {
     const courseResponse = await request.get(`${apiBaseUrl}/api/courses/electrical-engineering-foundations`)
