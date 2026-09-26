@@ -230,7 +230,7 @@ static partial class Curriculum
             "A process is a running program; a shell job is Bash's interactive grouping for processes started from that shell.",
             "ps inspects processes. & starts a pipeline in the background. jobs lists shell jobs, fg/bg resume jobs, and kill sends signals to processes. Ctrl-C normally sends SIGINT to the foreground job.",
             "Prefer graceful termination before SIGKILL. A stuck process may be waiting on I/O or holding resources that need cleanup.",
-            "sleep 60 &\njobs\nps -o pid,ppid,stat,command\nkill "$pid"",
+            "sleep 60 &\njobs\nps -o pid,ppid,stat,command\nkill \"$pid\"",
             LinuxChoice(
                 "Stop gracefully first",
                 "Which approach is usually appropriate before reaching for kill -9?",
