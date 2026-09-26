@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Editor from "@monaco-editor/react";
 import "./onboarding.css";
 import { ExperienceHub } from "./ExperienceHub";
@@ -177,9 +177,8 @@ function App() {
   const [courseId, setCourseId] = useState(
     () => initialLocation.courseId ?? localStorage.getItem("pathway-course-id") ?? defaultCourseId,
   );
-  const [requestedLessonSlug, setRequestedLessonSlug] = useState<string | null>(
-    () => initialLocation.lessonSlug,
-  );
+  const requestedLessonRef = useRef<string | null>(initialLocation.lessonSlug);
+  const [routeVersion, setRouteVersion] = useState(0);
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [answer, setAnswer] = useState("");
   const [unit, setUnit] = useState("");
@@ -271,8 +270,9 @@ function App() {
   }, [account]);
   const navigateToCourse = (id: string, historyMode: "push" | "replace" = "push") => {
     localStorage.setItem("pathway-course-id", id);
-    setRequestedLessonSlug(null);
+    requestedLessonRef.current = null;
     setCourseId(id);
+    setRouteVersion((current) => current + 1);
     setWorkspace("learn");
     window.history[historyMode === "push" ? "pushState" : "replaceState"]({}, "", coursePath(id));
   };
@@ -290,7 +290,7 @@ function App() {
       if (!response.ok) throw Error();
       const next: Lesson = await response.json();
       setLesson(next);
-      setRequestedLessonSlug(next.slug);
+      requestedLessonRef.current = next.slug;
       setCode(next.exercise.starterCode ?? "");
       setUnit(next.exercise.unit ?? "");
       if (historyMode !== "none") {
@@ -313,11 +313,15 @@ function App() {
         const progress = await fetch(`${api}/api/progress`, { headers: apiHeaders(account) })
           .then((r) => (r.ok ? r.json() : null));
         const stored = progress?.completedLessonSlugs ?? readProgress(progressOwner);
+        const requestedLessonSlug = requestedLessonRef.current;
         const requested = requestedLessonSlug && ordered.some((item) => item.slug === requestedLessonSlug)
           ? requestedLessonSlug
           : null;
+        const currentLocation = parseLearningLocation(window.location.pathname);
+        const explicitCourseOnlyRoute =
+          currentLocation.courseId === courseId && currentLocation.lessonSlug === null;
         const nextAvailable = ordered.find((item) => !stored.includes(item.slug))?.slug ?? ordered.at(-1)!.slug;
-        const targetSlug = requested ?? nextAvailable;
+        const targetSlug = requested ?? (explicitCourseOnlyRoute ? nextAvailable : ordered[0].slug);
         const lessonResponse = await fetch(`${api}/api/lessons/${targetSlug}`);
         if (!lessonResponse.ok) throw Error();
         const nextLesson: Lesson = await lessonResponse.json();
@@ -326,7 +330,7 @@ function App() {
       .then(([nextCourse, nextLesson, stored]) => {
         setCourse(nextCourse);
         setLesson(nextLesson);
-        setRequestedLessonSlug(nextLesson.slug);
+        requestedLessonRef.current = nextLesson.slug;
         setCode(nextLesson.exercise.starterCode ?? "");
         setAnswer("");
         setUnit(nextLesson.exercise.unit ?? "");
@@ -342,15 +346,16 @@ function App() {
       })
       .catch(() => notify("Start the API to load the curriculum."))
       .finally(() => setLoading(false));
-  }, [accountIdentity, courseId, requestedLessonSlug]);
+  }, [accountIdentity, courseId, routeVersion]);
 
   useEffect(() => {
     const onPopState = () => {
       const location = parseLearningLocation(window.location.pathname);
       if (!location.courseId) return;
       localStorage.setItem("pathway-course-id", location.courseId);
-      setRequestedLessonSlug(location.lessonSlug);
+      requestedLessonRef.current = location.lessonSlug;
       setCourseId(location.courseId);
+      setRouteVersion((current) => current + 1);
       setWorkspace("learn");
     };
     window.addEventListener("popstate", onPopState);
