@@ -69,14 +69,14 @@ static partial class Curriculum
             "sqlite-cli-db-browser",
             "SQLite foundations",
             2,
-            "Use the sqlite3 CLI and DB Browser for SQLite",
-            "The CLI makes database behavior explicit; DB Browser for SQLite gives you a useful visual view of the same file.",
-            "The sqlite3 command-line shell can create/open databases, run SQL, inspect schema, import/export data, and perform backups. DB Browser for SQLite provides Browse Data, Database Structure, Execute SQL, and table/index editing views.",
-            "Use the CLI when learning commands, scripting, reproducing bugs, or working over a terminal. Use DB Browser when inspecting rows/schema visually or exploring a database file. Changes made by either tool affect the same database file, subject to transaction and locking rules.",
+            "Use the sqlite3 command-line shell",
+            "The CLI makes database behavior explicit and gives you a scriptable way to inspect or change a database.",
+            "The sqlite3 command-line shell can create/open databases, run SQL, inspect schema, change output modes, import/export data, and perform backups.",
+            "Run sqlite3 followed by a file path to open that database. Dot commands such as .help, .databases, .tables, and .schema control or inspect the shell; SQL statements query and modify the database itself. Use the CLI for reproducible terminal work, scripts, diagnostics, and learning what the engine is actually doing.",
             "sqlite3 app.db\n.tables\n.schema\n.quit",
             SqliteChoice(
                 "Pick the diagnostic tool",
-                "Which tool is easiest to script in CI or a terminal when you need to inspect a SQLite database?",
+                "Which SQLite tool is easiest to script in CI or a terminal when you need to inspect a database?",
                 "cli",
                 [new("cli", "The sqlite3 CLI"), new("browser", "A GUI-only workflow"), new("ssms", "SQL Server Management Studio")],
                 "The sqlite3 shell is scriptable and works well in terminal workflows.",
@@ -84,9 +84,27 @@ static partial class Curriculum
             null,
             SQLiteDocs),
         new(
-            "sqlite-open-inspect",
+            "sqlite-db-browser",
             "SQLite foundations",
             3,
+            "Inspect a database with DB Browser for SQLite",
+            "A visual database tool is most useful when it reveals the same schema, rows, and SQL you could inspect from the command line.",
+            "DB Browser for SQLite opens SQLite database files directly. Database Structure shows tables, columns, indexes, views, and triggers; Browse Data lets you inspect/edit rows; Execute SQL runs statements and shows result grids.",
+            "Open the same .db file used by the CLI. Use Database Structure to verify the schema before editing data. Use Browse Data for quick row inspection, and Execute SQL for repeatable queries. GUI edits are staged until you choose Write Changes; Revert Changes abandons pending GUI edits. Keep a SQL migration or script as the durable source of truth for important schema changes instead of relying only on clicks.",
+            "DB Browser workflow:\n1. Open Database -> app.db\n2. Database Structure -> inspect schema\n3. Browse Data -> inspect rows\n4. Execute SQL -> run a query\n5. Write Changes or Revert Changes",
+            SqliteChoice(
+                "Commit GUI edits deliberately",
+                "After editing rows in DB Browser for SQLite, which action persists the pending GUI changes to the database file?",
+                "write",
+                [new("write", "Write Changes"), new("browse", "Switch to Browse Data"), new("close", "Only close the SQL editor tab")],
+                "DB Browser separates pending edits from writing them to the database file.",
+                "Uses DB Browser's change workflow deliberately"),
+            null,
+            SQLiteDocs),
+        new(
+            "sqlite-open-inspect",
+            "SQLite foundations",
+            4,
             "Create a database and inspect its schema",
             "Opening a file with sqlite3 creates a database when the file does not exist; dot commands inspect the shell and database rather than executing SQL.",
             ".databases shows attached databases, .tables lists tables and views, .schema prints DDL, .headers and .mode control result formatting, and .help documents shell commands.",
@@ -105,7 +123,7 @@ static partial class Curriculum
         new(
             "sqlite-storage-types-affinity",
             "Schema design",
-            4,
+            5,
             "Understand storage classes and type affinity",
             "SQLite is dynamically typed, but declared column types still influence how values are converted and compared.",
             "SQLite values have storage classes NULL, INTEGER, REAL, TEXT, and BLOB. Column declarations map to type affinities such as INTEGER, TEXT, REAL, NUMERIC, or BLOB.",
@@ -123,7 +141,7 @@ static partial class Curriculum
         new(
             "sqlite-strict-tables",
             "Schema design",
-            5,
+            6,
             "Use STRICT tables when stronger typing helps",
             "STRICT tables keep SQLite's embedded model while rejecting values that cannot be losslessly converted to the declared type.",
             "A STRICT table limits declared types to SQLite's supported strict type names and performs stronger type checking on inserts and updates.",
@@ -142,7 +160,7 @@ static partial class Curriculum
         new(
             "sqlite-constraints",
             "Schema design",
-            6,
+            7,
             "Protect invariants with constraints",
             "Constraints reject invalid database states even when a bug or another tool bypasses application-level validation.",
             "PRIMARY KEY identifies rows, NOT NULL rejects missing values, UNIQUE prevents duplicates, CHECK enforces expressions, and DEFAULT supplies omitted values.",
@@ -161,7 +179,7 @@ static partial class Curriculum
         new(
             "sqlite-crud",
             "Data manipulation",
-            7,
+            8,
             "Insert, update, and delete rows",
             "CRUD writes change persistent database state; WHERE clauses decide which rows are affected.",
             "INSERT adds rows, UPDATE changes matching rows, and DELETE removes matching rows. SQLite supports multi-row INSERT and RETURNING for write statements that need to return affected values.",
@@ -180,7 +198,7 @@ static partial class Curriculum
         new(
             "sqlite-select-filter-sort",
             "Querying data",
-            8,
+            9,
             "Select, filter, sort, and limit results",
             "A useful query states exactly which rows and columns are needed.",
             "SELECT chooses expressions, WHERE filters rows, ORDER BY defines result order, and LIMIT bounds result count.",
@@ -199,7 +217,7 @@ static partial class Curriculum
         new(
             "sqlite-null-expressions-functions",
             "Querying data",
-            9,
+            10,
             "Handle NULL and expressions deliberately",
             "NULL means missing or unknown; it is not equal to anything, including another NULL.",
             "Use IS NULL and IS NOT NULL for null checks. COALESCE supplies a fallback, CASE expresses branching, and built-in scalar functions transform values.",
@@ -217,7 +235,7 @@ static partial class Curriculum
         new(
             "sqlite-joins",
             "Relational queries",
-            10,
+            11,
             "Join related tables",
             "Joins reconstruct related data using keys instead of duplicating whole records.",
             "INNER JOIN returns matching rows; LEFT JOIN preserves every row from the left side and supplies NULLs when no right-side match exists.",
@@ -236,7 +254,7 @@ static partial class Curriculum
         new(
             "sqlite-aggregates-group-having",
             "Relational queries",
-            11,
+            12,
             "Aggregate data with GROUP BY and HAVING",
             "Aggregates collapse rows into summaries; GROUP BY defines the groups and HAVING filters those groups.",
             "COUNT, SUM, AVG, MIN, and MAX summarize data. WHERE filters source rows before grouping; HAVING filters aggregate groups afterward.",
@@ -255,7 +273,7 @@ static partial class Curriculum
         new(
             "sqlite-ctes-subqueries",
             "Relational queries",
-            12,
+            13,
             "Use subqueries and common table expressions",
             "Break a complex query into named relational steps instead of forcing everything into one unreadable expression.",
             "A subquery nests a query inside another statement. WITH defines a common table expression (CTE) that can make transformations easier to read and reuse within one statement.",
@@ -274,7 +292,7 @@ static partial class Curriculum
         new(
             "sqlite-json-date-time",
             "Relational queries",
-            13,
+            14,
             "Work with JSON and date/time values",
             "SQLite stores application-friendly text values but also provides functions for querying JSON and manipulating dates and times.",
             "JSON functions such as json_extract and ->/->> read structured JSON values. Date/time functions such as datetime, date, unixepoch, and strftime operate on supported time representations.",
@@ -292,7 +310,7 @@ static partial class Curriculum
         new(
             "sqlite-transactions",
             "Integrity and transactions",
-            14,
+            15,
             "Make multi-step writes atomic with transactions",
             "A transaction makes a group of statements succeed or fail as one database change.",
             "BEGIN starts a transaction, COMMIT makes it durable, and ROLLBACK abandons the uncommitted changes. SQLite transactions provide ACID guarantees within the engine's locking model.",
@@ -311,7 +329,7 @@ static partial class Curriculum
         new(
             "sqlite-foreign-keys",
             "Integrity and transactions",
-            15,
+            16,
             "Enforce relationships with foreign keys",
             "Foreign keys prevent child rows from referring to nonexistent parent rows when foreign-key enforcement is enabled.",
             "REFERENCES defines the relationship. ON DELETE and ON UPDATE actions describe what happens when the referenced key changes. PRAGMA foreign_keys = ON enables enforcement for a connection where it is not already enabled by the host environment.",
@@ -330,7 +348,7 @@ static partial class Curriculum
         new(
             "sqlite-indexes",
             "Performance",
-            16,
+            17,
             "Create indexes for actual query patterns",
             "An index trades storage and write cost for faster lookups and ordered access.",
             "CREATE INDEX builds an ordered structure over one or more expressions/columns. UNIQUE indexes also enforce uniqueness. Column order matters in multi-column indexes.",
@@ -349,7 +367,7 @@ static partial class Curriculum
         new(
             "sqlite-query-planner",
             "Performance",
-            17,
+            18,
             "Read EXPLAIN QUERY PLAN",
             "Performance work starts by asking the query planner what access path it chose.",
             "EXPLAIN QUERY PLAN describes table scans, index searches, join loops, and temporary structures used by a statement.",
@@ -367,7 +385,7 @@ static partial class Curriculum
         new(
             "sqlite-rowid-primary-key",
             "SQLite-specific behavior",
-            18,
+            19,
             "Understand rowid and INTEGER PRIMARY KEY",
             "Most ordinary SQLite tables have a hidden 64-bit rowid; an INTEGER PRIMARY KEY column aliases that rowid.",
             "INTEGER PRIMARY KEY gets SQLite's rowid behavior. AUTOINCREMENT changes rowid reuse rules and adds overhead; it is not required merely to generate increasing integer keys.",
@@ -385,7 +403,7 @@ static partial class Curriculum
         new(
             "sqlite-schema-migrations",
             "SQLite-specific behavior",
-            19,
+            20,
             "Evolve schema with deliberate migrations",
             "Schema changes are production data changes, not just edits to CREATE TABLE source.",
             "ALTER TABLE supports common rename/add/drop operations, with SQLite version-specific capabilities. More complex transformations use a create-copy-drop-rename migration inside a transaction.",
@@ -404,7 +422,7 @@ static partial class Curriculum
         new(
             "sqlite-views-triggers",
             "SQLite-specific behavior",
-            20,
+            21,
             "Use views and triggers sparingly",
             "Views package reusable queries; triggers execute database-side actions when rows change.",
             "CREATE VIEW exposes a named SELECT. CREATE TRIGGER can run SQL BEFORE, AFTER, or INSTEAD OF supported changes.",
@@ -423,7 +441,7 @@ static partial class Curriculum
         new(
             "sqlite-wal-locking",
             "Concurrency and reliability",
-            21,
+            22,
             "Understand WAL, locking, and busy handling",
             "SQLite supports many readers but serializes writes; journal mode changes how readers and writers interact.",
             "WAL mode writes committed changes to a write-ahead log and commonly allows readers to continue while a writer is active. PRAGMA busy_timeout can wait briefly for a lock instead of failing immediately.",
@@ -441,7 +459,7 @@ static partial class Curriculum
         new(
             "sqlite-parameters",
             "Application integration",
-            22,
+            23,
             "Parameterize SQL instead of concatenating values",
             "SQL text and untrusted data are different things; parameters preserve that boundary.",
             "SQLite supports positional and named parameters such as ?, ?1, :email, @email, and $email through host-language APIs.",
@@ -459,7 +477,7 @@ static partial class Curriculum
         new(
             "sqlite-backup-export-import",
             "Operations",
-            23,
+            24,
             "Back up, dump, import, and copy databases",
             "A database file is convenient, but safe backup still needs SQLite-aware operations when the database may be active.",
             "The sqlite3 CLI provides .backup and .dump; VACUUM INTO creates a compact database copy; .import can load delimited data after you deliberately define the destination schema.",
@@ -477,7 +495,7 @@ static partial class Curriculum
         new(
             "sqlite-integrity-maintenance",
             "Operations",
-            24,
+            25,
             "Check integrity and maintain statistics",
             "SQLite exposes diagnostics and maintenance commands so you can verify the file and help the planner make informed choices.",
             "PRAGMA integrity_check validates database structure. ANALYZE records planner statistics. PRAGMA optimize performs recommended targeted optimization work. VACUUM rebuilds the database file and can reclaim free space.",
@@ -495,7 +513,7 @@ static partial class Curriculum
         new(
             "sqlite-capstone",
             "Capstone",
-            25,
+            26,
             "Build a production-minded local database",
             "A useful SQLite design combines relational modeling, constraints, queries, transactions, indexes, and operational checks.",
             "The capstone models a small issue tracker with projects, users, issues, and comments. The database should reject broken relationships, support dashboard queries, and survive realistic write workflows.",
