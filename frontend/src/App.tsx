@@ -218,7 +218,7 @@ function App() {
   );
   useEffect(() => {
     if (course)
-      document.title = `Pathway — ${course.languageId === "claude" ? "Claude Engineering" : course.languageId === "computing" ? "Computing Foundations" : course.languageId === "electrical-engineering" ? "Electrical Engineering" : `Learn ${course.languageId === "python" ? "Python" : course.languageId === "rust" ? "Rust" : "C#"}`}`;
+      document.title = `Pathway — ${course.languageId === "claude" ? "Claude Engineering" : course.languageId === "computing" ? "Computing Foundations" : course.languageId === "electrical-engineering" ? "Electrical Engineering" : course.languageId === "git" ? "Git CLI" : `Learn ${course.languageId === "python" ? "Python" : course.languageId === "rust" ? "Rust" : "C#"}`}`;
   }, [course]);
   const notify = (message: string) => {
     setToast(message);
@@ -671,6 +671,7 @@ function Onboarding({
   };
   const computingSelected = selectedCourseId === "computing-foundations";
   const electricalSelected = selectedCourseId === "electrical-engineering-foundations";
+  const gitSelected = selectedCourseId === "git-cli";
   const pythonSelected = selectedCourseId === "python-web";
   const rustSelected = selectedCourseId === "rust-systems";
   const csharpSelected = selectedCourseId === "csharp-dotnet";
@@ -736,6 +737,21 @@ function Onboarding({
                   <small className="mt-1 block text-xs text-[#aaa3b6]">Circuits · measurement · components · signals</small>
                 </span>
                 {electricalSelected && <Check className="ml-auto text-[#c198ff]" size={19} />}
+              </button>
+              <button
+                onClick={() => onSelectCourse("git-cli")}
+                className={`track-option mt-3 flex w-full items-center gap-4 rounded-xl p-4 text-left ${gitSelected ? "ring-1 ring-[#bd87ff]" : ""}`}
+              >
+                <span className="grid h-11 w-11 place-items-center rounded-lg bg-[#f05032] font-mono text-sm font-bold text-white">
+                  Git
+                </span>
+                <span>
+                  <strong className="block text-sm text-white">Git CLI</strong>
+                  <small className="mt-1 block text-xs text-[#aaa3b6]">
+                    Repositories · branches · remotes · recovery
+                  </small>
+                </span>
+                {gitSelected && <Check className="ml-auto text-[#c198ff]" size={19} />}
               </button>
               <button
                 onClick={() => onSelectCourse("csharp-dotnet")}
@@ -1309,6 +1325,15 @@ function TrackMenu({
       </button>
       <button
         role="menuitem"
+        onClick={() => select("git-cli")}
+        className={itemClass("git-cli")}
+      >
+        <span className="rounded bg-[#f05032] px-1 py-0.5 text-[9px] text-white">Git</span>
+        <span>Git CLI</span>
+        {courseId === "git-cli" && <Check className="ml-auto" size={14} />}
+      </button>
+      <button
+        role="menuitem"
         onClick={() => select("csharp-dotnet")}
         className={itemClass("csharp-dotnet")}
       >
@@ -1573,6 +1598,8 @@ function LessonContent({ lesson }: { lesson: Lesson }) {
       ? "Rust"
       : lesson.version.language.startsWith("Claude")
         ? "Claude Code"
+        : lesson.version.language.startsWith("Git")
+          ? "Git CLI"
         : lesson.version.language.startsWith("Electrical")
           ? "Circuit model"
           : "C#";
@@ -2020,7 +2047,9 @@ function ExercisePanel({
     ? "Python"
     : lesson.version.language.startsWith("Rust")
       ? "Rust"
-      : "C#";
+      : lesson.version.language.startsWith("Git")
+        ? "Shell"
+        : "C#";
   return (
     <section className="bg-panel px-7 py-10 sm:px-[9vw] lg:px-[clamp(27px,4vw,58px)] lg:py-[42px]">
       <p className="text-[10px] font-bold tracking-[1.2px] text-[#5d886f]">
@@ -2355,16 +2384,17 @@ function CodeEditor({
   code: string;
   setCode: (v: string) => void;
   onReset: () => void;
-  language: "C#" | "Python" | "Rust";
+  language: "C#" | "Python" | "Rust" | "Shell";
 }) {
   const isPython = language === "Python";
   const isRust = language === "Rust";
+  const isShell = language === "Shell";
   return (
     <div className="overflow-hidden rounded-md border border-[#303735] shadow-md shadow-[#19241f]/5">
       <div className="flex justify-between bg-[#2a302e] px-3 py-2.5 font-mono text-[11px] text-[#c3cac3]">
         <span>
           <i className="mr-2 inline-block h-2 w-2 rounded-full bg-[#55b794]" />
-          {isPython ? "main.py" : isRust ? "main.rs" : "Program.cs"}
+          {isPython ? "main.py" : isRust ? "main.rs" : isShell ? "exercise.sh" : "Program.cs"}
         </span>
         <span>
           <button
@@ -2385,7 +2415,7 @@ function CodeEditor({
       </div>
       <Editor
         height="245px"
-        language={isPython ? "python" : isRust ? "rust" : "csharp"}
+        language={isPython ? "python" : isRust ? "rust" : isShell ? "shell" : "csharp"}
         theme="vs-dark"
         value={code}
         onChange={(value) => setCode(value ?? "")}
