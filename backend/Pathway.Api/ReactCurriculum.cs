@@ -513,6 +513,43 @@ static partial class Curriculum
             ReactDocs),
 
         new(
+            "react-id-imperative-handle",
+            "Hooks and state",
+            24,
+            "Use IDs and imperative handles deliberately",
+            "React exposes escape hatches for accessibility identity and narrowly scoped imperative behavior.",
+            "useId creates stable IDs for accessibility relationships; useImperativeHandle lets a component expose a constrained ref API instead of its raw DOM implementation.",
+            "Use useId to connect labels, descriptions, and controls when a reusable component cannot rely on a caller-supplied ID. Use imperative handles sparingly for capabilities such as focus or reset. Prefer declarative props/state when the behavior can be expressed through normal rendering.",
+            "const descriptionId = useId()",
+            ReactChoice(
+                "Connect an accessible description",
+                "Which hook creates a stable identifier suitable for linking aria-describedby to reusable component content?",
+                "id",
+                [new("id", "useId"), new("ref", "useRef"), new("memo", "useMemo")],
+                "useId provides hydration-safe identifiers for accessibility relationships.",
+                "Uses identity and imperative APIs for their intended narrow roles"),
+            null,
+            ReactHooksDocs),
+        new(
+            "react-strictmode-profiler-activity",
+            "Hooks and state",
+            24,
+            "Diagnose lifecycle assumptions with StrictMode, Profiler, and Activity",
+            "React includes components that expose unsafe lifecycle assumptions, measure rendering, and control background UI lifecycle.",
+            "StrictMode adds development checks, Profiler measures render work, and Activity can hide a subtree while preserving its state for later restoration.",
+            "Keep StrictMode enabled in development so impure rendering and missing cleanup surface early. Use Profiler around a meaningful product region while investigating performance. Use Activity when retaining hidden UI state has real product value; hidden UI still has lifecycle and resource implications, so it is not a substitute for architecture.",
+            "<StrictMode><Profiler id='orders' onRender={onRender}><App /></Profiler></StrictMode>",
+            ReactChoice(
+                "Investigate duplicate development behavior",
+                "A subscription appears twice only in development under StrictMode. What should you inspect first?",
+                "cleanup",
+                [new("cleanup", "Render purity and Effect cleanup"), new("disable", "Disable StrictMode permanently"), new("memo", "Memoize every component")],
+                "StrictMode deliberately probes assumptions that often reveal missing cleanup or impure code.",
+                "Uses React diagnostics instead of hiding lifecycle bugs"),
+            null,
+            ReactDocs),
+
+        new(
             "react-router-data-mode",
             "Routing and page data",
             25,
