@@ -2,7 +2,7 @@ static partial class Curriculum
 {
     private static VersionStamp SQLiteDocs => new(
         "SQLite 3.53.4",
-        "sqlite3 CLI · DB Browser for SQLite 3.13.1",
+        "sqlite3 CLI",
         "2026-09-26",
         "https://sqlite.org/docs.html");
 
