@@ -1699,6 +1699,8 @@ function LessonContent({ lesson }: { lesson: Lesson }) {
         ? "Claude Code"
         : lesson.version.language.startsWith("Git")
           ? "Git CLI"
+        : lesson.slug.startsWith("web-basics-")
+          ? "Web Platform"
         : lesson.version.language.startsWith("React")
           ? "React / TypeScript"
         : lesson.version.language.startsWith("Electrical")
