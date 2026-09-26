@@ -364,6 +364,27 @@ static ValidationResult ValidateNumeric(Lesson lesson, string? answer, string? s
 
 static ValidationResult ValidateCode(Lesson lesson, string code)
 {
+    if (lesson.Slug.StartsWith("git-", StringComparison.Ordinal))
+    {
+        var gitPassed = lesson.Slug switch
+        {
+            "git-init-status" => code.Contains("git init", StringComparison.Ordinal) && code.Contains("git status", StringComparison.Ordinal),
+            "git-stage-files" => code.Contains("git add README.md", StringComparison.Ordinal),
+            "git-first-commit" => code.Contains("git commit", StringComparison.Ordinal),
+            "git-history-diff" => code.Contains("git log", StringComparison.Ordinal) && code.Contains("git diff", StringComparison.Ordinal),
+            "git-switch-branch" => code.Contains("git switch", StringComparison.Ordinal) && code.Contains("feature/navigation", StringComparison.Ordinal),
+            "git-feature-commit" => code.Contains("git add", StringComparison.Ordinal) && code.Contains("git commit", StringComparison.Ordinal),
+            "git-merge-feature" => code.Contains("git merge", StringComparison.Ordinal) && code.Contains("feature/readme", StringComparison.Ordinal),
+            "git-resolve-conflict" => code.Contains("git merge", StringComparison.Ordinal) && code.Contains("git add", StringComparison.Ordinal) && code.Contains("git commit", StringComparison.Ordinal),
+            "git-restore-reset" => code.Contains("git restore app.txt", StringComparison.Ordinal) && code.Contains("git restore --staged notes.txt", StringComparison.Ordinal),
+            "git-ignore-generated-files" => code.Contains(".gitignore", StringComparison.Ordinal) && code.Contains("git add", StringComparison.Ordinal),
+            "git-fetch-remote" => code.Contains("git fetch", StringComparison.Ordinal),
+            "git-rebase-feature" => code.Contains("git rebase", StringComparison.Ordinal),
+            "git-revert-push" => code.Contains("git revert", StringComparison.Ordinal) && code.Contains("git push", StringComparison.Ordinal),
+            _ => false
+        };
+        return new ValidationResult(gitPassed, gitPassed ? 3 : 0, 3, gitPassed ? "Command shape looks right for local authoring. Deployed lessons verify the real repository state inside the sandbox." : lesson.Exercise.Hint, gitPassed ? lesson.NextSlug : null, BuildCodeReview(lesson, code));
+    }
     if (lesson.Slug.StartsWith("rust-", StringComparison.Ordinal))
     {
         var rustPassed = lesson.Slug switch
@@ -406,7 +427,13 @@ static CodeReview BuildCodeReview(Lesson lesson, string code)
     var lines = code.Split('\n');
     if (lines.Any(line => line.Length > 120)) suggestions.Add("Keep lines under roughly 120 characters where practical so code remains easy to scan in reviews and diffs.");
 
-    if (lesson.Slug.StartsWith("rust-", StringComparison.Ordinal))
+    if (lesson.Slug.StartsWith("git-", StringComparison.Ordinal))
+    {
+        if (code.Contains("git add .", StringComparison.Ordinal)) suggestions.Add("Prefer staging the specific paths that belong in the commit when the exercise calls for a focused change.");
+        if (code.Contains("--force", StringComparison.Ordinal) && !code.Contains("--force-with-lease", StringComparison.Ordinal)) suggestions.Add("On shared remotes, prefer --force-with-lease over --force when a history rewrite is truly necessary.");
+        if (code.Contains("git reset --hard", StringComparison.Ordinal)) suggestions.Add("git reset --hard discards working-tree and index changes. Confirm status and the target commit before using it outside a disposable lab.");
+    }
+    else if (lesson.Slug.StartsWith("rust-", StringComparison.Ordinal))
     {
         if (code.Contains(".unwrap()", StringComparison.Ordinal)) suggestions.Add("Avoid `unwrap()` on inputs or I/O paths where failure is possible; propagate, map, or explicitly recover from errors.");
         if (code.Contains("unsafe", StringComparison.Ordinal) && !code.Contains("SAFETY", StringComparison.Ordinal)) suggestions.Add("Document the invariant that makes an unsafe operation sound with a nearby `SAFETY:` comment, and prefer a small safe wrapper.");
@@ -746,6 +773,7 @@ static partial class Curriculum
 
     public static readonly Dictionary<string, Lesson> BySlug = ComputingLessons
         .Concat(ElectricalEngineeringLessons)
+        .Concat(GitCliLessons)
         .Concat(CSharpCourseLessons)
         .Concat(PythonCourseLessons)
         .Concat(RustCourseLessons)
@@ -754,6 +782,7 @@ static partial class Curriculum
 
     public static readonly Course ComputingCourse = BuildCourse("computing-foundations", "Computing Foundations", "computing", "Core computing", "Machine · data · processes · OS", "2026-09-24", ComputingLessons);
     public static readonly Course ElectricalEngineeringCourse = BuildCourse("electrical-engineering-foundations", "Electrical Engineering Foundations", "electrical-engineering", "EE Foundations", "Circuits · measurement · components · signals", "2026-09-25", ElectricalEngineeringLessons);
+    public static readonly Course GitCliCourse = BuildCourse("git-cli", "Git CLI", "git", "Git CLI", "Repositories · branches · remotes · recovery", "2026-09-26", GitCliLessons);
     public static readonly Course Course = BuildCourse("csharp-dotnet", "C# / .NET: zero to staff", "csharp", "C# 14", ".NET 10", "2026-09-24", CSharpCourseLessons);
     public static readonly Course PythonCourse = BuildCourse("python-web", "Python Web: zero to staff", "python", "Python 3.14", "FastAPI · Flask · Django", "2026-09-24", PythonCourseLessons);
     public static readonly Course RustCourse = BuildCourse("rust-systems", "Rust Systems: zero to staff", "rust", "Rust 1.97", "Edition 2024 · Tokio · Axum", "2026-09-24", RustCourseLessons);
@@ -763,6 +792,7 @@ static partial class Curriculum
     {
         [ComputingCourse.Id] = ComputingCourse,
         [ElectricalEngineeringCourse.Id] = ElectricalEngineeringCourse,
+        [GitCliCourse.Id] = GitCliCourse,
         [Course.Id] = Course,
         [PythonCourse.Id] = PythonCourse,
         [RustCourse.Id] = RustCourse,
@@ -773,6 +803,7 @@ static partial class Curriculum
     [
         new(ComputingCourse.Id, ComputingCourse.Title, ComputingCourse.LanguageId, ComputingCourse.LanguageVersion, ComputingCourse.FrameworkVersion, true),
         new(ElectricalEngineeringCourse.Id, ElectricalEngineeringCourse.Title, ElectricalEngineeringCourse.LanguageId, ElectricalEngineeringCourse.LanguageVersion, ElectricalEngineeringCourse.FrameworkVersion, true),
+        new(GitCliCourse.Id, GitCliCourse.Title, GitCliCourse.LanguageId, GitCliCourse.LanguageVersion, GitCliCourse.FrameworkVersion, true),
         new(Course.Id, Course.Title, Course.LanguageId, Course.LanguageVersion, Course.FrameworkVersion, true),
         new(PythonCourse.Id, PythonCourse.Title, PythonCourse.LanguageId, PythonCourse.LanguageVersion, PythonCourse.FrameworkVersion, true),
         new(RustCourse.Id, RustCourse.Title, RustCourse.LanguageId, RustCourse.LanguageVersion, RustCourse.FrameworkVersion, true),
