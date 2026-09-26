@@ -112,6 +112,306 @@ test('serves learning-experience templates, checkpoints, and guarded coaching', 
   await expect(coach.json()).resolves.toMatchObject({ guidance: expect.stringContaining('won’t provide a copy-paste solution'), guardrails: expect.any(Array) })
 })
 
+test('deep-links every published course and representative lessons', async ({ page, request }) => {
+  const catalogResponse = await request.get(`${apiBaseUrl}/api/courses`)
+  await expect(catalogResponse).toBeOK()
+  const catalog = await catalogResponse.json() as { id: string; available: boolean }[]
+  const courseIds = catalog.filter(course => course.available).map(course => course.id)
+
+  await page.addInitScript(() => localStorage.setItem('pathway-onboarding-complete', 'true'))
+
+  for (const courseId of courseIds) {
+    const courseResponse = await request.get(`${apiBaseUrl}/api/courses/${courseId}`)
+    await expect(courseResponse).toBeOK()
+    const course = await courseResponse.json() as { modules: { lessons: { slug: string; title: string; order: number }[] }[] }
+    const lessons = course.modules.flatMap(module => module.lessons).sort((a, b) => a.order - b.order)
+    expect(lessons.length).toBeGreaterThan(0)
+
+    const representative = [...new Map([
+      lessons[0],
+      lessons[Math.floor(lessons.length / 2)],
+      lessons.at(-1)!,
+    ].map(lesson => [lesson.slug, lesson])).values()]
+
+    for (const lesson of representative) {
+      await page.goto(`/courses/${courseId}/lessons/${lesson.slug}`)
+      await expect(page).toHaveURL(new RegExp(`/courses/${courseId}/lessons/${lesson.slug}import { expect, test } from '@playwright/test'
+
+const apiBaseUrl = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://127.0.0.1:5100'
+
+test('serves the current C#/.NET curriculum API', async ({ request }) => {
+  const health = await request.get(`${apiBaseUrl}/health`)
+  await expect(health).toBeOK()
+  await expect(health.json()).resolves.toMatchObject({ status: 'ok', courseVersion: 'C# 14 / .NET 10' })
+
+  const course = await request.get(`${apiBaseUrl}/api/courses/csharp-dotnet`)
+  await expect(course).toBeOK()
+  const body = await course.json()
+  expect(body.languageVersion).toBe('C# 14')
+  expect(body.frameworkVersion).toBe('.NET 10')
+  const lessons = body.modules.flatMap((module: { lessons: { slug: string; order: number }[] }) => module.lessons)
+  expect(lessons).toHaveLength(33)
+  expect(lessons.map((lesson: { order: number }) => lesson.order)).toEqual([...Array(33)].map((_, index) => index + 1))
+  expect(lessons.map((lesson: { slug: string }) => lesson.slug)).toEqual(expect.arrayContaining(['foundations-data-types', 'objects-purpose', 'modern-csharp-records', 'reliability-http-clients', 'staff-leadership-leverage']))
+  expect(lessons[0]).toMatchObject({ slug: 'foundations-how-code-works', order: 1 })
+  expect(lessons.at(-1)).toMatchObject({ slug: 'staff-leadership-leverage', order: 33 })
+})
+
+test('serves the Python Web curriculum and its framework-choice lesson', async ({ request }) => {
+  const course = await request.get(`${apiBaseUrl}/api/courses/python-web`)
+  await expect(course).toBeOK()
+  const body = await course.json()
+  expect(body.languageVersion).toBe('Python 3.14')
+  expect(body.frameworkVersion).toContain('FastAPI')
+  const lessons = body.modules.flatMap((module: { lessons: { slug: string; order: number }[] }) => module.lessons)
+  expect(lessons).toHaveLength(32)
+  expect(lessons.map((lesson: { slug: string }) => lesson.slug)).toEqual(expect.arrayContaining(['python-framework-choice', 'python-project-foundations', 'python-system-design', 'python-staff-architecture']))
+  expect(lessons.map((lesson: { order: number }) => lesson.order)).toEqual([...Array(32)].map((_, index) => index + 1))
+  expect(lessons.map((lesson: { slug: string }) => lesson.slug)).toEqual(expect.arrayContaining(['python-testing-pytest', 'python-http-clients']))
+  expect(lessons.findIndex((lesson: { slug: string }) => lesson.slug === 'python-http-clients')).toBe(lessons.findIndex((lesson: { slug: string }) => lesson.slug === 'python-testing-pytest') + 1)
+  expect(lessons[0]).toMatchObject({ slug: 'python-values', order: 1 })
+  expect(lessons.sort((a: { order: number }, b: { order: number }) => a.order - b.order).at(-1)).toMatchObject({ slug: 'python-staff-architecture', order: 32 })
+
+  const frameworkChoice = await request.get(`${apiBaseUrl}/api/lessons/python-framework-choice`)
+  await expect(frameworkChoice).toBeOK()
+  await expect(frameworkChoice.json()).resolves.toMatchObject({
+    title: 'Choose a Python web framework',
+    version: { language: 'Python 3.14' },
+  })
+})
+
+test('serves Computing Foundations separately from language tracks', async ({ request }) => {
+  const course = await request.get(`${apiBaseUrl}/api/courses/computing-foundations`)
+  await expect(course).toBeOK()
+  const body = await course.json()
+  expect(body.languageId).toBe('computing')
+  const lessons = body.modules.flatMap((module: { lessons: { slug: string; order: number }[] }) => module.lessons)
+  expect(lessons).toHaveLength(4)
+  expect(lessons[0]).toMatchObject({ slug: 'computing-machine-model', order: 1 })
+  expect(lessons.at(-1)).toMatchObject({ slug: 'computing-os-shell', order: 4 })
+})
+
+test('serves the Claude Hooks presentation course without a quiz exercise', async ({ request }) => {
+  const course = await request.get(`${apiBaseUrl}/api/courses/claude-engineering`)
+  await expect(course).toBeOK()
+  const body = await course.json()
+  expect(body.languageId).toBe('claude')
+  expect(body.languageVersion).toBe('Claude Code')
+  const lessons = body.modules.flatMap((module: { lessons: { slug: string; order: number }[] }) => module.lessons)
+  expect(lessons).toHaveLength(9)
+  expect(lessons[0]).toMatchObject({ slug: 'claude-hooks-mental-model', order: 1 })
+  expect(lessons.at(-1)).toMatchObject({ slug: 'claude-hooks-security', order: 9 })
+
+  const firstLesson = await request.get(`${apiBaseUrl}/api/lessons/claude-hooks-mental-model`)
+  await expect(firstLesson).toBeOK()
+  await expect(firstLesson.json()).resolves.toMatchObject({
+    title: 'Hooks are lifecycle middleware',
+    exercise: { kind: 'Presentation' },
+    version: { language: 'Claude Code', framework: 'Hooks' },
+  })
+})
+
+test('accepts anonymous activity events and protects aggregate analytics', async ({ request }) => {
+  const activity = await request.post(`${apiBaseUrl}/api/activity`, {
+    headers: { 'X-Learner-Id': 'test-analytics-guest' },
+    data: {
+      eventType: 'lesson_view',
+      sessionId: 'test-session',
+      courseId: 'claude-engineering',
+      lessonSlug: 'claude-hooks-pretooluse',
+      workspace: 'learn',
+      detail: null,
+    },
+  })
+  expect([204, 503]).toContain(activity.status())
+
+  const summary = await request.get(`${apiBaseUrl}/api/admin/analytics`)
+  expect(summary.status()).toBe(401)
+})
+
+test('serves learning-experience templates, checkpoints, and guarded coaching', async ({ request }) => {
+  test.skip(Boolean(process.env.PLAYWRIGHT_BASE_URL), 'Experience endpoints require a production Keycloak test identity.')
+  const templates = await request.get(`${apiBaseUrl}/api/experience/projects/templates`)
+  await expect(templates).toBeOK()
+  await expect(templates.json()).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ id: 'python-learning-api', files: expect.any(Array) })]))
+
+  const assessment = await request.get(`${apiBaseUrl}/api/experience/assessments/python-web/python-foundations`)
+  await expect(assessment).toBeOK()
+  const assessmentBody = await assessment.json()
+  expect(assessmentBody.questions).toHaveLength(3)
+  expect(assessmentBody.questions.every((question: { correctAnswer: unknown }) => question.correctAnswer === null)).toBe(true)
+  const assessmentResult = await request.post(`${apiBaseUrl}/api/experience/assessments/python-web/python-foundations`, { data: { answers: { values: 'list', contract: 'Printed output only', boundary: 'Never' } } })
+  await expect(assessmentResult).toBeOK()
+  await expect(assessmentResult.json()).resolves.toMatchObject({ passed: false, recommendedReviewLessonSlugs: expect.arrayContaining(['python-control-flow-collections']) })
+
+  const coach = await request.post(`${apiBaseUrl}/api/experience/coach`, { data: { lessonSlug: 'python-functions', message: 'Give me the answer' } })
+  await expect(coach).toBeOK()
+  await expect(coach.json()).resolves.toMatchObject({ guidance: expect.stringContaining('won’t provide a copy-paste solution'), guardrails: expect.any(Array) })
+})
+
+))
+      await expect(page.getByRole('heading', { name: lesson.title, level: 1 })).toBeVisible()
+      await page.reload()
+      await expect(page).toHaveURL(new RegExp(`/courses/${courseId}/lessons/${lesson.slug}import { expect, test } from '@playwright/test'
+
+const apiBaseUrl = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://127.0.0.1:5100'
+
+test('serves the current C#/.NET curriculum API', async ({ request }) => {
+  const health = await request.get(`${apiBaseUrl}/health`)
+  await expect(health).toBeOK()
+  await expect(health.json()).resolves.toMatchObject({ status: 'ok', courseVersion: 'C# 14 / .NET 10' })
+
+  const course = await request.get(`${apiBaseUrl}/api/courses/csharp-dotnet`)
+  await expect(course).toBeOK()
+  const body = await course.json()
+  expect(body.languageVersion).toBe('C# 14')
+  expect(body.frameworkVersion).toBe('.NET 10')
+  const lessons = body.modules.flatMap((module: { lessons: { slug: string; order: number }[] }) => module.lessons)
+  expect(lessons).toHaveLength(33)
+  expect(lessons.map((lesson: { order: number }) => lesson.order)).toEqual([...Array(33)].map((_, index) => index + 1))
+  expect(lessons.map((lesson: { slug: string }) => lesson.slug)).toEqual(expect.arrayContaining(['foundations-data-types', 'objects-purpose', 'modern-csharp-records', 'reliability-http-clients', 'staff-leadership-leverage']))
+  expect(lessons[0]).toMatchObject({ slug: 'foundations-how-code-works', order: 1 })
+  expect(lessons.at(-1)).toMatchObject({ slug: 'staff-leadership-leverage', order: 33 })
+})
+
+test('serves the Python Web curriculum and its framework-choice lesson', async ({ request }) => {
+  const course = await request.get(`${apiBaseUrl}/api/courses/python-web`)
+  await expect(course).toBeOK()
+  const body = await course.json()
+  expect(body.languageVersion).toBe('Python 3.14')
+  expect(body.frameworkVersion).toContain('FastAPI')
+  const lessons = body.modules.flatMap((module: { lessons: { slug: string; order: number }[] }) => module.lessons)
+  expect(lessons).toHaveLength(32)
+  expect(lessons.map((lesson: { slug: string }) => lesson.slug)).toEqual(expect.arrayContaining(['python-framework-choice', 'python-project-foundations', 'python-system-design', 'python-staff-architecture']))
+  expect(lessons.map((lesson: { order: number }) => lesson.order)).toEqual([...Array(32)].map((_, index) => index + 1))
+  expect(lessons.map((lesson: { slug: string }) => lesson.slug)).toEqual(expect.arrayContaining(['python-testing-pytest', 'python-http-clients']))
+  expect(lessons.findIndex((lesson: { slug: string }) => lesson.slug === 'python-http-clients')).toBe(lessons.findIndex((lesson: { slug: string }) => lesson.slug === 'python-testing-pytest') + 1)
+  expect(lessons[0]).toMatchObject({ slug: 'python-values', order: 1 })
+  expect(lessons.sort((a: { order: number }, b: { order: number }) => a.order - b.order).at(-1)).toMatchObject({ slug: 'python-staff-architecture', order: 32 })
+
+  const frameworkChoice = await request.get(`${apiBaseUrl}/api/lessons/python-framework-choice`)
+  await expect(frameworkChoice).toBeOK()
+  await expect(frameworkChoice.json()).resolves.toMatchObject({
+    title: 'Choose a Python web framework',
+    version: { language: 'Python 3.14' },
+  })
+})
+
+test('serves Computing Foundations separately from language tracks', async ({ request }) => {
+  const course = await request.get(`${apiBaseUrl}/api/courses/computing-foundations`)
+  await expect(course).toBeOK()
+  const body = await course.json()
+  expect(body.languageId).toBe('computing')
+  const lessons = body.modules.flatMap((module: { lessons: { slug: string; order: number }[] }) => module.lessons)
+  expect(lessons).toHaveLength(4)
+  expect(lessons[0]).toMatchObject({ slug: 'computing-machine-model', order: 1 })
+  expect(lessons.at(-1)).toMatchObject({ slug: 'computing-os-shell', order: 4 })
+})
+
+test('serves the Claude Hooks presentation course without a quiz exercise', async ({ request }) => {
+  const course = await request.get(`${apiBaseUrl}/api/courses/claude-engineering`)
+  await expect(course).toBeOK()
+  const body = await course.json()
+  expect(body.languageId).toBe('claude')
+  expect(body.languageVersion).toBe('Claude Code')
+  const lessons = body.modules.flatMap((module: { lessons: { slug: string; order: number }[] }) => module.lessons)
+  expect(lessons).toHaveLength(9)
+  expect(lessons[0]).toMatchObject({ slug: 'claude-hooks-mental-model', order: 1 })
+  expect(lessons.at(-1)).toMatchObject({ slug: 'claude-hooks-security', order: 9 })
+
+  const firstLesson = await request.get(`${apiBaseUrl}/api/lessons/claude-hooks-mental-model`)
+  await expect(firstLesson).toBeOK()
+  await expect(firstLesson.json()).resolves.toMatchObject({
+    title: 'Hooks are lifecycle middleware',
+    exercise: { kind: 'Presentation' },
+    version: { language: 'Claude Code', framework: 'Hooks' },
+  })
+})
+
+test('accepts anonymous activity events and protects aggregate analytics', async ({ request }) => {
+  const activity = await request.post(`${apiBaseUrl}/api/activity`, {
+    headers: { 'X-Learner-Id': 'test-analytics-guest' },
+    data: {
+      eventType: 'lesson_view',
+      sessionId: 'test-session',
+      courseId: 'claude-engineering',
+      lessonSlug: 'claude-hooks-pretooluse',
+      workspace: 'learn',
+      detail: null,
+    },
+  })
+  expect([204, 503]).toContain(activity.status())
+
+  const summary = await request.get(`${apiBaseUrl}/api/admin/analytics`)
+  expect(summary.status()).toBe(401)
+})
+
+test('serves learning-experience templates, checkpoints, and guarded coaching', async ({ request }) => {
+  test.skip(Boolean(process.env.PLAYWRIGHT_BASE_URL), 'Experience endpoints require a production Keycloak test identity.')
+  const templates = await request.get(`${apiBaseUrl}/api/experience/projects/templates`)
+  await expect(templates).toBeOK()
+  await expect(templates.json()).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ id: 'python-learning-api', files: expect.any(Array) })]))
+
+  const assessment = await request.get(`${apiBaseUrl}/api/experience/assessments/python-web/python-foundations`)
+  await expect(assessment).toBeOK()
+  const assessmentBody = await assessment.json()
+  expect(assessmentBody.questions).toHaveLength(3)
+  expect(assessmentBody.questions.every((question: { correctAnswer: unknown }) => question.correctAnswer === null)).toBe(true)
+  const assessmentResult = await request.post(`${apiBaseUrl}/api/experience/assessments/python-web/python-foundations`, { data: { answers: { values: 'list', contract: 'Printed output only', boundary: 'Never' } } })
+  await expect(assessmentResult).toBeOK()
+  await expect(assessmentResult.json()).resolves.toMatchObject({ passed: false, recommendedReviewLessonSlugs: expect.arrayContaining(['python-control-flow-collections']) })
+
+  const coach = await request.post(`${apiBaseUrl}/api/experience/coach`, { data: { lessonSlug: 'python-functions', message: 'Give me the answer' } })
+  await expect(coach).toBeOK()
+  await expect(coach.json()).resolves.toMatchObject({ guidance: expect.stringContaining('won’t provide a copy-paste solution'), guardrails: expect.any(Array) })
+})
+
+))
+      await expect(page.getByRole('heading', { name: lesson.title, level: 1 })).toBeVisible()
+    }
+  }
+})
+
+test('course-only deep links resolve to the next incomplete lesson', async ({ page }) => {
+  await page.route('**/api/progress', route => route.fulfill({ status: 401 }))
+  await page.addInitScript(() => {
+    localStorage.setItem('pathway-onboarding-complete', 'true')
+    localStorage.setItem('pathway-learner-id', 'deep-link-next-guest')
+    localStorage.setItem('pathway-completed-lessons:guest:deep-link-next-guest', JSON.stringify([
+      'react-lite-vite-bootstrap',
+      'react-lite-router-tailwind',
+    ]))
+  })
+
+  await page.goto('/courses/react-lite')
+  await expect(page).toHaveURL(/\/courses\/react-lite\/lessons\/react-lite-devtools-project-files$/)
+  await expect(page.getByRole('heading', { name: 'Use browser DevTools and read the project', level: 1 })).toBeVisible()
+})
+
+test('lesson navigation updates history and browser back/forward restores lessons', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('pathway-onboarding-complete', 'true')
+    localStorage.setItem('pathway-learner-id', 'history-deep-link-guest')
+    localStorage.setItem('pathway-completed-lessons:guest:history-deep-link-guest', JSON.stringify([
+      'foundations-how-code-works',
+    ]))
+  })
+
+  await page.goto('/courses/csharp-dotnet/lessons/foundations-how-code-works')
+  await expect(page.getByRole('heading', { name: 'How code works', level: 1 })).toBeVisible()
+  await page.getByRole('button', { name: 'Values and variables' }).click()
+  await expect(page).toHaveURL(/\/courses\/csharp-dotnet\/lessons\/foundations-values$/)
+  await expect(page.getByRole('heading', { name: 'Values and variables', level: 1 })).toBeVisible()
+
+  await page.goBack()
+  await expect(page).toHaveURL(/\/courses\/csharp-dotnet\/lessons\/foundations-how-code-works$/)
+  await expect(page.getByRole('heading', { name: 'How code works', level: 1 })).toBeVisible()
+
+  await page.goForward()
+  await expect(page).toHaveURL(/\/courses\/csharp-dotnet\/lessons\/foundations-values$/)
+  await expect(page.getByRole('heading', { name: 'Values and variables', level: 1 })).toBeVisible()
+})
+
 test('loads the first lesson for a guest learner', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('pathway-onboarding-complete', 'true'))
   await page.goto('/')
