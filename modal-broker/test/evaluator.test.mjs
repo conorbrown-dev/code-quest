@@ -64,6 +64,33 @@ test('has isolated TypeScript fixtures for every React Lite coding exercise', ()
   }
 })
 
+test('has isolated SQLite fixtures for every SQL coding exercise', () => {
+  const lessons = [
+    'sqlite-open-inspect',
+    'sqlite-strict-tables',
+    'sqlite-constraints',
+    'sqlite-crud',
+    'sqlite-select-filter-sort',
+    'sqlite-joins',
+    'sqlite-aggregates-group-having',
+    'sqlite-ctes-subqueries',
+    'sqlite-transactions',
+    'sqlite-foreign-keys',
+    'sqlite-indexes',
+    'sqlite-schema-migrations',
+    'sqlite-views-triggers',
+    'sqlite-capstone',
+  ]
+  for (const lessonSlug of lessons) {
+    const fixture = fixtureFor(lessonSlug, 'SELECT 1;')
+    assert.ok(fixture, `missing fixture for ${lessonSlug}`)
+    assert.equal(fixture.runtime, 'sqlite')
+    assert.equal(fixture.tests, 3)
+    assert.match(fixture.files['exercise.sh'], /sqlite3 -batch -bail/)
+    assert.match(fixture.files['exercise.sh'], /PATHWAY_TEST_PASS/)
+  }
+})
+
 test('has isolated Git fixtures for the full CLI course', () => {
   const lessons = [
     'git-init-status', 'git-stage-files', 'git-first-commit', 'git-history-diff',
