@@ -116,7 +116,7 @@ test.describe('public API contract', () => {
         language: 'SQLite 3.53.4',
         framework: 'sqlite3 CLI',
       },
-      concept: expect.stringContaining('DB Browser for SQLite'),
+      concept: expect.stringContaining('sqlite3 command-line shell'),
     })
 
     const browserLesson = await request.get(`${apiBaseUrl}/api/lessons/sqlite-db-browser`)
