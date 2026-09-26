@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import Editor from "@monaco-editor/react";
+import Editor, { loader } from "@monaco-editor/react";
 import "./onboarding.css";
 import { ExperienceHub } from "./ExperienceHub";
 import { getAnonymousLearnerId, trackActivity, trackActivityOnce } from "./analytics";
@@ -1749,24 +1749,129 @@ function WorkspacePanel({
   );
 }
 
+type SnippetLanguage =
+  | "csharp"
+  | "python"
+  | "rust"
+  | "typescript"
+  | "javascript"
+  | "html"
+  | "css"
+  | "json"
+  | "shell"
+  | "plaintext";
+
+const shellCommandPattern =
+  /(^|\n)\s*(?:\$\s*)?(?:git|npm|npx|pnpm|yarn|dotnet|cargo|rustup|python(?:3)?|pip|pip3|uv|docker|docker-compose|curl|wget|cd|mkdir|rm|cp|mv|echo|printf|export|source|chmod|grep|cat)\b/;
+
+const looksLikeJson = (code: string) => {
+  const trimmed = code.trim();
+  if (!(trimmed.startsWith("{") || trimmed.startsWith("["))) return false;
+  try {
+    JSON.parse(trimmed);
+    return true;
+  } catch {
+    return /^\{[\s\S]*(?:"[^"]+"\s*:)/.test(trimmed);
+  }
+};
+
+const looksLikeFileTree = (code: string) => {
+  const lines = code.split("\n").filter((line) => line.trim());
+  return (
+    lines.length >= 3 &&
+    lines.filter((line) => /^\s*[\w.@-]+\/?\s*$/.test(line)).length >=
+      Math.ceil(lines.length * 0.75)
+  );
+};
+
+function snippetLanguage(lesson: Lesson, code = lesson.example): SnippetLanguage {
+  const trimmed = code.trim();
+  if (!trimmed) return "plaintext";
+  if (trimmed.startsWith("#!") || shellCommandPattern.test(trimmed)) return "shell";
+  if (looksLikeJson(trimmed)) return "json";
+  if (looksLikeFileTree(trimmed)) return "plaintext";
+
+  if (lesson.slug.startsWith("git-")) return "shell";
+  if (lesson.slug.startsWith("react-")) return "typescript";
+  if (lesson.slug.startsWith("web-basics-")) {
+    if (/^<[/!a-zA-Z]/.test(trimmed)) return "html";
+    if (/^(?:@media|@supports|@keyframes|[.#][\w-]+\s*\{)/.test(trimmed)) return "css";
+    if (/^(?:type|interface)\s/.test(trimmed)) return "typescript";
+    if (/\b(?:const|let|function|async|await|fetch|Promise)\b/.test(trimmed))
+      return "javascript";
+    return "plaintext";
+  }
+  if (lesson.version.language.startsWith("Python")) return "python";
+  if (lesson.version.language.startsWith("Rust")) return "rust";
+  if (lesson.version.language.startsWith("C#")) return "csharp";
+  if (lesson.version.language.startsWith("Claude")) return "plaintext";
+  return "plaintext";
+}
+
+const snippetLanguageLabel: Record<SnippetLanguage, string> = {
+  csharp: "C#",
+  python: "Python",
+  rust: "Rust",
+  typescript: "TypeScript / TSX",
+  javascript: "JavaScript",
+  html: "HTML",
+  css: "CSS",
+  json: "JSON",
+  shell: "Shell / CLI",
+  plaintext: "Text",
+};
+
+function HighlightedCode({
+  code,
+  language,
+  className = "",
+}: {
+  code: string;
+  language: SnippetLanguage;
+  className?: string;
+}) {
+  const [html, setHtml] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setHtml(null);
+    if (language === "plaintext") return () => { cancelled = true; };
+
+    void loader
+      .init()
+      .then((monaco) => {
+        monaco.editor.setTheme("vs-dark");
+        return monaco.editor.colorize(code, language, { tabSize: 2 });
+      })
+      .then((highlighted) => {
+        if (!cancelled) setHtml(highlighted);
+      })
+      .catch(() => {
+        if (!cancelled) setHtml(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [code, language]);
+
+  return (
+    <pre
+      className={className}
+      data-syntax-language={language}
+      data-syntax-highlighted={language === "plaintext" ? "plain" : html ? "true" : "pending"}
+    >
+      {html ? (
+        <code dangerouslySetInnerHTML={{ __html: html }} />
+      ) : (
+        <code>{code}</code>
+      )}
+    </pre>
+  );
+}
+
 function LessonContent({ lesson }: { lesson: Lesson }) {
-  const language = lesson.slug.startsWith("react-")
-    ? "React / TypeScript"
-    : lesson.version.language.startsWith("Python")
-    ? "Python"
-    : lesson.version.language.startsWith("Rust")
-      ? "Rust"
-      : lesson.version.language.startsWith("Claude")
-        ? "Claude Code"
-        : lesson.version.language.startsWith("Git")
-          ? "Git CLI"
-        : lesson.slug.startsWith("web-basics-")
-          ? "Web Platform"
-        : lesson.version.language.startsWith("React")
-          ? "React / TypeScript"
-        : lesson.version.language.startsWith("Electrical")
-          ? "Circuit model"
-          : "C#";
+  const language = snippetLanguage(lesson);
   return (
     <article className="border-b border-[#e1dfd6] bg-[#fbf9f3] px-6 py-12 sm:px-8 lg:border-b-0 lg:border-r lg:px-[clamp(28px,3.5vw,56px)] lg:py-16">
       <p className="text-[10px] font-bold tracking-[1.15px] text-[#6e786f]">
@@ -1797,11 +1902,13 @@ function LessonContent({ lesson }: { lesson: Lesson }) {
       </p>
       <div className="overflow-hidden rounded-md bg-[#252b28] shadow-sm">
         <div className="bg-[#303735] px-4 py-2 font-mono text-[10px] text-[#bbc4bb]">
-          {language}
+          {snippetLanguageLabel[language]}
         </div>
-        <pre className="m-0 overflow-auto p-4 font-mono text-xs leading-7 text-[#dce6de]">
-          {lesson.example}
-        </pre>
+        <HighlightedCode
+          code={lesson.example}
+          language={language}
+          className="syntax-code m-0 overflow-auto p-4 font-mono text-xs leading-7 text-[#dce6de]"
+        />
       </div>
       <p className="mt-5 text-[11px] leading-relaxed text-[#727b73]">
         Reviewed {lesson.version.lastReviewed} · {lesson.version.language} /{" "}
@@ -2051,9 +2158,11 @@ function HookPlayground() {
                   <summary className="cursor-pointer text-xs font-bold text-[#d7cbe8]">
                     Simulated stdin JSON
                   </summary>
-                  <pre className="mt-3 max-h-[220px] overflow-auto whitespace-pre-wrap font-mono text-[10px] leading-5 text-[#aaa4b7]">
-                    {JSON.stringify(JSON.parse(result.inputJson), null, 2)}
-                  </pre>
+                  <HighlightedCode
+                    code={JSON.stringify(JSON.parse(result.inputJson), null, 2)}
+                    language="json"
+                    className="syntax-code mt-3 max-h-[220px] overflow-auto whitespace-pre-wrap font-mono text-[10px] leading-5 text-[#aaa4b7]"
+                  />
                 </details>
               )}
               {(result.stdout || result.stderr) && (
@@ -2358,9 +2467,11 @@ function ExercisePanel({
             your solution rather than trying to match it
             character-for-character.
           </p>
-          <pre className="overflow-auto rounded bg-[#252b28] p-3 font-mono text-[11px] leading-relaxed text-[#dce6de]">
-            {lesson.example}
-          </pre>
+          <HighlightedCode
+            code={lesson.example}
+            language={snippetLanguage(lesson)}
+            className="syntax-code overflow-auto rounded bg-[#252b28] p-3 font-mono text-[11px] leading-relaxed text-[#dce6de]"
+          />
         </details>
       )}
       {passed && lesson.nextSlug && (
