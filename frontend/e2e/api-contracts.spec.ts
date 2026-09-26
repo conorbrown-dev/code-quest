@@ -26,6 +26,7 @@ test.describe('public API contract', () => {
       expect.objectContaining({ id: 'computing-foundations', available: true }),
       expect.objectContaining({ id: 'electrical-engineering-foundations', available: true }),
       expect.objectContaining({ id: 'git-cli', available: true }),
+      expect.objectContaining({ id: 'react-enterprise', available: true }),
       expect.objectContaining({ id: 'csharp-dotnet', available: true }),
       expect.objectContaining({ id: 'python-web', available: true }),
       expect.objectContaining({ id: 'rust-systems', available: true }),
@@ -51,7 +52,7 @@ test.describe('public API contract', () => {
     expect((await request.post(`${apiBaseUrl}/api/submissions/validate`, { data: { lessonSlug: 'not-a-lesson', answer: 'anything' } })).status()).toBe(404)
   })
 
-  for (const courseId of ['computing-foundations', 'electrical-engineering-foundations', 'git-cli', 'csharp-dotnet', 'python-web', 'rust-systems']) {
+  for (const courseId of ['computing-foundations', 'electrical-engineering-foundations', 'git-cli', 'react-enterprise', 'csharp-dotnet', 'python-web', 'rust-systems']) {
     test(`${courseId} has contiguous lessons and representative next-lesson links`, async ({ request }) => {
       const courseResponse = await request.get(`${apiBaseUrl}/api/courses/${courseId}`)
       await expect(courseResponse).toBeOK()
@@ -75,6 +76,34 @@ test.describe('public API contract', () => {
       }
     })
   }
+
+  test('serves the React 2026 enterprise course and rendering checkpoint', async ({ request }) => {
+    const courseResponse = await request.get(`${apiBaseUrl}/api/courses/react-enterprise`)
+    await expect(courseResponse).toBeOK()
+    const course = await courseResponse.json() as Course
+    const summaries = orderedLessons(course)
+    expect(summaries).toHaveLength(45)
+    expect(summaries[0]).toMatchObject({ slug: 'react-vite-bootstrap', order: 1 })
+    expect(summaries.at(-1)).toMatchObject({ slug: 'react-enterprise-capstone', order: 45 })
+
+    const lessonResponse = await request.get(`${apiBaseUrl}/api/lessons/react-use-state`)
+    await expect(lessonResponse).toBeOK()
+    await expect(lessonResponse.json()).resolves.toMatchObject({
+      exercise: {
+        kind: 'Code',
+        prompt: expect.stringContaining('OrderDetails'),
+        starterCode: expect.stringContaining('useState'),
+      },
+      version: { language: 'React 19.3', framework: 'Hooks' },
+    })
+
+    const assessment = await request.get(`${apiBaseUrl}/api/experience/assessments/react-enterprise/react-rendering-model`)
+    await expect(assessment).toBeOK()
+    const checkpoint = await assessment.json() as { title: string; questions: { correctAnswer?: string }[] }
+    expect(checkpoint.title).toBe('React rendering and hooks checkpoint')
+    expect(checkpoint.questions).toHaveLength(8)
+    expect(checkpoint.questions.every(question => question.correctAnswer == null)).toBe(true)
+  })
 
   test('serves the Git CLI course and its checkpoint quiz', async ({ request }) => {
     const courseResponse = await request.get(`${apiBaseUrl}/api/courses/git-cli`)
