@@ -798,6 +798,7 @@ static partial class Curriculum
     public static readonly Lesson[] RustCourseLessons = NormalizeLessons(RustLessons.Skip(5));
 
     public static readonly Lesson[] ElectricalEngineeringLessons = BuildElectricalEngineeringLessons();
+    public static readonly Lesson[] ReactCourseLessons = BuildReactCourseLessons();
 
     public static readonly Dictionary<string, Lesson> BySlug = ComputingLessons
         .Concat(ElectricalEngineeringLessons)
