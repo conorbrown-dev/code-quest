@@ -216,12 +216,12 @@ static partial class Curriculum
             "Sketch a Users page with a heading, Add User form, responsive list/table, and a loadUsers function. Keep it framework-neutral. Be able to explain what runs in the browser, what belongs on the server, how JSON moves across HTTP, and how browser DevTools would expose a failed request.",
             "HTML structure + CSS layout + JS behavior + HTTP data -> functional web page",
             ReactChoice(
-                "Choose the right abstraction",
-                "Which tool is responsible for organizing browser UI into reusable components when building the dashboard version of this feature?",
-                "react",
-                [new("react", "React"), new("http", "HTTP"), new("css", "CSS alone")],
-                "React organizes UI into reusable components; HTTP moves data and CSS controls presentation.",
-                "Connects web fundamentals to component-based UI"),
+                "Protect the trust boundary",
+                "Where must authorization for a sensitive write ultimately be enforced?",
+                "server",
+                [new("server", "On the server or API"), new("css", "In CSS by hiding the button"), new("browser", "Only in browser JavaScript")],
+                "Browser code can improve the user experience, but it cannot be the final trust boundary.",
+                "Separates client behavior from server authority"),
             null,
             WebBasicsDocs)
     ]);
