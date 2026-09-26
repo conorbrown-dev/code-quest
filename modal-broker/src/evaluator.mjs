@@ -58,6 +58,8 @@ declare module 'react-router' {
   export type ActionFunctionArgs = { params: Record<string, string | undefined>; request: Request }
   export function createBrowserRouter(routes: unknown[]): unknown
   export function Form(props: { method?: string; action?: string; children?: any }): any
+  export function Link(props: { to: string; children?: any }): any
+  export function Outlet(): any
 }
 declare module '@testing-library/react' {
   export function render(value: any): unknown
@@ -154,6 +156,32 @@ export function fixtureFor(lessonSlug, code) {
         tests: 2,
       }
 
+    case 'react-lite-jsx-rendering':
+      return reactFixture(code, "grep -Fq 'DashboardHeading' /workspace/submission.tsx && grep -Fq '<h1' /workspace/submission.tsx && grep -Fq 'title' /workspace/submission.tsx")
+    case 'react-lite-components-props':
+      return reactFixture(code, "grep -Fq 'StatCard' /workspace/submission.tsx && grep -Fq 'label' /workspace/submission.tsx && grep -Fq 'value' /workspace/submission.tsx")
+    case 'react-lite-state':
+      return reactFixture(code, "grep -Fq 'useState' /workspace/submission.tsx && grep -Fq 'onChange' /workspace/submission.tsx && grep -Fq 'value=' /workspace/submission.tsx")
+    case 'react-lite-forms':
+      return reactFixture(code, "grep -Fq 'useState' /workspace/submission.tsx && grep -Fq '<form' /workspace/submission.tsx && grep -Fq \"type='email'\" /workspace/submission.tsx")
+    case 'react-lite-router-pages':
+      return reactFixture(code, "grep -Fq 'createBrowserRouter' /workspace/submission.tsx && grep -Fq '/users' /workspace/submission.tsx")
+    case 'react-lite-layout-nav':
+      return reactFixture(code, "grep -Fq 'Link' /workspace/submission.tsx && grep -Fq 'Outlet' /workspace/submission.tsx && grep -Fq '/users' /workspace/submission.tsx")
+    case 'react-lite-table-filter-sort':
+      return reactFixture(code, "grep -Fq 'filterUsers' /workspace/submission.tsx && grep -Fq '.filter(' /workspace/submission.tsx && grep -Fq 'toLowerCase' /workspace/submission.tsx")
+    case 'react-lite-dummy-api-read':
+      return reactFixture(code, "grep -Fq 'usersApi' /workspace/submission.tsx && grep -Fq 'async list' /workspace/submission.tsx && grep -Fq 'seedUsers' /workspace/submission.tsx")
+    case 'react-lite-router-loader':
+      return reactFixture(code, "grep -Fq 'usersLoader' /workspace/submission.tsx && grep -Fq 'usersApi.list' /workspace/submission.tsx")
+    case 'react-lite-dummy-api-write':
+      return reactFixture(code, "grep -Fq 'async create' /workspace/submission.tsx && grep -Fq 'users.push' /workspace/submission.tsx")
+    case 'react-lite-router-action-crud':
+      return reactFixture(code, "grep -Fq 'ActionFunctionArgs' /workspace/submission.tsx && grep -Fq 'formData' /workspace/submission.tsx && grep -Fq 'usersApi.create' /workspace/submission.tsx")
+    case 'react-lite-basic-testing':
+      return reactFixture(code, "grep -Fq \"from 'vitest'\" /workspace/submission.tsx && grep -Fq 'filterUsers' /workspace/submission.tsx && grep -Fq 'toHaveLength' /workspace/submission.tsx")
+    case 'react-lite-capstone':
+      return reactFixture(code, "grep -Fq 'DashboardPage' /workspace/submission.tsx && grep -Fq 'StatCard' /workspace/submission.tsx && grep -Fq 'UserTable' /workspace/submission.tsx")
     case 'react-composition-root':
       return reactFixture(code, "grep -Fq 'RouterProvider' /workspace/submission.tsx && grep -Fq 'AppProviders' /workspace/submission.tsx")
     case 'react-props-composition':
