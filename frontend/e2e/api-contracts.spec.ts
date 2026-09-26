@@ -105,18 +105,29 @@ test.describe('public API contract', () => {
     await expect(courseResponse).toBeOK()
     const course = await courseResponse.json() as Course
     const summaries = orderedLessons(course)
-    expect(summaries).toHaveLength(25)
+    expect(summaries).toHaveLength(26)
     expect(summaries[0]).toMatchObject({ slug: 'sqlite-what-it-is', order: 1 })
-    expect(summaries.at(-1)).toMatchObject({ slug: 'sqlite-capstone', order: 25 })
+    expect(summaries.at(-1)).toMatchObject({ slug: 'sqlite-capstone', order: 26 })
 
     const cliLesson = await request.get(`${apiBaseUrl}/api/lessons/sqlite-cli-db-browser`)
     await expect(cliLesson).toBeOK()
     await expect(cliLesson.json()).resolves.toMatchObject({
       version: {
         language: 'SQLite 3.53.4',
-        framework: 'sqlite3 CLI · DB Browser for SQLite 3.13.1',
+        framework: 'sqlite3 CLI',
       },
       concept: expect.stringContaining('DB Browser for SQLite'),
+    })
+
+    const browserLesson = await request.get(`${apiBaseUrl}/api/lessons/sqlite-db-browser`)
+    await expect(browserLesson).toBeOK()
+    await expect(browserLesson.json()).resolves.toMatchObject({
+      title: 'Inspect a database with DB Browser for SQLite',
+      version: {
+        language: 'DB Browser for SQLite 3.13.1',
+        framework: 'SQLite GUI',
+      },
+      body: expect.stringContaining('Write Changes'),
     })
 
     const sqlExercise = await request.get(`${apiBaseUrl}/api/lessons/sqlite-open-inspect`)
