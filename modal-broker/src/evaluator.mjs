@@ -421,15 +421,15 @@ export function interpretHookResult(inputJson, matcherMatched, exitCode, stdout 
         "test \"$(git branch --show-current)\" = 'feature/navigation' || { echo 'Current branch should be feature/navigation.'; exit 1; }\ngit merge-base --is-ancestor main feature/navigation || { echo 'feature/navigation should start from main.'; exit 1; }")
     case 'git-feature-commit':
       return gitFixture(code,
-        "git init -q\nprintf 'Pathway app\\n' > app.txt\ngit add app.txt\ngit commit -qm 'Initial app'\ngit switch -qc feature/greeting\ngit rev-parse main > /workspace/base_main",
+        "git init -q\nprintf 'Pathway app\\n' > app.txt\ngit add app.txt\ngit commit -qm 'Initial app'\ngit switch -q -c feature/greeting\ngit rev-parse main > /workspace/base_main",
         "test \"$(git branch --show-current)\" = 'feature/greeting' || { echo 'Stay on feature/greeting.'; exit 1; }\ntest \"$(git rev-list --count main..HEAD)\" -ge 1 || { echo 'The feature branch needs a commit.'; exit 1; }\ngrep -qx 'Hello from the feature branch' app.txt || { echo 'app.txt is missing the requested greeting.'; exit 1; }\ntest \"$(git rev-parse main)\" = \"$(cat /workspace/base_main)\" || { echo 'main should remain unchanged.'; exit 1; }")
     case 'git-merge-feature':
       return gitFixture(code,
-        "git init -q\nprintf '# Project\\n' > README.md\ngit add README.md\ngit commit -qm 'Initial README'\ngit switch -qc feature/readme\nprintf '\\nFeature documentation\\n' >> README.md\ngit add README.md\ngit commit -qm 'Document feature'\ngit switch -q main",
+        "git init -q\nprintf '# Project\\n' > README.md\ngit add README.md\ngit commit -qm 'Initial README'\ngit switch -q -c feature/readme\nprintf '\\nFeature documentation\\n' >> README.md\ngit add README.md\ngit commit -qm 'Document feature'\ngit switch -q main",
         "git merge-base --is-ancestor feature/readme main || { echo 'feature/readme is not integrated into main.'; exit 1; }\ngrep -q 'Feature documentation' README.md || { echo 'README.md does not contain the feature content.'; exit 1; }\ntest -z \"$(git status --porcelain)\" || { echo 'The working tree should be clean.'; exit 1; }")
     case 'git-resolve-conflict':
       return gitFixture(code,
-        "git init -q\nprintf 'theme=light\\nfont=sans\\n' > settings.txt\ngit add settings.txt\ngit commit -qm 'Add settings'\ngit switch -qc feature/theme\nprintf 'theme=purple\\nfont=sans\\n' > settings.txt\ngit add settings.txt\ngit commit -qm 'Use purple theme'\ngit switch -q main\nprintf 'theme=light\\nfont=mono\\n' > settings.txt\ngit add settings.txt\ngit commit -qm 'Use mono font'",
+        "git init -q\nprintf 'theme=light\\nfont=sans\\n' > settings.txt\ngit add settings.txt\ngit commit -qm 'Add settings'\ngit switch -q -c feature/theme\nprintf 'theme=purple\\nfont=sans\\n' > settings.txt\ngit add settings.txt\ngit commit -qm 'Use purple theme'\ngit switch -q main\nprintf 'theme=light\\nfont=mono\\n' > settings.txt\ngit add settings.txt\ngit commit -qm 'Use mono font'",
         "test -z \"$(git ls-files -u)\" || { echo 'Unmerged paths remain.'; exit 1; }\nprintf 'theme=purple\\nfont=mono\\n' > /workspace/expected_settings\ncmp -s settings.txt /workspace/expected_settings || { echo 'settings.txt does not contain the required combined result.'; exit 1; }\ntest \"$(git rev-list --parents -n 1 HEAD | awk '{print NF}')\" -eq 3 || { echo 'HEAD should be the completed merge commit.'; exit 1; }")
     case 'git-restore-reset':
       return gitFixture(code,
@@ -596,7 +596,7 @@ export function interpretHookResult(inputJson, matcherMatched, exitCode, stdout 
         "test \"$(git rev-parse origin/main)\" = \"$(cat /workspace/remote_head)\" || { echo 'origin/main was not updated by fetch.'; exit 1; }\ntest \"$(git rev-parse main)\" = \"$(cat /workspace/local_before)\" || { echo 'fetch should not move local main.'; exit 1; }\ntest \"$(git rev-parse main)\" != \"$(git rev-parse origin/main)\" || { echo 'local main should remain behind origin/main.'; exit 1; }\ntest -z \"$(git status --porcelain)\" || { echo 'The working tree should remain unchanged.'; exit 1; }")
     case 'git-rebase-feature':
       return gitFixture(code,
-        "git init -q\nprintf 'base\\n' > app.txt\ngit add app.txt\ngit commit -qm 'Initial app'\ngit switch -qc feature/search\nprintf 'search\\n' > search.txt\ngit add search.txt\ngit commit -qm 'Add search'\ngit switch -q main\nprintf 'main update\\n' > main.txt\ngit add main.txt\ngit commit -qm 'Update main'\ngit switch -q feature/search",
+        "git init -q\nprintf 'base\\n' > app.txt\ngit add app.txt\ngit commit -qm 'Initial app'\ngit switch -q -c feature/search\nprintf 'search\\n' > search.txt\ngit add search.txt\ngit commit -qm 'Add search'\ngit switch -q main\nprintf 'main update\\n' > main.txt\ngit add main.txt\ngit commit -qm 'Update main'\ngit switch -q feature/search",
         "git merge-base --is-ancestor main feature/search || { echo 'feature/search is not rebased onto main.'; exit 1; }\ngrep -qx 'search' search.txt || { echo 'The feature change was not preserved.'; exit 1; }\ntest -z \"$(git rev-list --merges main..feature/search)\" || { echo 'The rebased feature history should be linear.'; exit 1; }")
     case 'git-revert-push':
       return gitFixture(code,
