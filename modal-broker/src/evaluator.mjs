@@ -33,6 +33,50 @@ function gitFixture(code, setup, checks, tests = 3) {
   return { files: { 'exercise.sh': script }, command: ['/bin/bash', '/workspace/exercise.sh'], tests, runtime: 'git' }
 }
 
+function linuxFixture(code, setup, checks, tests = 3) {
+  const script = [
+    '#!/bin/bash',
+    'set -euo pipefail',
+    'export HOME=/workspace/home/pathway',
+    'mkdir -p "$HOME"',
+    'cd /workspace',
+    setup,
+    "cat > /workspace/submission.sh <<'PATHWAY_BASH'",
+    code,
+    'PATHWAY_BASH',
+    'chmod +x /workspace/submission.sh',
+    'set +e',
+    '/bin/bash /workspace/submission.sh > /workspace/learner.out 2> /workspace/learner.err',
+    'status=$?',
+    'set -e',
+    'cat /workspace/learner.out',
+    'cat /workspace/learner.err >&2 || true',
+    'export PATHWAY_STATUS=$status',
+    checks,
+    'echo PATHWAY_TEST_PASS',
+    '',
+  ].join('\n')
+  return { files: { 'exercise.sh': script }, command: ['/bin/bash', '/workspace/exercise.sh'], tests, runtime: 'linux' }
+}
+
+function vimFixture(code, setup, checks, tests = 3) {
+  const script = [
+    '#!/bin/bash',
+    'set -euo pipefail',
+    'cd /workspace',
+    setup,
+    "cat > /workspace/commands.vim <<'PATHWAY_VIM'",
+    code.replace(/^:/gm, ''),
+    'PATHWAY_VIM',
+    "printf '\nqa!\n' >> /workspace/commands.vim",
+    'vim -Nu NONE -n -es /workspace/notes.txt -S /workspace/commands.vim',
+    checks,
+    'echo PATHWAY_TEST_PASS',
+    '',
+  ].join('\n')
+  return { files: { 'exercise.sh': script }, command: ['/bin/bash', '/workspace/exercise.sh'], tests, runtime: 'linux' }
+}
+
 function sqliteFixture(code, setup, checks, tests = 3) {
   const script = [
     '#!/bin/bash',
@@ -180,6 +224,41 @@ export function fixtureFor(lessonSlug, code) {
         command: ['python3', '/workspace/test_submission.py'],
         tests: 2,
       }
+
+    case 'linux-paths-navigation':
+      return linuxFixture(code, "mkdir -p /workspace/project/src; printf 'a\\n' > /workspace/project/README.md; printf 'b\\n' > /workspace/project/config.yml", "grep -Fxq '/workspace/project/src' /workspace/learner.out; grep -Fq 'README.md' /workspace/learner.out; grep -Fq 'config.yml' /workspace/learner.out")
+    case 'linux-files-directories':
+      return linuxFixture(code, "mkdir -p /workspace/project; cd /workspace/project; printf 'report\\n' > report.txt; printf 'draft\\n' > draft.txt; printf 'tmp\\n' > scratch.tmp", "test -f /workspace/project/archive/2026/report.txt; test -f /workspace/project/release-notes.txt; test ! -e /workspace/project/draft.txt; test ! -e /workspace/project/scratch.tmp")
+    case 'linux-read-text':
+      return linuxFixture(code, "printf 'one\\ntwo\\nthree\\nfour\\nfive\\n' > /workspace/app.log", "grep -Fq 'one' /workspace/learner.out; grep -Fq 'two' /workspace/learner.out; grep -Fq 'four' /workspace/learner.out; grep -Fq 'five' /workspace/learner.out; grep -Eq '(^|[^0-9])5([^0-9]|$)' /workspace/learner.out")
+    case 'linux-pipes-redirection':
+      return linuxFixture(code, "printf 'ERROR api timeout\\nINFO ok\\nERROR api timeout\\nERROR db down\\n' > /workspace/app.log", "test -f /workspace/error-counts.txt; grep -Eq '2[[:space:]]+ERROR api timeout' /workspace/error-counts.txt; grep -Eq '1[[:space:]]+ERROR db down' /workspace/error-counts.txt; ! grep -Fq 'INFO ok' /workspace/error-counts.txt")
+    case 'linux-grep-find':
+      return linuxFixture(code, "mkdir -p /workspace/config/nested; printf 'enabled=true\\n' > /workspace/config/app.conf; printf 'enabled=false\\n' > /workspace/config/off.conf; printf 'enabled=true\\n' > /workspace/config/nested/extra.conf; printf 'enabled=true\\n' > /workspace/config/ignore.txt", "grep -Fq 'app.conf' /workspace/learner.out; grep -Fq 'extra.conf' /workspace/learner.out; ! grep -Fq 'off.conf' /workspace/learner.out; ! grep -Fq 'ignore.txt' /workspace/learner.out")
+    case 'linux-expansion-quoting':
+      return linuxFixture(code, "mkdir -p '/workspace/source files'; printf 'hello\\n' > '/workspace/source files/release notes.txt'; export SOURCE='/workspace/source files/release notes.txt'", "test -f '/workspace/backup/release notes.txt'; test \"$(find /workspace/backup -maxdepth 1 -type f | wc -l)\" = '1'")
+    case 'linux-permissions':
+      return linuxFixture(code, "printf '#!/bin/sh\\n' > /workspace/deploy.sh; chmod 600 /workspace/deploy.sh", "test \"$(stat -c '%a' /workspace/deploy.sh)\" = '750'")
+    case 'linux-environment-path':
+      return linuxFixture(code, "mkdir -p /workspace/home/pathway/bin; printf '#!/bin/sh\\nprintf \\\"hello\\\\n\\\"\\n' > /workspace/home/pathway/bin/hello-pathway; chmod +x /workspace/home/pathway/bin/hello-pathway", "grep -Fxq '/workspace/home/pathway/bin/hello-pathway' /workspace/learner.out")
+    case 'linux-archives-compression':
+      return linuxFixture(code, "mkdir -p /workspace/dist; printf 'app\\n' > /workspace/dist/app.txt; printf 'cfg\\n' > /workspace/dist/config.ini", "test -f /workspace/release.tar.gz; tar -tzf /workspace/release.tar.gz | grep -Fq 'dist/app.txt'; tar -tzf /workspace/release.tar.gz | grep -Fq 'dist/config.ini'; grep -Fq 'dist/app.txt' /workspace/learner.out")
+    case 'bash-script-basics':
+      return linuxFixture(code, '', "test -x /workspace/greet.sh; head -n 1 /workspace/greet.sh | grep -Fqx '#!/usr/bin/env bash'; grep -Fxq 'Hello, Pathway!' /workspace/learner.out")
+    case 'bash-variables-arguments':
+      return linuxFixture(code, '', "test -x /workspace/show-user.sh; set +e; /workspace/show-user.sh >/workspace/missing.out 2>/workspace/missing.err; missing_status=$?; set -e; test \"$missing_status\" = '2'; grep -Fxq 'Usage: show-user.sh USER' /workspace/missing.err; /workspace/show-user.sh Ada | grep -Fxq 'User: Ada'")
+    case 'bash-status-conditionals':
+      return linuxFixture(code, "printf 'data\\n' > /workspace/full.txt; : > /workspace/empty.txt", "test -x /workspace/validate.sh; /workspace/validate.sh /workspace/full.txt | grep -Fxq 'ready'; set +e; /workspace/validate.sh /workspace/empty.txt >/workspace/empty.out 2>/workspace/empty.err; s1=$?; /workspace/validate.sh /workspace/missing.txt >/workspace/miss.out 2>/workspace/miss.err; s2=$?; set -e; test \"$s1\" = '1'; test \"$s2\" = '1'; grep -Fxq 'invalid' /workspace/empty.err; grep -Fxq 'invalid' /workspace/miss.err")
+    case 'bash-loops-functions':
+      return linuxFixture(code, "printf 'a\\nb\\n' > '/workspace/alpha file.txt'; printf 'x\\n' > /workspace/beta.txt", "test -x /workspace/count-lines.sh; /workspace/count-lines.sh '/workspace/alpha file.txt' /workspace/beta.txt > /workspace/count.out; grep -Fq '/workspace/alpha file.txt: 2' /workspace/count.out; grep -Fq '/workspace/beta.txt: 1' /workspace/count.out")
+    case 'bash-safe-scripting':
+      return linuxFixture(code, '', "test -x /workspace/safe-temp.sh; grep -Fq 'Pathway' /workspace/learner.out; grep -Fq 'set -euo pipefail' /workspace/safe-temp.sh; grep -Fq 'mktemp' /workspace/safe-temp.sh; grep -Fq 'trap' /workspace/safe-temp.sh")
+    case 'bash-text-processing':
+      return linuxFixture(code, "printf '1,Ada,active\\n2,Grace,inactive\\n3,Linus,active\\n4,Ada,active\\n' > /workspace/users.csv", "printf 'Ada\\nLinus\\n' > /workspace/expected_names; cmp -s /workspace/expected_names /workspace/learner.out")
+    case 'vim-search-substitute':
+      return vimFixture(code, "printf 'TODO one\\nkeep\\nTODO two\\n' > /workspace/notes.txt", "! grep -Fq 'TODO' /workspace/notes.txt; test \"$(grep -c '^DONE' /workspace/notes.txt)\" = '2'")
+    case 'linux-cli-capstone':
+      return linuxFixture(code, "mkdir -p '/workspace/source bundle'; printf 'ERROR db\\nINFO ok\\nERROR db\\nERROR api\\n' > '/workspace/source bundle/app.log'; printf 'PORT=8080\\n' > '/workspace/source bundle/app.conf'; printf 'ignore\\n' > '/workspace/source bundle/ignore.txt'", "test -x /workspace/support-bundle.sh; /workspace/support-bundle.sh '/workspace/source bundle' /workspace/support.tar.gz; test -f /workspace/support.tar.gz; tar -tzf /workspace/support.tar.gz | grep -Fq 'app.log'; tar -tzf /workspace/support.tar.gz | grep -Fq 'app.conf'; tar -tzf /workspace/support.tar.gz | grep -Fq 'error-summary.txt'; mkdir -p /workspace/check; tar -xzf /workspace/support.tar.gz -C /workspace/check; summary=$(find /workspace/check -name error-summary.txt -print -quit); grep -Fq 'ERROR api' \"$summary\"; grep -Fq 'ERROR db' \"$summary\"")
 
     case 'sqlite-open-inspect':
       return sqliteFixture(code, '', "test \"$(sqlite3 \"$DB\" \"SELECT COUNT(*) FROM sqlite_schema WHERE type='table' AND name='products';\")\" = '1'; test \"$(sqlite3 \"$DB\" \"SELECT pk FROM pragma_table_info('products') WHERE name='id';\")\" = '1'; test \"$(sqlite3 \"$DB\" \"SELECT [notnull] FROM pragma_table_info('products') WHERE name='name';\")\" = '1'")
