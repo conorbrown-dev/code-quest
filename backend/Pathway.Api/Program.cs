@@ -446,6 +446,22 @@ static ValidationResult ValidateCode(Lesson lesson, string code)
         };
         return new ValidationResult(linuxPassed, linuxPassed ? 3 : 0, 3, linuxPassed ? "Command shape looks right for local authoring. Deployed lessons verify the real Linux/Vim state inside the sandbox." : lesson.Exercise.Hint, linuxPassed ? lesson.NextSlug : null, BuildCodeReview(lesson, code));
     }
+    if (lesson.Slug.StartsWith("k8s-", StringComparison.Ordinal) && lesson.Exercise.Kind == ExerciseKind.Code)
+    {
+        var normalized = code.ToLowerInvariant();
+        var kubePassed = lesson.Slug switch
+        {
+            "k8s-yaml-api-objects" => normalized.Contains("kind: pod") && normalized.Contains("name: web") && normalized.Contains("nginx:1.29"),
+            "k8s-kubectl-contexts" => normalized.Contains("kubectl config current-context") && normalized.Contains("get pods") && normalized.Contains("payments"),
+            "k8s-labels-selectors" => normalized.Contains("name: orders") && normalized.Contains("app: orders") && normalized.Contains("tier: api"),
+            "k8s-deployments-replicasets" => normalized.Contains("kind: deployment") && normalized.Contains("replicas: 3") && normalized.Contains("app: orders") && normalized.Contains("orders:2.0"),
+            "k8s-services" => normalized.Contains("kind: service") && normalized.Contains("app: orders") && normalized.Contains("port: 80") && normalized.Contains("targetport: 8080"),
+            "k8s-resources-qos" => normalized.Contains("cpu: 250m") && normalized.Contains("memory: 256mi") && normalized.Contains("memory: 512mi"),
+            "k8s-debugging" => normalized.Contains("get pod") && normalized.Contains("-o wide") && normalized.Contains("describe pod") && normalized.Contains("logs") && normalized.Contains("--previous") && normalized.Contains("payments"),
+            _ => false
+        };
+        return new ValidationResult(kubePassed, kubePassed ? 3 : 0, 3, kubePassed ? "Your Kubernetes manifest or command sequence passes the local authoring checks." : lesson.Exercise.Hint, kubePassed ? lesson.NextSlug : null, BuildCodeReview(lesson, code));
+    }
     if (lesson.Slug.StartsWith("sqlite-", StringComparison.Ordinal))
     {
         var normalized = code.ToUpperInvariant();
@@ -879,12 +895,14 @@ static partial class Curriculum
     public static readonly Lesson[] WebBasicsLessons = BuildWebBasicsLessons();
     public static readonly Lesson[] SQLiteLessons = BuildSQLiteLessons();
     public static readonly Lesson[] LinuxCliLessons = BuildLinuxCliLessons();
+    public static readonly Lesson[] KubernetesLessons = BuildKubernetesLessons();
 
     public static readonly Dictionary<string, Lesson> BySlug = ComputingLessons
         .Concat(ElectricalEngineeringLessons)
         .Concat(WebBasicsLessons)
         .Concat(SQLiteLessons)
         .Concat(LinuxCliLessons)
+        .Concat(KubernetesLessons)
         .Concat(GitCliLessons)
         .Concat(ReactCourseLessons)
         .Concat(ReactLiteCourseLessons)
@@ -900,6 +918,7 @@ static partial class Curriculum
     public static readonly Course WebBasicsCourse = BuildCourse("web-development-basics", "Web Development Basics 2026", "web", "Web Platform 2026", "HTML · CSS · JavaScript · TypeScript · HTTP", "2026-09-26", WebBasicsLessons);
     public static readonly Course SQLiteCourse = BuildCourse("sqlite", "SQLite", "sqlite", "SQLite 3.53.4", "sqlite3 CLI · DB Browser for SQLite 3.13.1", "2026-09-26", SQLiteLessons);
     public static readonly Course LinuxCliCourse = BuildCourse("linux-cli-bash-vim", "Linux CLI / Bash / Vim", "linux", "GNU/Linux CLI · Bash 5.3", "GNU coreutils · Vim 9.2", "2026-09-26", LinuxCliLessons);
+    public static readonly Course KubernetesCourse = BuildCourse("kubernetes", "Kubernetes: foundations to internals", "kubernetes", "Kubernetes 1.35", "kubectl · containerd · CNI · CSI", "2026-09-26", KubernetesLessons);
     public static readonly Course ReactCourse = BuildCourse("react-enterprise", "React 2026: enterprise applications", "react", "React 19.3 · TypeScript 6.0", "Vite 8.1 · React Router 8 · Tailwind CSS 4.3", "2026-09-26", ReactCourseLessons);
     public static readonly Course ReactLiteCourse = BuildCourse("react-lite", "React Lite 2026: your first admin dashboard", "react", "React 19.3 · TypeScript 6.0", "Vite 8.1 · React Router 8 · Tailwind CSS 4.3", "2026-09-26", ReactLiteCourseLessons);
     public static readonly Course Course = BuildCourse("csharp-dotnet", "C# / .NET: zero to staff", "csharp", "C# 14", ".NET 10", "2026-09-24", CSharpCourseLessons);
@@ -915,6 +934,7 @@ static partial class Curriculum
         [WebBasicsCourse.Id] = WebBasicsCourse,
         [SQLiteCourse.Id] = SQLiteCourse,
         [LinuxCliCourse.Id] = LinuxCliCourse,
+        [KubernetesCourse.Id] = KubernetesCourse,
         [ReactCourse.Id] = ReactCourse,
         [ReactLiteCourse.Id] = ReactLiteCourse,
         [Course.Id] = Course,
@@ -931,6 +951,7 @@ static partial class Curriculum
         new(WebBasicsCourse.Id, WebBasicsCourse.Title, WebBasicsCourse.LanguageId, WebBasicsCourse.LanguageVersion, WebBasicsCourse.FrameworkVersion, true),
         new(SQLiteCourse.Id, SQLiteCourse.Title, SQLiteCourse.LanguageId, SQLiteCourse.LanguageVersion, SQLiteCourse.FrameworkVersion, true),
         new(LinuxCliCourse.Id, LinuxCliCourse.Title, LinuxCliCourse.LanguageId, LinuxCliCourse.LanguageVersion, LinuxCliCourse.FrameworkVersion, true),
+        new(KubernetesCourse.Id, KubernetesCourse.Title, KubernetesCourse.LanguageId, KubernetesCourse.LanguageVersion, KubernetesCourse.FrameworkVersion, true),
         new(ReactCourse.Id, ReactCourse.Title, ReactCourse.LanguageId, ReactCourse.LanguageVersion, ReactCourse.FrameworkVersion, true),
         new(ReactLiteCourse.Id, ReactLiteCourse.Title, ReactLiteCourse.LanguageId, ReactLiteCourse.LanguageVersion, ReactLiteCourse.FrameworkVersion, true),
         new(Course.Id, Course.Title, Course.LanguageId, Course.LanguageVersion, Course.FrameworkVersion, true),
