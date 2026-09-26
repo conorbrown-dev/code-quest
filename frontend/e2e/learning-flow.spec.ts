@@ -516,6 +516,7 @@ test('loads SQLite with SQL syntax highlighting and an editable SQL exercise', a
     localStorage.setItem('pathway-completed-lessons:guest:sqlite-ui-guest', JSON.stringify([
       'sqlite-what-it-is',
       'sqlite-cli-db-browser',
+      'sqlite-db-browser',
     ]))
   })
   await page.goto('/')
@@ -531,7 +532,7 @@ test('loads SQLite with SQL syntax highlighting and an editable SQL exercise', a
 
 test('onboarding exposes SQLite and the future database family tracks', async ({ page }) => {
   await page.goto('/')
-  await page.getByRole('button', { name: /^SQLite/ }).click()
+  await page.getByRole('button', { name: 'Select SQLite course' }).click()
   await expect(page.getByText('Selected: SQLite')).toBeVisible()
   await expect(page.getByText('SQL Server')).toBeVisible()
   await expect(page.getByText('MySQL')).toBeVisible()
@@ -603,7 +604,7 @@ test('loads the selected Git CLI track with a shell exercise editor', async ({ p
 
   await expect(page).toHaveTitle('Pathway — Git CLI')
   await expect(page.getByRole('heading', { name: 'Create a repository and read its state', level: 1 })).toBeVisible()
-  await expect(page.getByText('Initialize the repository')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Initialize the repository', level: 2 })).toBeVisible()
   await expect(page.getByRole('button', { name: /Run tests/i })).toBeVisible()
   await expect(page.locator('.monaco-editor')).toBeVisible()
 })
