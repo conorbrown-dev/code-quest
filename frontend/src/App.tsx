@@ -1560,7 +1560,22 @@ function WorkspacePanel({
     );
   }
   const stages =
-    course.id === "react-lite"
+    course.id === "web-development-basics"
+      ? [
+          [
+            "Web page foundations",
+            "Build semantic HTML, responsive CSS, and JavaScript interactions without hiding the browser fundamentals behind a framework.",
+          ],
+          [
+            "API-shaped interaction",
+            "Practice HTTP/JSON, fetch, async behavior, browser DevTools, and accessible form behavior.",
+          ],
+          [
+            "Web basics capstone",
+            "Trace a small users feature from markup and layout through JavaScript behavior and an API-shaped data flow.",
+          ],
+        ]
+      : course.id === "react-lite"
       ? [
           [
             "Dashboard foundations",
