@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Editor from "@monaco-editor/react";
 import "./onboarding.css";
 import { ExperienceHub } from "./ExperienceHub";
@@ -144,6 +144,18 @@ const applyAccent = (accent: string) => {
     ?.setAttribute("href", favicon);
 };
 const defaultCourseId = "csharp-dotnet";
+type LearningLocation = { courseId: string | null; lessonSlug: string | null };
+const parseLearningLocation = (pathname: string): LearningLocation => {
+  const parts = pathname.split("/").filter(Boolean).map(decodeURIComponent);
+  if (parts[0] !== "courses" || !parts[1]) return { courseId: null, lessonSlug: null };
+  if (parts.length === 2) return { courseId: parts[1], lessonSlug: null };
+  if (parts.length === 4 && parts[2] === "lessons" && parts[3])
+    return { courseId: parts[1], lessonSlug: parts[3] };
+  return { courseId: null, lessonSlug: null };
+};
+const coursePath = (courseId: string) => `/courses/${encodeURIComponent(courseId)}`;
+const lessonPath = (courseId: string, lessonSlug: string) =>
+  `${coursePath(courseId)}/lessons/${encodeURIComponent(lessonSlug)}`;
 const learnerId = getAnonymousLearnerId();
 const progressStorageKey = (owner: string) =>
   `pathway-completed-lessons:${owner}`;
@@ -160,10 +172,13 @@ const apiHeaders = (account: Account | null): Record<string, string> =>
     : { "content-type": "application/json", "X-Learner-Id": learnerId };
 
 function App() {
+  const initialLocation = parseLearningLocation(window.location.pathname);
   const [course, setCourse] = useState<Course | null>(null);
   const [courseId, setCourseId] = useState(
-    () => localStorage.getItem("pathway-course-id") ?? defaultCourseId,
+    () => initialLocation.courseId ?? localStorage.getItem("pathway-course-id") ?? defaultCourseId,
   );
+  const requestedLessonRef = useRef<string | null>(initialLocation.lessonSlug);
+  const [routeVersion, setRouteVersion] = useState(0);
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [answer, setAnswer] = useState("");
   const [unit, setUnit] = useState("");
@@ -253,7 +268,15 @@ function App() {
     );
     return () => window.clearInterval(refresh);
   }, [account]);
-  const loadLesson = async (slug: string) => {
+  const navigateToCourse = (id: string, historyMode: "push" | "replace" = "push") => {
+    localStorage.setItem("pathway-course-id", id);
+    requestedLessonRef.current = null;
+    setCourseId(id);
+    setRouteVersion((current) => current + 1);
+    setWorkspace("learn");
+    window.history[historyMode === "push" ? "pushState" : "replaceState"]({}, "", coursePath(id));
+  };
+  const loadLesson = async (slug: string, historyMode: "push" | "replace" | "none" = "push") => {
     setLoading(true);
     setResult(null);
     setAnswer("");
@@ -267,8 +290,12 @@ function App() {
       if (!response.ok) throw Error();
       const next: Lesson = await response.json();
       setLesson(next);
+      requestedLessonRef.current = next.slug;
       setCode(next.exercise.starterCode ?? "");
       setUnit(next.exercise.unit ?? "");
+      if (historyMode !== "none") {
+        window.history[historyMode === "push" ? "pushState" : "replaceState"]({}, "", lessonPath(courseId, next.slug));
+      }
     } catch {
       notify("Could not load that lesson. Check the API connection.");
     } finally {
@@ -278,22 +305,32 @@ function App() {
   useEffect(() => {
     fetch(`${api}/api/courses/${courseId}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((nextCourse: Course) => {
-        const firstSlug = nextCourse.modules
+      .then(async (nextCourse: Course) => {
+        const ordered = nextCourse.modules
           .flatMap((module) => module.lessons)
-          .sort((a, b) => a.order - b.order)[0]?.slug;
-        if (!firstSlug) throw Error();
-        return Promise.all([
-          Promise.resolve(nextCourse),
-          fetch(`${api}/api/lessons/${firstSlug}`).then((r) => r.json()),
-          fetch(`${api}/api/progress`, { headers: apiHeaders(account) }).then(
-            (r) => (r.ok ? r.json() : null),
-          ),
-        ]);
+          .sort((a, b) => a.order - b.order);
+        if (!ordered.length) throw Error();
+        const progress = await fetch(`${api}/api/progress`, { headers: apiHeaders(account) })
+          .then((r) => (r.ok ? r.json() : null));
+        const stored = progress?.completedLessonSlugs ?? readProgress(progressOwner);
+        const requestedLessonSlug = requestedLessonRef.current;
+        const requested = requestedLessonSlug && ordered.some((item) => item.slug === requestedLessonSlug)
+          ? requestedLessonSlug
+          : null;
+        const currentLocation = parseLearningLocation(window.location.pathname);
+        const explicitCourseOnlyRoute =
+          currentLocation.courseId === courseId && currentLocation.lessonSlug === null;
+        const nextAvailable = ordered.find((item) => !stored.includes(item.slug))?.slug ?? ordered.at(-1)!.slug;
+        const targetSlug = requested ?? (explicitCourseOnlyRoute ? nextAvailable : ordered[0].slug);
+        const lessonResponse = await fetch(`${api}/api/lessons/${targetSlug}`);
+        if (!lessonResponse.ok) throw Error();
+        const nextLesson: Lesson = await lessonResponse.json();
+        return [nextCourse, nextLesson, stored] as const;
       })
-      .then(([nextCourse, nextLesson, progress]) => {
+      .then(([nextCourse, nextLesson, stored]) => {
         setCourse(nextCourse);
         setLesson(nextLesson);
+        requestedLessonRef.current = nextLesson.slug;
         setCode(nextLesson.exercise.starterCode ?? "");
         setAnswer("");
         setUnit(nextLesson.exercise.unit ?? "");
@@ -301,17 +338,30 @@ function App() {
         setRedProbe("");
         setBlackProbe("");
         setDiagnosis("");
-        const stored =
-          progress?.completedLessonSlugs ?? readProgress(progressOwner);
         setCompleted(stored);
-        localStorage.setItem(
-          progressStorageKey(progressOwner),
-          JSON.stringify(stored),
-        );
+        localStorage.setItem("pathway-course-id", nextCourse.id);
+        localStorage.setItem(progressStorageKey(progressOwner), JSON.stringify(stored));
+        const canonical = lessonPath(nextCourse.id, nextLesson.slug);
+        if (window.location.pathname !== canonical) window.history.replaceState({}, "", canonical);
       })
       .catch(() => notify("Start the API to load the curriculum."))
       .finally(() => setLoading(false));
-  }, [accountIdentity, courseId]);
+  }, [accountIdentity, courseId, routeVersion]);
+
+  useEffect(() => {
+    const onPopState = () => {
+      const location = parseLearningLocation(window.location.pathname);
+      if (!location.courseId) return;
+      localStorage.setItem("pathway-course-id", location.courseId);
+      requestedLessonRef.current = location.lessonSlug;
+      setCourseId(location.courseId);
+      setRouteVersion((current) => current + 1);
+      setWorkspace("learn");
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
   const submit = async () => {
     if (!lesson) return;
     if (lesson.exercise.kind === "MultipleChoice" && !answer)
@@ -381,8 +431,7 @@ function App() {
         course={course}
         selectedCourseId={courseId}
         onSelectCourse={(id) => {
-          localStorage.setItem("pathway-course-id", id);
-          setCourseId(id);
+          navigateToCourse(id);
         }}
         onComplete={(nextAccount) => {
           if (nextAccount) setAccount(nextAccount);
@@ -431,9 +480,7 @@ function App() {
           workspace={workspace}
           onNavigate={setWorkspace}
           onChangeCourse={(id) => {
-            localStorage.setItem("pathway-course-id", id);
-            setCourseId(id);
-            setWorkspace("learn");
+            navigateToCourse(id);
           }}
           onSelect={loadLesson}
           onLocked={() =>
@@ -514,8 +561,7 @@ function App() {
         workspace={workspace}
         onNavigate={setWorkspace}
         onChangeCourse={(id) => {
-          localStorage.setItem("pathway-course-id", id);
-          setCourseId(id);
+          navigateToCourse(id);
           setWorkspace("learn");
         }}
         onSelect={loadLesson}

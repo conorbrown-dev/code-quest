@@ -112,6 +112,80 @@ test('serves learning-experience templates, checkpoints, and guarded coaching', 
   await expect(coach.json()).resolves.toMatchObject({ guidance: expect.stringContaining('won’t provide a copy-paste solution'), guardrails: expect.any(Array) })
 })
 
+test('deep-links every published course and representative lessons', async ({ page, request }) => {
+  const catalogResponse = await request.get(`${apiBaseUrl}/api/courses`)
+  await expect(catalogResponse).toBeOK()
+  const catalog = await catalogResponse.json() as { id: string; available: boolean }[]
+  const courseIds = catalog.filter(course => course.available).map(course => course.id)
+
+  await page.addInitScript(() => localStorage.setItem('pathway-onboarding-complete', 'true'))
+
+  for (const courseId of courseIds) {
+    const courseResponse = await request.get(`${apiBaseUrl}/api/courses/${courseId}`)
+    await expect(courseResponse).toBeOK()
+    const course = await courseResponse.json() as { modules: { lessons: { slug: string; title: string; order: number }[] }[] }
+    const lessons = course.modules.flatMap(module => module.lessons).sort((a, b) => a.order - b.order)
+    expect(lessons.length).toBeGreaterThan(0)
+
+    const representative = [...new Map([
+      lessons[0],
+      lessons[Math.floor(lessons.length / 2)],
+      lessons.at(-1)!,
+    ].map(lesson => [lesson.slug, lesson])).values()]
+
+    for (const lesson of representative) {
+      const expectedPath = `/courses/${courseId}/lessons/${lesson.slug}`
+      await page.goto(expectedPath)
+      await expect.poll(() => new URL(page.url()).pathname).toBe(expectedPath)
+      await expect(page.getByRole('heading', { name: lesson.title, level: 1 })).toBeVisible()
+      await page.reload()
+      await expect.poll(() => new URL(page.url()).pathname).toBe(expectedPath)
+      await expect(page.getByRole('heading', { name: lesson.title, level: 1 })).toBeVisible()
+    }
+  }
+})
+
+test('course-only deep links resolve to the next incomplete lesson', async ({ page }) => {
+  await page.route('**/api/progress', route => route.fulfill({ status: 401 }))
+  await page.addInitScript(() => {
+    localStorage.setItem('pathway-onboarding-complete', 'true')
+    localStorage.setItem('pathway-learner-id', 'deep-link-next-guest')
+    localStorage.setItem('pathway-completed-lessons:guest:deep-link-next-guest', JSON.stringify([
+      'react-lite-vite-bootstrap',
+      'react-lite-router-tailwind',
+    ]))
+  })
+
+  await page.goto('/courses/react-lite')
+  await expect.poll(() => new URL(page.url()).pathname).toBe('/courses/react-lite/lessons/react-lite-devtools-project-files')
+  await expect(page.getByRole('heading', { name: 'Use browser DevTools and read the project', level: 1 })).toBeVisible()
+})
+
+test('lesson navigation updates history and browser back/forward restores lessons', async ({ page }) => {
+  await page.route('**/api/progress', route => route.fulfill({ status: 401 }))
+  await page.addInitScript(() => {
+    localStorage.setItem('pathway-onboarding-complete', 'true')
+    localStorage.setItem('pathway-learner-id', 'history-deep-link-guest')
+    localStorage.setItem('pathway-completed-lessons:guest:history-deep-link-guest', JSON.stringify([
+      'foundations-how-code-works',
+    ]))
+  })
+
+  await page.goto('/courses/csharp-dotnet/lessons/foundations-how-code-works')
+  await expect(page.getByRole('heading', { name: 'How code works', level: 1 })).toBeVisible()
+  await page.getByRole('button', { name: 'Values and variables' }).click()
+  await expect.poll(() => new URL(page.url()).pathname).toBe('/courses/csharp-dotnet/lessons/foundations-values')
+  await expect(page.getByRole('heading', { name: 'Values and variables', level: 1 })).toBeVisible()
+
+  await page.goBack()
+  await expect.poll(() => new URL(page.url()).pathname).toBe('/courses/csharp-dotnet/lessons/foundations-how-code-works')
+  await expect(page.getByRole('heading', { name: 'How code works', level: 1 })).toBeVisible()
+
+  await page.goForward()
+  await expect.poll(() => new URL(page.url()).pathname).toBe('/courses/csharp-dotnet/lessons/foundations-values')
+  await expect(page.getByRole('heading', { name: 'Values and variables', level: 1 })).toBeVisible()
+})
+
 test('loads the first lesson for a guest learner', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('pathway-onboarding-complete', 'true'))
   await page.goto('/')
