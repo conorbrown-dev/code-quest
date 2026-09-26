@@ -380,6 +380,34 @@ test('runs the Claude PreToolUse Hook Playground against simulated Bash commands
   await expect(page.getByText(/normal permission flow/i)).toBeVisible()
 })
 
+test('loads the selected React enterprise track with a TypeScript exercise editor', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('pathway-onboarding-complete', 'true')
+    localStorage.setItem('pathway-course-id', 'react-enterprise')
+  })
+  await page.goto('/')
+
+  await expect(page).toHaveTitle('Pathway — React 2026')
+  await expect(page.getByRole('heading', { name: 'Bootstrap React with Vite and TypeScript', level: 1 })).toBeVisible()
+  await expect(page.getByText('Pick the bootstrap boundary')).toBeVisible()
+
+  const completed = [
+    'react-vite-bootstrap',
+    'react-router-tailwind-baseline',
+    'react-typescript-strict',
+    'react-enterprise-folders',
+  ]
+  await page.evaluate((progress) => {
+    const learnerId = localStorage.getItem('pathway-learner-id')
+    localStorage.setItem(`pathway-completed-lessons:guest:${learnerId}`, JSON.stringify(progress))
+  }, completed)
+  await page.reload()
+  await page.getByRole('button', { name: 'Build a thin application composition root' }).click()
+  await expect(page.getByRole('button', { name: /Run tests/i })).toBeVisible()
+  await expect(page.locator('.monaco-editor')).toBeVisible()
+  await expect(page.getByText('App.tsx')).toBeVisible()
+})
+
 test('loads the selected Git CLI track with a shell exercise editor', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem('pathway-onboarding-complete', 'true')

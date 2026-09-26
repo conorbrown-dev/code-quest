@@ -364,6 +364,28 @@ static ValidationResult ValidateNumeric(Lesson lesson, string? answer, string? s
 
 static ValidationResult ValidateCode(Lesson lesson, string code)
 {
+    if (lesson.Slug.StartsWith("react-", StringComparison.Ordinal))
+    {
+        var reactPassed = lesson.Slug switch
+        {
+            "react-composition-root" => code.Contains("RouterProvider", StringComparison.Ordinal) && code.Contains("AppProviders", StringComparison.Ordinal),
+            "react-props-composition" => code.Contains("OrderStatusBadge", StringComparison.Ordinal) && code.Contains("status", StringComparison.Ordinal) && code.Contains("<span", StringComparison.Ordinal),
+            "react-use-state" => code.Contains("useState", StringComparison.Ordinal) && code.Contains("onClick", StringComparison.Ordinal),
+            "react-use-reducer" => code.Contains("useReducer", StringComparison.Ordinal) && code.Contains("type Action", StringComparison.Ordinal),
+            "react-effects-synchronization" => code.Contains("useEffect", StringComparison.Ordinal) && code.Contains("subscribeToOrder", StringComparison.Ordinal) && code.Contains("orderId", StringComparison.Ordinal),
+            "react-context-provider-boundaries" => code.Contains("createContext", StringComparison.Ordinal) && code.Contains("useContext", StringComparison.Ordinal) && code.Contains("TenantProvider", StringComparison.Ordinal),
+            "react-actions-optimistic-use" => code.Contains("useActionState", StringComparison.Ordinal) && code.Contains("useFormStatus", StringComparison.Ordinal) && code.Contains("<form", StringComparison.Ordinal),
+            "react-router-data-mode" => code.Contains("createBrowserRouter", StringComparison.Ordinal) && code.Contains("orders", StringComparison.Ordinal),
+            "react-router-loaders-params-search" => code.Contains("LoaderFunctionArgs", StringComparison.Ordinal) && code.Contains("params.orderId", StringComparison.Ordinal) && code.Contains("getOrder", StringComparison.Ordinal),
+            "react-router-actions-navigation" => code.Contains("ActionFunctionArgs", StringComparison.Ordinal) && code.Contains("approveOrder", StringComparison.Ordinal) && code.Contains("<Form", StringComparison.Ordinal),
+            "react-api-client-boundary" => code.Contains("fetch(", StringComparison.Ordinal) && code.Contains("encodeURIComponent", StringComparison.Ordinal) && code.Contains("response.ok", StringComparison.Ordinal),
+            "react-tailwind-design-system" => code.Contains("ButtonHTMLAttributes", StringComparison.Ordinal) && code.Contains("primary", StringComparison.Ordinal) && code.Contains("secondary", StringComparison.Ordinal),
+            "react-testing-vitest-rtl" => code.Contains("render(", StringComparison.Ordinal) && code.Contains("getByRole", StringComparison.Ordinal) && code.Contains("expect", StringComparison.Ordinal),
+            "react-enterprise-capstone" => code.Contains("OrderApprovalPage", StringComparison.Ordinal) && code.Contains("OrderSummary", StringComparison.Ordinal) && code.Contains("ApproveOrderForm", StringComparison.Ordinal),
+            _ => false
+        };
+        return new ValidationResult(reactPassed, reactPassed ? 2 : 0, 2, reactPassed ? "All checks passed. Your React/TypeScript solution meets this lesson’s local authoring checks." : lesson.Exercise.Hint, reactPassed ? lesson.NextSlug : null, BuildCodeReview(lesson, code));
+    }
     if (lesson.Slug.StartsWith("git-", StringComparison.Ordinal))
     {
         var gitPassed = lesson.Slug switch
@@ -427,7 +449,13 @@ static CodeReview BuildCodeReview(Lesson lesson, string code)
     var lines = code.Split('\n');
     if (lines.Any(line => line.Length > 120)) suggestions.Add("Keep lines under roughly 120 characters where practical so code remains easy to scan in reviews and diffs.");
 
-    if (lesson.Slug.StartsWith("git-", StringComparison.Ordinal))
+    if (lesson.Slug.StartsWith("react-", StringComparison.Ordinal))
+    {
+        if (code.Contains("any", StringComparison.Ordinal)) suggestions.Add("Prefer a narrow domain type or unknown plus validation at trust boundaries instead of any.");
+        if (code.Contains("useEffect", StringComparison.Ordinal) && code.Contains("set", StringComparison.Ordinal) && !code.Contains("return", StringComparison.Ordinal)) suggestions.Add("Check whether this Effect is true external-system synchronization; derived React state often belongs directly in render, and subscriptions or timers need cleanup.");
+        if (code.Contains("index", StringComparison.OrdinalIgnoreCase) && code.Contains("key=", StringComparison.Ordinal)) suggestions.Add("For reorderable business data, prefer a stable domain identifier over an array index key.");
+    }
+    else if (lesson.Slug.StartsWith("git-", StringComparison.Ordinal))
     {
         if (code.Contains("git add .", StringComparison.Ordinal)) suggestions.Add("Prefer staging the specific paths that belong in the commit when the exercise calls for a focused change.");
         if (code.Contains("--force", StringComparison.Ordinal) && !code.Contains("--force-with-lease", StringComparison.Ordinal)) suggestions.Add("On shared remotes, prefer --force-with-lease over --force when a history rewrite is truly necessary.");
@@ -774,6 +802,7 @@ static partial class Curriculum
     public static readonly Dictionary<string, Lesson> BySlug = ComputingLessons
         .Concat(ElectricalEngineeringLessons)
         .Concat(GitCliLessons)
+        .Concat(ReactCourseLessons)
         .Concat(CSharpCourseLessons)
         .Concat(PythonCourseLessons)
         .Concat(RustCourseLessons)
@@ -783,6 +812,7 @@ static partial class Curriculum
     public static readonly Course ComputingCourse = BuildCourse("computing-foundations", "Computing Foundations", "computing", "Core computing", "Machine · data · processes · OS", "2026-09-24", ComputingLessons);
     public static readonly Course ElectricalEngineeringCourse = BuildCourse("electrical-engineering-foundations", "Electrical Engineering Foundations", "electrical-engineering", "EE Foundations", "Circuits · measurement · components · signals", "2026-09-25", ElectricalEngineeringLessons);
     public static readonly Course GitCliCourse = BuildCourse("git-cli", "Git CLI", "git", "Git CLI", "Repositories · branches · remotes · recovery", "2026-09-26", GitCliLessons);
+    public static readonly Course ReactCourse = BuildCourse("react-enterprise", "React 2026: enterprise applications", "react", "React 19.3 · TypeScript 6.0", "Vite 8.1 · React Router 8 · Tailwind CSS 4.3", "2026-09-26", ReactCourseLessons);
     public static readonly Course Course = BuildCourse("csharp-dotnet", "C# / .NET: zero to staff", "csharp", "C# 14", ".NET 10", "2026-09-24", CSharpCourseLessons);
     public static readonly Course PythonCourse = BuildCourse("python-web", "Python Web: zero to staff", "python", "Python 3.14", "FastAPI · Flask · Django", "2026-09-24", PythonCourseLessons);
     public static readonly Course RustCourse = BuildCourse("rust-systems", "Rust Systems: zero to staff", "rust", "Rust 1.97", "Edition 2024 · Tokio · Axum", "2026-09-24", RustCourseLessons);
@@ -793,6 +823,7 @@ static partial class Curriculum
         [ComputingCourse.Id] = ComputingCourse,
         [ElectricalEngineeringCourse.Id] = ElectricalEngineeringCourse,
         [GitCliCourse.Id] = GitCliCourse,
+        [ReactCourse.Id] = ReactCourse,
         [Course.Id] = Course,
         [PythonCourse.Id] = PythonCourse,
         [RustCourse.Id] = RustCourse,
@@ -804,6 +835,7 @@ static partial class Curriculum
         new(ComputingCourse.Id, ComputingCourse.Title, ComputingCourse.LanguageId, ComputingCourse.LanguageVersion, ComputingCourse.FrameworkVersion, true),
         new(ElectricalEngineeringCourse.Id, ElectricalEngineeringCourse.Title, ElectricalEngineeringCourse.LanguageId, ElectricalEngineeringCourse.LanguageVersion, ElectricalEngineeringCourse.FrameworkVersion, true),
         new(GitCliCourse.Id, GitCliCourse.Title, GitCliCourse.LanguageId, GitCliCourse.LanguageVersion, GitCliCourse.FrameworkVersion, true),
+        new(ReactCourse.Id, ReactCourse.Title, ReactCourse.LanguageId, ReactCourse.LanguageVersion, ReactCourse.FrameworkVersion, true),
         new(Course.Id, Course.Title, Course.LanguageId, Course.LanguageVersion, Course.FrameworkVersion, true),
         new(PythonCourse.Id, PythonCourse.Title, PythonCourse.LanguageId, PythonCourse.LanguageVersion, PythonCourse.FrameworkVersion, true),
         new(RustCourse.Id, RustCourse.Title, RustCourse.LanguageId, RustCourse.LanguageVersion, RustCourse.FrameworkVersion, true),

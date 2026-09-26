@@ -12,6 +12,33 @@ test('has isolated fixtures for every shipped code exercise', () => {
     assert.ok(fixtureFor(lessonSlug, 'pass'))
 })
 
+test('has isolated TypeScript fixtures for every React coding exercise', () => {
+  const lessons = [
+    'react-composition-root',
+    'react-props-composition',
+    'react-use-state',
+    'react-use-reducer',
+    'react-effects-synchronization',
+    'react-context-provider-boundaries',
+    'react-actions-optimistic-use',
+    'react-router-data-mode',
+    'react-router-loaders-params-search',
+    'react-router-actions-navigation',
+    'react-api-client-boundary',
+    'react-tailwind-design-system',
+    'react-testing-vitest-rtl',
+    'react-enterprise-capstone',
+  ]
+  for (const lessonSlug of lessons) {
+    const fixture = fixtureFor(lessonSlug, 'export const value = 1')
+    assert.ok(fixture, `missing fixture for ${lessonSlug}`)
+    assert.equal(fixture.runtime, 'react')
+    assert.equal(fixture.tests, 2)
+    assert.match(fixture.command.join(' '), /tsc/)
+    assert.ok(fixture.files['react-stubs.d.ts'])
+  }
+})
+
 test('has isolated Git fixtures for the full CLI course', () => {
   const lessons = [
     'git-init-status', 'git-stage-files', 'git-first-commit', 'git-history-diff',
