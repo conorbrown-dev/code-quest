@@ -82,9 +82,9 @@ test.describe('public API contract', () => {
     await expect(courseResponse).toBeOK()
     const course = await courseResponse.json() as Course
     const summaries = orderedLessons(course)
-    expect(summaries).toHaveLength(45)
+    expect(summaries).toHaveLength(47)
     expect(summaries[0]).toMatchObject({ slug: 'react-vite-bootstrap', order: 1 })
-    expect(summaries.at(-1)).toMatchObject({ slug: 'react-enterprise-capstone', order: 45 })
+    expect(summaries.at(-1)).toMatchObject({ slug: 'react-enterprise-capstone', order: 47 })
 
     const lessonResponse = await request.get(`${apiBaseUrl}/api/lessons/react-use-state`)
     await expect(lessonResponse).toBeOK()
