@@ -381,6 +381,7 @@ test('runs the Claude PreToolUse Hook Playground against simulated Bash commands
 })
 
 test('loads the selected React enterprise track with a TypeScript exercise editor', async ({ page }) => {
+  await page.route('**/api/progress', route => route.fulfill({ status: 401 }))
   await page.addInitScript(() => {
     localStorage.setItem('pathway-onboarding-complete', 'true')
     localStorage.setItem('pathway-course-id', 'react-enterprise')
