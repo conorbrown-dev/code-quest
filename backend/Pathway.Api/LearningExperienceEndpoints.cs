@@ -473,6 +473,16 @@ public static class AssessmentCatalog
             new("wal", "What remains true in WAL mode?", ["Database writes are still serialized", "Only one reader can exist", "A TCP server is required"], "Database writes are still serialized", "sqlite-wal-locking"),
             new("params", "How should application values be placed into SQL statements?", ["Bound parameters", "String concatenation", "HTML encoding"], "Bound parameters", "sqlite-parameters")
         ]),
+        new("linux-cli-bash-vim", "linux-cli-foundations", "Linux CLI / Bash / Vim checkpoint", [
+            new("shell", "What does Bash do before launching most commands?", ["Parses expansions, quoting, pipes, and redirects", "Draws terminal pixels", "Schedules kernel threads"], "Parses expansions, quoting, pipes, and redirects", "linux-shell-terminal"),
+            new("paths", "What does .. mean in a relative path?", ["The parent directory", "The home directory", "The filesystem root"], "The parent directory", "linux-paths-navigation"),
+            new("redirect", "What does >> do?", ["Append stdout to a file", "Replace stdin", "Send SIGKILL"], "Append stdout to a file", "linux-pipes-redirection"),
+            new("quote", "How should a variable containing a filename usually be expanded?", ["\"$file\"", "$file unquoted", "eval $file"], "\"$file\"", "linux-expansion-quoting"),
+            new("perm", "What does chmod 750 grant to others?", ["No permissions", "Read-only", "Read and execute"], "No permissions", "linux-permissions"),
+            new("args", "Which Bash expansion forwards all original arguments while preserving their boundaries?", ["\"$@\"", "$*", "$(args)"], "\"$@\"", "bash-variables-arguments"),
+            new("vim", "Which key returns Vim from Insert mode to Normal mode?", ["Esc", "Tab", "Ctrl-Z"], "Esc", "vim-modes-save-quit"),
+            new("vim-edit", "What does ciw mean in Vim Normal mode?", ["Change inner word", "Copy inside window", "Close current window"], "Change inner word", "vim-motions-operators")
+        ]),
         new("react-lite", "react-lite-foundations", "React Lite foundations checkpoint", [
             new("jsx", "What does JSX let a component describe?", ["The UI tree it wants React to render", "A database schema", "A DNS zone"], "The UI tree it wants React to render", "react-lite-jsx-rendering"),
             new("props", "What are props?", ["Inputs passed to a component", "Global mutable variables", "Database rows only"], "Inputs passed to a component", "react-lite-components-props"),
