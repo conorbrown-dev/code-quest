@@ -82,9 +82,9 @@ static partial class Curriculum
             "React project foundations",
             1,
             "Bootstrap React with Vite and TypeScript",
-            "Start from a modern, boring toolchain that is fast locally and unsurprising in CI.",
-            "Vite owns the development/build pipeline; React owns UI rendering; TypeScript proves contracts before runtime.",
-            "For a greenfield enterprise SPA, start with Vite's React + TypeScript template, enable strict type checking, and keep the application entry point tiny. Build tooling belongs at the edge of the application, not inside domain features.",
+            "A toolchain is the set of tools used to develop, check, build, and package an application. Start from a small, predictable toolchain before adding architecture around it.",
+            "React is a UI (user-interface) library for describing interactive screens with components. TypeScript is JavaScript with type syntax checked during development; browsers ultimately run JavaScript. Vite is the build tool and local development server. A build pipeline is the sequence that transforms source code into deployable files. A contract here means an expectation about a value's shape or behavior that TypeScript can check before the program runs.",
+            "Greenfield means a new project without an existing codebase. An SPA (single-page application) loads one main browser document and updates its UI as the user navigates instead of requesting a whole new HTML page each time. Start with Vite's React + TypeScript template, enable strict type checking, and keep the application entry point small. Domain features are code that represents the application's business capabilities; keep build-tool configuration outside them.",
             "npm create vite@latest acme-portal -- --template react-ts\ncd acme-portal\nnpm install",
             ReactChoice(
                 "Pick the bootstrap boundary",
