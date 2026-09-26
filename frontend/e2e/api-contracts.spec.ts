@@ -26,6 +26,8 @@ test.describe('public API contract', () => {
       expect.objectContaining({ id: 'computing-foundations', available: true }),
       expect.objectContaining({ id: 'electrical-engineering-foundations', available: true }),
       expect.objectContaining({ id: 'git-cli', available: true }),
+      expect.objectContaining({ id: 'web-development-basics', available: true }),
+      expect.objectContaining({ id: 'react-lite', available: true }),
       expect.objectContaining({ id: 'react-enterprise', available: true }),
       expect.objectContaining({ id: 'csharp-dotnet', available: true }),
       expect.objectContaining({ id: 'python-web', available: true }),
@@ -52,7 +54,7 @@ test.describe('public API contract', () => {
     expect((await request.post(`${apiBaseUrl}/api/submissions/validate`, { data: { lessonSlug: 'not-a-lesson', answer: 'anything' } })).status()).toBe(404)
   })
 
-  for (const courseId of ['computing-foundations', 'electrical-engineering-foundations', 'git-cli', 'react-enterprise', 'csharp-dotnet', 'python-web', 'rust-systems']) {
+  for (const courseId of ['computing-foundations', 'electrical-engineering-foundations', 'git-cli', 'web-development-basics', 'react-lite', 'react-enterprise', 'csharp-dotnet', 'python-web', 'rust-systems']) {
     test(`${courseId} has contiguous lessons and representative next-lesson links`, async ({ request }) => {
       const courseResponse = await request.get(`${apiBaseUrl}/api/courses/${courseId}`)
       await expect(courseResponse).toBeOK()
@@ -76,6 +78,52 @@ test.describe('public API contract', () => {
       }
     })
   }
+
+  test('serves Web Development Basics as a separate foundations course', async ({ request }) => {
+    const courseResponse = await request.get(`${apiBaseUrl}/api/courses/web-development-basics`)
+    await expect(courseResponse).toBeOK()
+    const course = await courseResponse.json() as Course
+    const summaries = orderedLessons(course)
+    expect(summaries).toHaveLength(12)
+    expect(summaries[0]).toMatchObject({ slug: 'web-basics-browser-server', order: 1 })
+    expect(summaries.at(-1)).toMatchObject({ slug: 'web-basics-capstone', order: 12 })
+
+    const assessment = await request.get(`${apiBaseUrl}/api/experience/assessments/web-development-basics/web-basics-checkpoint`)
+    await expect(assessment).toBeOK()
+    const checkpoint = await assessment.json() as { title: string; questions: { correctAnswer?: string }[] }
+    expect(checkpoint.title).toBe('Web development basics checkpoint')
+    expect(checkpoint.questions).toHaveLength(8)
+    expect(checkpoint.questions.every(question => question.correctAnswer == null)).toBe(true)
+  })
+
+  test('serves React Lite without duplicating Web Basics', async ({ request }) => {
+    const courseResponse = await request.get(`${apiBaseUrl}/api/courses/react-lite`)
+    await expect(courseResponse).toBeOK()
+    const course = await courseResponse.json() as Course
+    const summaries = orderedLessons(course)
+    expect(summaries).toHaveLength(27)
+    expect(summaries[0]).toMatchObject({ slug: 'react-lite-vite-bootstrap', order: 1 })
+    expect(summaries.at(-1)).toMatchObject({ slug: 'react-lite-capstone', order: 27 })
+    expect(summaries.some(lesson => lesson.slug.startsWith('web-basics-'))).toBe(false)
+
+    const lessonResponse = await request.get(`${apiBaseUrl}/api/lessons/react-lite-dummy-api-read`)
+    await expect(lessonResponse).toBeOK()
+    await expect(lessonResponse.json()).resolves.toMatchObject({
+      exercise: { kind: 'Code', prompt: expect.stringContaining('usersApi') },
+    })
+
+    const assessment = await request.get(`${apiBaseUrl}/api/experience/assessments/react-lite/react-lite-foundations`)
+    await expect(assessment).toBeOK()
+    const checkpoint = await assessment.json() as { title: string; questions: { correctAnswer?: string }[] }
+    expect(checkpoint.title).toBe('React Lite foundations checkpoint')
+    expect(checkpoint.questions).toHaveLength(8)
+
+    const capstones = await request.get(`${apiBaseUrl}/api/experience/career/react-lite/capstones`)
+    await expect(capstones).toBeOK()
+    await expect(capstones.json()).resolves.toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'react-lite-admin-dashboard' }),
+    ]))
+  })
 
   test('serves the React 2026 enterprise course and rendering checkpoint', async ({ request }) => {
     const courseResponse = await request.get(`${apiBaseUrl}/api/courses/react-enterprise`)

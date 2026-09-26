@@ -382,6 +382,19 @@ static ValidationResult ValidateCode(Lesson lesson, string code)
             "react-tailwind-design-system" => code.Contains("ButtonHTMLAttributes", StringComparison.Ordinal) && code.Contains("primary", StringComparison.Ordinal) && code.Contains("secondary", StringComparison.Ordinal),
             "react-testing-vitest-rtl" => code.Contains("render(", StringComparison.Ordinal) && code.Contains("getByRole", StringComparison.Ordinal) && code.Contains("expect", StringComparison.Ordinal),
             "react-enterprise-capstone" => code.Contains("OrderApprovalPage", StringComparison.Ordinal) && code.Contains("OrderSummary", StringComparison.Ordinal) && code.Contains("ApproveOrderForm", StringComparison.Ordinal),
+            "react-lite-jsx-rendering" => code.Contains("DashboardHeading", StringComparison.Ordinal) && code.Contains("<h1", StringComparison.Ordinal) && code.Contains("title", StringComparison.Ordinal),
+            "react-lite-components-props" => code.Contains("StatCard", StringComparison.Ordinal) && code.Contains("label", StringComparison.Ordinal) && code.Contains("value", StringComparison.Ordinal),
+            "react-lite-state" => code.Contains("useState", StringComparison.Ordinal) && code.Contains("onChange", StringComparison.Ordinal) && code.Contains("value=", StringComparison.Ordinal),
+            "react-lite-forms" => code.Contains("useState", StringComparison.Ordinal) && code.Contains("<form", StringComparison.Ordinal) && code.Contains("type='email'", StringComparison.Ordinal),
+            "react-lite-router-pages" => code.Contains("createBrowserRouter", StringComparison.Ordinal) && code.Contains("/users", StringComparison.Ordinal),
+            "react-lite-layout-nav" => code.Contains("Link", StringComparison.Ordinal) && code.Contains("Outlet", StringComparison.Ordinal) && code.Contains("/users", StringComparison.Ordinal),
+            "react-lite-table-filter-sort" => code.Contains("filterUsers", StringComparison.Ordinal) && code.Contains(".filter(", StringComparison.Ordinal) && code.Contains("toLowerCase", StringComparison.Ordinal),
+            "react-lite-dummy-api-read" => code.Contains("usersApi", StringComparison.Ordinal) && code.Contains("async list", StringComparison.Ordinal) && code.Contains("seedUsers", StringComparison.Ordinal),
+            "react-lite-router-loader" => code.Contains("usersLoader", StringComparison.Ordinal) && code.Contains("usersApi.list", StringComparison.Ordinal),
+            "react-lite-dummy-api-write" => code.Contains("async create", StringComparison.Ordinal) && code.Contains("users.push", StringComparison.Ordinal),
+            "react-lite-router-action-crud" => code.Contains("ActionFunctionArgs", StringComparison.Ordinal) && code.Contains("formData", StringComparison.Ordinal) && code.Contains("usersApi.create", StringComparison.Ordinal),
+            "react-lite-basic-testing" => code.Contains("from 'vitest'", StringComparison.Ordinal) && code.Contains("filterUsers", StringComparison.Ordinal) && code.Contains("toHaveLength", StringComparison.Ordinal),
+            "react-lite-capstone" => code.Contains("DashboardPage", StringComparison.Ordinal) && code.Contains("StatCard", StringComparison.Ordinal) && code.Contains("UserTable", StringComparison.Ordinal),
             _ => false
         };
         return new ValidationResult(reactPassed, reactPassed ? 2 : 0, 2, reactPassed ? "All checks passed. Your React/TypeScript solution meets this lesson’s local authoring checks." : lesson.Exercise.Hint, reactPassed ? lesson.NextSlug : null, BuildCodeReview(lesson, code));
@@ -799,11 +812,15 @@ static partial class Curriculum
 
     public static readonly Lesson[] ElectricalEngineeringLessons = BuildElectricalEngineeringLessons();
     public static readonly Lesson[] ReactCourseLessons = BuildReactCourseLessons();
+    public static readonly Lesson[] ReactLiteCourseLessons = BuildReactLiteCourseLessons();
+    public static readonly Lesson[] WebBasicsLessons = BuildWebBasicsLessons();
 
     public static readonly Dictionary<string, Lesson> BySlug = ComputingLessons
         .Concat(ElectricalEngineeringLessons)
+        .Concat(WebBasicsLessons)
         .Concat(GitCliLessons)
         .Concat(ReactCourseLessons)
+        .Concat(ReactLiteCourseLessons)
         .Concat(CSharpCourseLessons)
         .Concat(PythonCourseLessons)
         .Concat(RustCourseLessons)
@@ -813,7 +830,9 @@ static partial class Curriculum
     public static readonly Course ComputingCourse = BuildCourse("computing-foundations", "Computing Foundations", "computing", "Core computing", "Machine · data · processes · OS", "2026-09-24", ComputingLessons);
     public static readonly Course ElectricalEngineeringCourse = BuildCourse("electrical-engineering-foundations", "Electrical Engineering Foundations", "electrical-engineering", "EE Foundations", "Circuits · measurement · components · signals", "2026-09-25", ElectricalEngineeringLessons);
     public static readonly Course GitCliCourse = BuildCourse("git-cli", "Git CLI", "git", "Git CLI", "Repositories · branches · remotes · recovery", "2026-09-26", GitCliLessons);
+    public static readonly Course WebBasicsCourse = BuildCourse("web-development-basics", "Web Development Basics 2026", "web", "Web Platform 2026", "HTML · CSS · JavaScript · TypeScript · HTTP", "2026-09-26", WebBasicsLessons);
     public static readonly Course ReactCourse = BuildCourse("react-enterprise", "React 2026: enterprise applications", "react", "React 19.3 · TypeScript 6.0", "Vite 8.1 · React Router 8 · Tailwind CSS 4.3", "2026-09-26", ReactCourseLessons);
+    public static readonly Course ReactLiteCourse = BuildCourse("react-lite", "React Lite 2026: your first admin dashboard", "react", "React 19.3 · TypeScript 6.0", "Vite 8.1 · React Router 8 · Tailwind CSS 4.3", "2026-09-26", ReactLiteCourseLessons);
     public static readonly Course Course = BuildCourse("csharp-dotnet", "C# / .NET: zero to staff", "csharp", "C# 14", ".NET 10", "2026-09-24", CSharpCourseLessons);
     public static readonly Course PythonCourse = BuildCourse("python-web", "Python Web: zero to staff", "python", "Python 3.14", "FastAPI · Flask · Django", "2026-09-24", PythonCourseLessons);
     public static readonly Course RustCourse = BuildCourse("rust-systems", "Rust Systems: zero to staff", "rust", "Rust 1.97", "Edition 2024 · Tokio · Axum", "2026-09-24", RustCourseLessons);
@@ -824,7 +843,9 @@ static partial class Curriculum
         [ComputingCourse.Id] = ComputingCourse,
         [ElectricalEngineeringCourse.Id] = ElectricalEngineeringCourse,
         [GitCliCourse.Id] = GitCliCourse,
+        [WebBasicsCourse.Id] = WebBasicsCourse,
         [ReactCourse.Id] = ReactCourse,
+        [ReactLiteCourse.Id] = ReactLiteCourse,
         [Course.Id] = Course,
         [PythonCourse.Id] = PythonCourse,
         [RustCourse.Id] = RustCourse,
@@ -836,7 +857,9 @@ static partial class Curriculum
         new(ComputingCourse.Id, ComputingCourse.Title, ComputingCourse.LanguageId, ComputingCourse.LanguageVersion, ComputingCourse.FrameworkVersion, true),
         new(ElectricalEngineeringCourse.Id, ElectricalEngineeringCourse.Title, ElectricalEngineeringCourse.LanguageId, ElectricalEngineeringCourse.LanguageVersion, ElectricalEngineeringCourse.FrameworkVersion, true),
         new(GitCliCourse.Id, GitCliCourse.Title, GitCliCourse.LanguageId, GitCliCourse.LanguageVersion, GitCliCourse.FrameworkVersion, true),
+        new(WebBasicsCourse.Id, WebBasicsCourse.Title, WebBasicsCourse.LanguageId, WebBasicsCourse.LanguageVersion, WebBasicsCourse.FrameworkVersion, true),
         new(ReactCourse.Id, ReactCourse.Title, ReactCourse.LanguageId, ReactCourse.LanguageVersion, ReactCourse.FrameworkVersion, true),
+        new(ReactLiteCourse.Id, ReactLiteCourse.Title, ReactLiteCourse.LanguageId, ReactLiteCourse.LanguageVersion, ReactLiteCourse.FrameworkVersion, true),
         new(Course.Id, Course.Title, Course.LanguageId, Course.LanguageVersion, Course.FrameworkVersion, true),
         new(PythonCourse.Id, PythonCourse.Title, PythonCourse.LanguageId, PythonCourse.LanguageVersion, PythonCourse.FrameworkVersion, true),
         new(RustCourse.Id, RustCourse.Title, RustCourse.LanguageId, RustCourse.LanguageVersion, RustCourse.FrameworkVersion, true),

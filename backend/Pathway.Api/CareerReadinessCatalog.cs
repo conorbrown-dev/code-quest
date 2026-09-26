@@ -49,7 +49,8 @@ public static class CareerReadinessCatalog
         new("rust-staff-platform", "rust-systems", "Staff systems platform", "Design a multi-tenant Rust platform with explicit unsafe boundaries, ownership, reliability, and recovery tradeoffs.", ["Architecture diagram", "ADR and rollout plan", "SLO and incident plan"], Rubric),
         new("react-foundation-app", "react-enterprise", "Enterprise feature foundation", "Build a typed Vite/React application slice with route-owned data, accessible reusable UI, and behavior-focused tests.", ["Deployed SPA", "Component and network tests", "Clear architecture README"], Rubric),
         new("react-production-workflow", "react-enterprise", "Production business workflow", "Ship a business-critical React workflow with API boundaries, mutations, auth-aware UX, observability, performance evidence, and browser tests.", ["Critical Playwright journey", "Telemetry and failure states", "CI and deployment evidence"], Rubric),
-        new("react-frontend-platform", "react-enterprise", "Frontend platform design", "Design a multi-team React frontend platform with feature boundaries, design-system ownership, dependency rules, upgrade policy, and measurable performance/accessibility standards.", ["Architecture diagram", "ADR and dependency policy", "Ownership, upgrade, and quality gates"], Rubric)
+        new("react-frontend-platform", "react-enterprise", "Frontend platform design", "Design a multi-team React frontend platform with feature boundaries, design-system ownership, dependency rules, upgrade policy, and measurable performance/accessibility standards.", ["Architecture diagram", "ADR and dependency policy", "Ownership, upgrade, and quality gates"], Rubric),
+        new("react-lite-admin-dashboard", "react-lite", "First admin dashboard", "Build a responsive React admin dashboard with typed pages/components, a dummy async API wrapper, CRUD flows, routing, filtering, accessible forms, and basic tests.", ["Working dashboard", "Dummy API/service boundary", "Focused tests and README"], Rubric)
     ];
 
     public static readonly CareerScenario[] Scenarios =
@@ -81,7 +82,10 @@ public static class CareerReadinessCatalog
         new("ai-review-react", "react-enterprise", "AI literacy", "Verify AI-generated React code", "An AI generates a plausible page with useEffect fetching, duplicated server state, missing cleanup, weak types, and inaccessible controls. Treat it as an untrusted draft and produce an evidence-backed correction plan.", ["Verification plan", "State and effect issues", "Accessibility and test gaps", "Final boundary design"]),
         new("team-design-system-react", "react-enterprise", "Team simulation", "Negotiate a shared design-system boundary", "Two product teams need similar tables and forms but have different business rules. Define what belongs in shared UI, what remains feature-owned, migration sequencing, and governance.", ["Ownership map", "Public component contract", "Migration plan", "ADR tradeoff"]),
         new("interview-react", "react-enterprise", "Career", "Explain an enterprise React architecture under interview pressure", "Present a feature and explain render/state ownership, routing, API contracts, accessibility, testing, performance evidence, and what you would change at greater scale.", ["Two-minute architecture narrative", "Tradeoff explanation", "Failure and learning", "Next improvement"]),
-        new("feedback-react", "react-enterprise", "Career", "Handle a frontend architecture disagreement", "A teammate argues for one global store and a flat components folder. Acknowledge the concern, separate evidence from preference, and propose a small experiment that compares maintainability and render behavior.", ["Response that acknowledges feedback", "Evidence and assumptions", "Next experiment", "Follow-up communication"])
+        new("feedback-react", "react-enterprise", "Career", "Handle a frontend architecture disagreement", "A teammate argues for one global store and a flat components folder. Acknowledge the concern, separate evidence from preference, and propose a small experiment that compares maintainability and render behavior.", ["Response that acknowledges feedback", "Evidence and assumptions", "Next experiment", "Follow-up communication"]),
+        new("debug-react-lite", "react-lite", "Debugging", "A users page is blank after adding the dummy API wrapper", "Use the browser console, Network/route behavior, and component state to identify whether the failure is data loading, rendering, or filtering.", ["Evidence checked", "Likely cause", "Small fix", "Regression check"], ["Console: no JavaScript exception is present.", "usersApi.list resolves with three users.", "The query state defaults to the literal string 'undefined'.", "The table filters name/email using query before rendering."]),
+        new("ticket-react-lite", "react-lite", "Career", "Add a user-status filter safely", "Turn a request for an Active/Disabled filter into a small change that preserves the API wrapper boundary and keeps filtering derived from loaded users.", ["UI change", "State location", "Derived filtering approach", "Test to add"]),
+        new("review-react-lite", "react-lite", "Code review", "Review a beginner React dashboard change", "Identify a few high-impact issues without over-engineering the application.", ["Correctness finding", "React/web finding", "Accessibility finding", "Suggested fix"], ["Diff note: UserTable mutates the users prop with users.sort().", "Form note: email input has no label.", "Service note: a component imports seedUsers directly instead of calling usersApi.list()."])
     ];
 
     public static IEnumerable<CapstoneDefinition> CapstonesFor(string courseId) => Capstones.Where(item => item.CourseId == courseId);
@@ -92,18 +96,19 @@ public static class CareerReadinessCatalog
         var isPython = courseId == "python-web";
         var isRust = courseId == "rust-systems";
         var isReact = courseId == "react-enterprise";
+        var isReactLite = courseId == "react-lite";
         var matches = new List<string>();
         foreach (var gap in gaps)
         {
             var lesson = gap.ToLowerInvariant() switch
             {
                 var value when value.Contains("auth") => isReact ? "react-auth-security" : isRust ? "rust-auth-security" : isPython ? "python-auth-security" : "web-api-validation-auth",
-                var value when value.Contains("test") => isReact ? "react-testing-vitest-rtl" : isRust ? "rust-testing-integration" : isPython ? "python-testing-pytest" : "quality-tests",
-                var value when value.Contains("observ") || value.Contains("alert") || value.Contains("incident") => isReact ? "react-observability-errors" : isRust ? "rust-observability" : isPython ? "python-reliability-design" : "operations-observability",
+                var value when value.Contains("test") => isReactLite ? "react-lite-basic-testing" : isReact ? "react-testing-vitest-rtl" : isRust ? "rust-testing-integration" : isPython ? "python-testing-pytest" : "quality-tests",
+                var value when value.Contains("observ") || value.Contains("alert") || value.Contains("incident") => isReactLite ? "react-lite-loading-errors-empty" : isReact ? "react-observability-errors" : isRust ? "rust-observability" : isPython ? "python-reliability-design" : "operations-observability",
                 var value when value.Contains("deploy") || value.Contains("rollback") || value.Contains("migration") => isReact ? "react-delivery-env-upgrades" : isRust ? "rust-containers-delivery" : isPython ? "python-delivery-containers" : "operations-delivery",
                 var value when value.Contains("tradeoff") || value.Contains("adr") || value.Contains("approval") => isReact ? "react-feature-architecture" : isRust ? "rust-staff-architecture" : isPython ? "python-system-design" : "staff-architecture-decisions",
-                var value when value.Contains("api") || value.Contains("contract") => isReact ? "react-api-client-boundary" : isRust ? "rust-api-contracts" : isPython ? "python-api-contracts" : "web-api-contracts",
-                _ => isReact ? "react-enterprise-folders" : isRust ? "rust-toolchain-cargo" : isPython ? "python-project-foundations" : "foundations-methods"
+                var value when value.Contains("api") || value.Contains("contract") => isReactLite ? "react-lite-dummy-api-read" : isReact ? "react-api-client-boundary" : isRust ? "rust-api-contracts" : isPython ? "python-api-contracts" : "web-api-contracts",
+                _ => isReactLite ? "react-lite-folder-structure" : isReact ? "react-enterprise-folders" : isRust ? "rust-toolchain-cargo" : isPython ? "python-project-foundations" : "foundations-methods"
             };
             matches.Add(lesson);
         }
