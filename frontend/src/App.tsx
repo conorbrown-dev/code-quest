@@ -2407,6 +2407,8 @@ function ExercisePanel({
   const e = lesson.exercise;
   const language = lesson.slug.startsWith("react-")
     ? "TypeScript"
+    : lesson.slug.startsWith("vim-")
+      ? "Plaintext"
     : lesson.version.language.startsWith("Python")
     ? "Python"
     : lesson.version.language.startsWith("Rust")
@@ -2754,19 +2756,20 @@ function CodeEditor({
   code: string;
   setCode: (v: string) => void;
   onReset: () => void;
-  language: "C#" | "Python" | "Rust" | "Shell" | "TypeScript" | "SQL";
+  language: "C#" | "Python" | "Rust" | "Shell" | "TypeScript" | "SQL" | "Plaintext";
 }) {
   const isPython = language === "Python";
   const isRust = language === "Rust";
   const isShell = language === "Shell";
   const isTypeScript = language === "TypeScript";
   const isSql = language === "SQL";
+  const isPlaintext = language === "Plaintext";
   return (
     <div className="overflow-hidden rounded-md border border-[#303735] shadow-md shadow-[#19241f]/5">
       <div className="flex justify-between bg-[#2a302e] px-3 py-2.5 font-mono text-[11px] text-[#c3cac3]">
         <span>
           <i className="mr-2 inline-block h-2 w-2 rounded-full bg-[#55b794]" />
-          {isPython ? "main.py" : isRust ? "main.rs" : isShell ? "exercise.sh" : isTypeScript ? "App.tsx" : isSql ? "exercise.sql" : "Program.cs"}
+          {isPython ? "main.py" : isRust ? "main.rs" : isShell ? "exercise.sh" : isTypeScript ? "App.tsx" : isSql ? "exercise.sql" : isPlaintext ? "commands.vim" : "Program.cs"}
         </span>
         <span>
           <button
@@ -2787,7 +2790,7 @@ function CodeEditor({
       </div>
       <Editor
         height="245px"
-        language={isPython ? "python" : isRust ? "rust" : isShell ? "shell" : isTypeScript ? "typescript" : isSql ? "sql" : "csharp"}
+        language={isPython ? "python" : isRust ? "rust" : isShell ? "shell" : isTypeScript ? "typescript" : isSql ? "sql" : isPlaintext ? "plaintext" : "csharp"}
         theme="vs-dark"
         value={code}
         onChange={(value) => setCode(value ?? "")}
