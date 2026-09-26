@@ -815,6 +815,7 @@ function Onboarding({
                 {webBasicsSelected && <Check className="ml-auto text-[#c198ff]" size={19} />}
               </button>
               <button
+                aria-label="Select SQLite course"
                 onClick={() => onSelectCourse("sqlite")}
                 className={`track-option mt-3 flex w-full items-center gap-4 rounded-xl p-4 text-left ${sqliteSelected ? "ring-1 ring-[#bd87ff]" : ""}`}
               >
@@ -1804,7 +1805,7 @@ type SnippetLanguage =
   | "plaintext";
 
 const shellCommandPattern =
-  /(^|\n)\s*(?:\$\s*)?(?:git|npm|npx|pnpm|yarn|dotnet|cargo|rustup|python(?:3)?|pip|pip3|uv|docker|docker-compose|curl|wget|cd|mkdir|rm|cp|mv|echo|printf|export|source|chmod|grep|cat)\b/;
+  /(^|\n)\s*(?:\$\s*)?(?:git|sqlite3|npm|npx|pnpm|yarn|dotnet|cargo|rustup|python(?:3)?|pip|pip3|uv|docker|docker-compose|curl|wget|cd|mkdir|rm|cp|mv|echo|printf|export|source|chmod|grep|cat)\b/;
 
 const looksLikeJson = (code: string) => {
   const trimmed = code.trim();
