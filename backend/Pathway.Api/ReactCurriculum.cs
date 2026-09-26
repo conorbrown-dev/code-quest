@@ -88,7 +88,7 @@ static partial class Curriculum
             "npm create vite@latest acme-portal -- --template react-ts\ncd acme-portal\nnpm install",
             ReactChoice(
                 "Pick the bootstrap boundary",
-                "Which tool should own the dev server and production bundle in this course?",
+                "Which tool provides the development server and production bundling for this React application?",
                 "vite",
                 [new("vite", "Vite"), new("react", "React itself"), new("router", "React Router")],
                 "React renders UI; Vite is the build tool.",
@@ -106,7 +106,7 @@ static partial class Curriculum
             "npm i react-router\nnpm i tailwindcss @tailwindcss/vite",
             ReactChoice(
                 "Choose the router mode",
-                "Which React Router mode does this course use as the enterprise SPA default?",
+                "Which React Router mode provides loaders, actions, pending navigation state, and fetchers while keeping SPA architecture explicit?",
                 "data",
                 [new("data", "Data Mode"), new("declarative", "Declarative mode only"), new("none", "No router")],
                 "Data Mode adds loaders, actions, pending states, and fetchers while preserving SPA architectural control.",
