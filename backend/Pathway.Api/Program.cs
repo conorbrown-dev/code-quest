@@ -497,6 +497,13 @@ static CodeReview BuildCodeReview(Lesson lesson, string code)
         if (code.Contains("--force", StringComparison.Ordinal) && !code.Contains("--force-with-lease", StringComparison.Ordinal)) suggestions.Add("On shared remotes, prefer --force-with-lease over --force when a history rewrite is truly necessary.");
         if (code.Contains("git reset --hard", StringComparison.Ordinal)) suggestions.Add("git reset --hard discards working-tree and index changes. Confirm status and the target commit before using it outside a disposable lab.");
     }
+    else if (lesson.Slug.StartsWith("sqlite-", StringComparison.Ordinal))
+    {
+        if (code.Contains("SELECT *", StringComparison.OrdinalIgnoreCase)) suggestions.Add("Prefer explicit result columns when the query is part of a durable application contract.");
+        if ((code.Contains("UPDATE ", StringComparison.OrdinalIgnoreCase) || code.Contains("DELETE FROM", StringComparison.OrdinalIgnoreCase)) && !code.Contains("WHERE", StringComparison.OrdinalIgnoreCase)) suggestions.Add("Double-check write scope: UPDATE or DELETE without WHERE affects every row.");
+        if (code.Contains("AUTOINCREMENT", StringComparison.OrdinalIgnoreCase)) suggestions.Add("Use AUTOINCREMENT only when never reusing historical rowids is a real requirement; INTEGER PRIMARY KEY is usually enough.");
+        if (code.Contains("PRAGMA foreign_keys = OFF", StringComparison.OrdinalIgnoreCase)) suggestions.Add("Disabling foreign-key enforcement weakens relationship integrity; keep it enabled unless a controlled migration specifically requires otherwise.");
+    }
     else if (lesson.Slug.StartsWith("rust-", StringComparison.Ordinal))
     {
         if (code.Contains(".unwrap()", StringComparison.Ordinal)) suggestions.Add("Avoid `unwrap()` on inputs or I/O paths where failure is possible; propagate, map, or explicitly recover from errors.");
