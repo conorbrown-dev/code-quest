@@ -453,6 +453,26 @@ public static class AssessmentCatalog
             new("rebase", "When is rebasing usually safest?", ["On private or coordinated unpublished work", "On shared commits without telling collaborators", "Whenever a merge conflict exists"], "On private or coordinated unpublished work", "git-rebase-feature"),
             new("revert", "What is the usual safe way to undo a bad commit that has already been shared?", ["Create a new revert commit", "Reset --hard and force-push immediately", "Delete the .git directory"], "Create a new revert commit", "git-revert-push")
         ]),
+        new("web-development-basics", "web-basics-checkpoint", "Web development basics checkpoint", [
+            new("browser", "Where does client-side JavaScript normally execute?", ["In the browser", "Inside the database", "Inside a switch"], "In the browser", "web-basics-browser-server"),
+            new("html", "Which element represents an in-page action?", ["button", "div", "span"], "button", "web-basics-html"),
+            new("css", "Which CSS system is well suited to rows and columns?", ["Grid", "font-weight", "box-shadow"], "Grid", "web-basics-css-box-layout"),
+            new("js", "Which array method keeps only matching entries?", ["filter", "push", "await"], "filter", "web-basics-javascript"),
+            new("ts", "What type best constrains a status to known string values?", ["A string-literal union", "string", "any"], "A string-literal union", "web-basics-typescript"),
+            new("http", "Which status family represents server errors?", ["5xx", "2xx", "3xx"], "5xx", "web-basics-http-json"),
+            new("fetch", "What should you inspect before treating fetch JSON as successful data?", ["response.ok or status", "Nothing", "Only content length"], "response.ok or status", "web-basics-fetch-async"),
+            new("debug", "Which DevTools panel shows HTTP requests and responses?", ["Network", "Elements", "Fonts"], "Network", "web-basics-devtools")
+        ]),
+        new("react-lite", "react-lite-foundations", "React Lite foundations checkpoint", [
+            new("jsx", "What does JSX let a component describe?", ["The UI tree it wants React to render", "A database schema", "A DNS zone"], "The UI tree it wants React to render", "react-lite-jsx-rendering"),
+            new("props", "What are props?", ["Inputs passed to a component", "Global mutable variables", "Database rows only"], "Inputs passed to a component", "react-lite-components-props"),
+            new("state", "What is useState for?", ["Interactive values that should trigger rendering", "Every calculated value", "Server authorization"], "Interactive values that should trigger rendering", "react-lite-state"),
+            new("derived", "If activeCount can be calculated from users, what should you usually do?", ["Derive it from users", "Duplicate it in state", "Store it in localStorage"], "Derive it from users", "react-lite-conditionals-derived-data"),
+            new("key", "What is the best key for changing user rows?", ["user.id", "array index", "Math.random()"], "user.id", "react-lite-lists-keys"),
+            new("route", "What does React Router connect to page components?", ["URLs", "CSS variables", "Database indexes"], "URLs", "react-lite-router-pages"),
+            new("api", "Why use a dummy API wrapper?", ["So components depend on an API-shaped boundary that can later use real HTTP", "To avoid async code entirely", "To store CSS"], "So components depend on an API-shaped boundary that can later use real HTTP", "react-lite-dummy-api-read"),
+            new("write", "Where should generated IDs for fake created users live?", ["Inside the dummy service layer", "Inside every button", "Inside Tailwind config"], "Inside the dummy service layer", "react-lite-dummy-api-write")
+        ]),
         new("react-enterprise", "react-rendering-model", "React rendering and hooks checkpoint", [
             new("purity", "Why must a React component remain pure during render?", ["React may render, restart, or discard work before commit", "JSX cannot call functions", "The DOM cannot contain state"], "React may render, restart, or discard work before commit", "react-jsx-purity"),
             new("state", "When the next state depends on the previous state, which update is safest?", ["A functional state updater", "Mutating the current state variable", "Reading the DOM directly"], "A functional state updater", "react-state-snapshots-batching"),
