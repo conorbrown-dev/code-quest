@@ -28,6 +28,7 @@ test.describe('public API contract', () => {
       expect.objectContaining({ id: 'git-cli', available: true }),
       expect.objectContaining({ id: 'web-development-basics', available: true }),
       expect.objectContaining({ id: 'sqlite', available: true }),
+      expect.objectContaining({ id: 'linux-cli-bash-vim', available: true }),
       expect.objectContaining({ id: 'react-lite', available: true }),
       expect.objectContaining({ id: 'react-enterprise', available: true }),
       expect.objectContaining({ id: 'csharp-dotnet', available: true }),
@@ -58,7 +59,7 @@ test.describe('public API contract', () => {
     expect((await request.post(`${apiBaseUrl}/api/submissions/validate`, { data: { lessonSlug: 'not-a-lesson', answer: 'anything' } })).status()).toBe(404)
   })
 
-  for (const courseId of ['computing-foundations', 'electrical-engineering-foundations', 'git-cli', 'web-development-basics', 'sqlite', 'react-lite', 'react-enterprise', 'csharp-dotnet', 'python-web', 'rust-systems']) {
+  for (const courseId of ['computing-foundations', 'electrical-engineering-foundations', 'git-cli', 'web-development-basics', 'sqlite', 'linux-cli-bash-vim', 'react-lite', 'react-enterprise', 'csharp-dotnet', 'python-web', 'rust-systems']) {
     test(`${courseId} has contiguous lessons and representative next-lesson links`, async ({ request }) => {
       const courseResponse = await request.get(`${apiBaseUrl}/api/courses/${courseId}`)
       await expect(courseResponse).toBeOK()
@@ -98,6 +99,42 @@ test.describe('public API contract', () => {
     expect(checkpoint.title).toBe('Web development basics checkpoint')
     expect(checkpoint.questions).toHaveLength(8)
     expect(checkpoint.questions.every(question => question.correctAnswer == null)).toBe(true)
+  })
+
+  test('serves the Linux CLI Bash Vim course and checkpoint', async ({ request }) => {
+    const courseResponse = await request.get(`${apiBaseUrl}/api/courses/linux-cli-bash-vim`)
+    await expect(courseResponse).toBeOK()
+    const course = await courseResponse.json() as Course
+    const summaries = orderedLessons(course)
+    expect(summaries).toHaveLength(24)
+    expect(summaries[0]).toMatchObject({ slug: 'linux-shell-terminal', order: 1 })
+    expect(summaries.at(-1)).toMatchObject({ slug: 'linux-cli-capstone', order: 24 })
+
+    const bashLesson = await request.get(`${apiBaseUrl}/api/lessons/bash-safe-scripting`)
+    await expect(bashLesson).toBeOK()
+    await expect(bashLesson.json()).resolves.toMatchObject({
+      version: { language: 'GNU/Linux CLI · Bash 5.3' },
+      exercise: { kind: 'Code', prompt: expect.stringContaining('safe-temp.sh') },
+    })
+
+    const vimLesson = await request.get(`${apiBaseUrl}/api/lessons/vim-modes-save-quit`)
+    await expect(vimLesson).toBeOK()
+    await expect(vimLesson.json()).resolves.toMatchObject({
+      version: { language: 'Vim 9.2', framework: 'Terminal Vim' },
+    })
+
+    const assessment = await request.get(`${apiBaseUrl}/api/experience/assessments/linux-cli-bash-vim/linux-cli-foundations`)
+    await expect(assessment).toBeOK()
+    const checkpoint = await assessment.json() as { title: string; questions: { correctAnswer?: string }[] }
+    expect(checkpoint.title).toBe('Linux CLI / Bash / Vim checkpoint')
+    expect(checkpoint.questions).toHaveLength(8)
+    expect(checkpoint.questions.every(question => question.correctAnswer == null)).toBe(true)
+
+    const capstones = await request.get(`${apiBaseUrl}/api/experience/career/linux-cli-bash-vim/capstones`)
+    await expect(capstones).toBeOK()
+    await expect(capstones.json()).resolves.toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'linux-cli-support-bundle' }),
+    ]))
   })
 
   test('serves the SQLite course, checkpoint, and database capstone', async ({ request }) => {
