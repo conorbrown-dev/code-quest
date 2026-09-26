@@ -218,7 +218,7 @@ function App() {
   );
   useEffect(() => {
     if (course)
-      document.title = `Pathway — ${course.languageId === "claude" ? "Claude Engineering" : course.languageId === "computing" ? "Computing Foundations" : course.languageId === "electrical-engineering" ? "Electrical Engineering" : course.languageId === "git" ? "Git CLI" : course.languageId === "react" ? "React 2026" : `Learn ${course.languageId === "python" ? "Python" : course.languageId === "rust" ? "Rust" : "C#"}`}`;
+      document.title = `Pathway — ${course.languageId === "claude" ? "Claude Engineering" : course.languageId === "computing" ? "Computing Foundations" : course.languageId === "electrical-engineering" ? "Electrical Engineering" : course.languageId === "git" ? "Git CLI" : course.id === "react-lite" ? "React Lite 2026" : course.id === "react-enterprise" ? "React 2026" : course.languageId === "web" ? "Web Development Basics" : `Learn ${course.languageId === "python" ? "Python" : course.languageId === "rust" ? "Rust" : "C#"}`}`;
   }, [course]);
   const notify = (message: string) => {
     setToast(message);
@@ -672,6 +672,8 @@ function Onboarding({
   const computingSelected = selectedCourseId === "computing-foundations";
   const electricalSelected = selectedCourseId === "electrical-engineering-foundations";
   const gitSelected = selectedCourseId === "git-cli";
+  const webBasicsSelected = selectedCourseId === "web-development-basics";
+  const reactLiteSelected = selectedCourseId === "react-lite";
   const reactSelected = selectedCourseId === "react-enterprise";
   const pythonSelected = selectedCourseId === "python-web";
   const rustSelected = selectedCourseId === "rust-systems";
@@ -753,6 +755,28 @@ function Onboarding({
                   </small>
                 </span>
                 {gitSelected && <Check className="ml-auto text-[#c198ff]" size={19} />}
+              </button>
+              <button
+                onClick={() => onSelectCourse("web-development-basics")}
+                className={`track-option mt-3 flex w-full items-center gap-4 rounded-xl p-4 text-left ${webBasicsSelected ? "ring-1 ring-[#bd87ff]" : ""}`}
+              >
+                <span className="grid h-11 w-11 place-items-center rounded-lg bg-[#46658a] font-mono text-xs font-bold text-white">WEB</span>
+                <span>
+                  <strong className="block text-sm text-white">Web Development Basics 2026</strong>
+                  <small className="mt-1 block text-xs text-[#aaa3b6]">HTML · CSS · JavaScript · TypeScript · HTTP</small>
+                </span>
+                {webBasicsSelected && <Check className="ml-auto text-[#c198ff]" size={19} />}
+              </button>
+              <button
+                onClick={() => onSelectCourse("react-lite")}
+                className={`track-option mt-3 flex w-full items-center gap-4 rounded-xl p-4 text-left ${reactLiteSelected ? "ring-1 ring-[#bd87ff]" : ""}`}
+              >
+                <span className="grid h-11 w-11 place-items-center rounded-lg bg-[#149eca] font-mono text-xs font-bold text-white">⚛L</span>
+                <span>
+                  <strong className="block text-sm text-white">React Lite 2026</strong>
+                  <small className="mt-1 block text-xs text-[#aaa3b6]">Build your first functional admin dashboard</small>
+                </span>
+                {reactLiteSelected && <Check className="ml-auto text-[#c198ff]" size={19} />}
               </button>
               <button
                 onClick={() => onSelectCourse("react-enterprise")}
@@ -1350,6 +1374,24 @@ function TrackMenu({
       </button>
       <button
         role="menuitem"
+        onClick={() => select("web-development-basics")}
+        className={itemClass("web-development-basics")}
+      >
+        <span className="rounded bg-[#46658a] px-1 py-0.5 text-[9px] text-white">WEB</span>
+        <span>Web Development Basics</span>
+        {courseId === "web-development-basics" && <Check className="ml-auto" size={14} />}
+      </button>
+      <button
+        role="menuitem"
+        onClick={() => select("react-lite")}
+        className={itemClass("react-lite")}
+      >
+        <span className="rounded bg-[#149eca] px-1 py-0.5 text-[9px] text-white">⚛L</span>
+        <span>React Lite 2026</span>
+        {courseId === "react-lite" && <Check className="ml-auto" size={14} />}
+      </button>
+      <button
+        role="menuitem"
         onClick={() => select("react-enterprise")}
         className={itemClass("react-enterprise")}
       >
@@ -1518,7 +1560,22 @@ function WorkspacePanel({
     );
   }
   const stages =
-    course.languageId === "react"
+    course.id === "react-lite"
+      ? [
+          [
+            "Dashboard foundations",
+            "Bootstrap the modern React stack and build pages, components, state, routing, and Tailwind layouts.",
+          ],
+          [
+            "Functional admin application",
+            "Add a typed dummy API wrapper, CRUD forms, tables, filtering, loading/error states, and basic tests.",
+          ],
+          [
+            "React Lite capstone",
+            "Ship a responsive admin dashboard that can later swap its dummy service implementation for a real API.",
+          ],
+        ]
+      : course.id === "react-enterprise"
       ? [
           [
             "Enterprise feature foundation",
